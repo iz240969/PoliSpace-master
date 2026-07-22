@@ -1,0 +1,61 @@
+@media (max-width: 1120px) {
+  .hero-title {
+    font-size: 72px;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-bottom: 64px;
+  }
+
+  .hero-cards {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    transform: none;
+    width: 100%;
+    margin-top: 48px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  nav {
+    padding: 14px 18px;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+  }
+
+  .nav-logo { display: none; }
+  .nav-links { justify-content: flex-start; overflow-x: auto; }
+  .nav-link { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
+  .btn-nav-admin { padding: 8px 12px; }
+  .account-dropdown {
+    right: -4px;
+    min-width: 176px;
+  }
+
+  .hero { padding: 112px 18px 48px; }
+  .hero-title {
+    font-size: 48px;
+    letter-spacing: 0;
+  }
+  .hero-title-line { white-space: normal; }
+  .hero-calendar-wrap { margin-top: 52px; }
+  .hero-calendar-card { padding: 18px; overflow-x: auto; }
+  .hero-stats { gap: 18px; flex-wrap: wrap; margin-top: 48px; }
+  .calendar-section { padding: 104px 18px 56px; }
+  .hero-cards { grid-template-columns: 1fr; }
+  .hero-info-card { min-height: auto; }
+  .landing-calendar-panel { padding: 18px; overflow-x: auto; }
+  .landing-calendar { min-width: 720px; }
+  #calendarView { overflow-x: auto; }
+  .booking-calendar-header { align-items: flex-start; flex-direction: column; }
+  .booking-calendar-weekdays,
+  .booking-calendar-grid { min-width: 720px; }
+  .landing-calendar-day,
+  .landing-calendar-blank { min-height: 42px; }
+  .section { padding: 56px 18px; }
+  .section-header { align-items: flex-start; gap: 20px; flex-direction: column; }
+}

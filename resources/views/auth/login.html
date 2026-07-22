@@ -1,0 +1,170 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PoliSpace - Log Masuk</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260718-split-assets">
+  <style>
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px 80px;
+      background:
+        radial-gradient(ellipse 50% 40% at 50% 40%, rgba(201,168,76,0.08), transparent 65%),
+        var(--bg-main);
+    }
+
+    .unified-login-card {
+      width: 100%;
+      max-width: 430px;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 44px 40px 40px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(2px);
+    }
+
+    .unified-login-head {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .unified-login-icon {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(145deg, var(--gold), #b3943a);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      margin: 0 auto 18px;
+      box-shadow: 0 8px 20px rgba(201, 168, 76, 0.22);
+    }
+
+    .unified-login-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: 0;
+      margin-bottom: 6px;
+    }
+
+    .unified-login-sub {
+      color: var(--grey-4);
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 280px;
+      margin: 0 auto;
+    }
+
+    .login-error {
+      display: none;
+      background: #FDECEC;
+      border-left: 4px solid var(--red);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--red);
+      margin-bottom: 16px;
+    }
+
+    .login-error.show { display: block; }
+
+    .login-helper {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-top: 24px;
+      padding: 16px 18px;
+      background: var(--surface-2);
+      border-radius: var(--radius);
+      color: var(--grey-4);
+      font-size: 13px;
+      line-height: 1.5;
+      border: 1px solid var(--border-light);
+    }
+
+    .login-helper i {
+      color: var(--gold);
+      font-size: 18px;
+      margin-top: 1px;
+    }
+
+    .signup-login-link {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--grey-4);
+      font-size: 13px;
+    }
+
+    .signup-login-link a {
+      color: var(--gold);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    @media (max-width: 520px) {
+      .login-page { padding: 104px 18px 48px; }
+      .unified-login-card { padding: 32px 22px 30px; }
+      .unified-login-title { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <nav id="main-nav">
+    <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
+      <div class="nav-logo-mark"></div>
+      <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
+    </div>
+    <div class="nav-links">
+      <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+    </div>
+    <div class="nav-actions"></div>
+  </nav>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <main class="login-page">
+    <section class="unified-login-card" aria-label="Log masuk PoliSpace">
+      <div class="unified-login-head">
+        <div class="unified-login-icon"></div>
+        <h1 class="unified-login-title">Log Masuk</h1>
+        <p class="unified-login-sub">Masukkan e-mel dan kata laluan. Sistem akan mengesan akaun admin atau pelanggan secara automatik.</p>
+      </div>
+
+      <div class="login-error" id="loginError">E-mel atau kata laluan tidak sah.</div>
+
+      <form onsubmit="event.preventDefault(); doAutoLogin();">
+        <div class="form-group">
+          <label for="login-email"><i class="bi bi-envelope"></i> Alamat E-mel</label>
+          <input type="email" id="login-email" placeholder="nama@email.com" autocomplete="username">
+        </div>
+        <div class="form-group" style="margin-top:18px;">
+          <label for="login-password"><i class="bi bi-lock"></i> Kata Laluan</label>
+          <input type="password" id="login-password" placeholder="Masukkan kata laluan" autocomplete="current-password">
+        </div>
+
+        <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:24px;padding:15px;">
+          <i class="bi bi-box-arrow-in-right"></i> Log Masuk
+        </button>
+      </form>
+
+      <div class="login-helper">
+        <i class="bi bi-info-circle"></i>
+        <span>Pelanggan baharu perlu membuat tempahan dahulu, kemudian cipta akaun selepas permohonan dihantar.</span>
+      </div>
+      <div class="signup-login-link">Belum ada tempahan? <a href="/resources/views/booking/index.html">Buat tempahan</a></div>
+    </section>
+  </main>
+
+  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+</body>
+</html>
+
+

@@ -1,0 +1,20 @@
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 28px;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: none; transition: var(--transition);
+  letter-spacing: 0.3px;
+}
+.btn-primary { background: var(--text-main); color: var(--text-inverse); }
+.btn-primary:hover { background: var(--grey-5); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+.btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text-main); }
+.btn-secondary:hover { background: var(--surface-2); border-color: var(--grey-2); }
+.btn-ghost { background: transparent; color: var(--grey-4); padding: 8px 16px; }
+.btn-ghost:hover { color: var(--text-main); background: rgba(0,0,0,0.04); }
+.btn-danger { background: var(--red); color: white; }
+.btn-danger:hover { background: #B33; }
+.btn-success { background: var(--green); color: white; }
+.btn-success:hover { background: #25703F; }
+.btn-sm { padding: 7px 16px; font-size: 12px; }

@@ -1,0 +1,94 @@
+/* Booking Calendar */
+.booking-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.booking-calendar-header h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.booking-calendar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-nav-btn,
+.calendar-today-btn {
+  height: 34px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+.calendar-nav-btn {
+  width: 34px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-today-btn {
+  border-radius: 6px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+.calendar-nav-btn:hover,
+.calendar-today-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.booking-calendar-weekdays,
+.booking-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.booking-calendar-weekdays {
+  margin-bottom: 8px;
+}
+
+.booking-calendar-weekdays div {
+  text-align: center;
+  font-size: 10px;
+  color: var(--grey-4);
+  padding: 8px;
+}
+
+.booking-calendar-day {
+  min-height: 64px;
+  padding: 6px;
+  background: var(--surface-3);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.booking-calendar-day.today {
+  border-color: var(--gold);
+}
+
+.booking-calendar-date {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.booking-calendar-day.today .booking-calendar-date {
+  color: var(--gold);
+}

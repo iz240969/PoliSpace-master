@@ -1,0 +1,90 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PoliSpace - Tempahan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260718-split-assets">
+</head>
+<body>
+  <nav id="main-nav">
+    <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
+      <div class="nav-logo-mark"></div>
+      <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
+    </div>
+    <div class="nav-links">
+      <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
+      <button class="nav-link active" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+    </div>
+    <div class="nav-actions"></div>
+  </nav>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div id="booking" class="view active page-transition">
+    <div class="booking-layout">
+      <div class="booking-form-section">
+        <div id="booking-form-wrap">
+          <h1 class="page-title">Borang Tempahan</h1>
+          <p class="page-subtitle">Sila lengkapkan semua maklumat yang diperlukan.</p>
+          <div class="form-section">
+            <div class="form-section-title">01 - Maklumat Pengguna</div>
+            <div class="form-grid">
+              <div class="form-group"><label>Nama *</label><input type="text" id="f-name" placeholder="cth: Ahmad bin Ali"></div>
+              <div class="form-group"><label>No Telefon *</label><input type="tel" id="f-phone" placeholder="012-345 6789"></div>
+              <div class="form-group"><label>Alamat E-mel *</label><input type="email" id="f-email" placeholder="contoh@email.com"></div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">02 - Butiran Tempahan</div>
+            <div class="form-grid">
+              <div class="form-group span-2"><label>Nama Fasiliti *</label><select id="f-facility"></select></div>
+              <div class="form-group"><label>Tarikh Tempahan *</label><input type="date" id="f-date"></div>
+              <div class="form-group"><label>Tempoh Penggunaan</label><select id="f-duration"><option value="1">1 Jam</option><option value="2">2 Jam</option><option value="3">3 Jam</option><option value="4">4 Jam</option><option value="halfday">Setengah Hari</option><option value="fullday">Sehari Penuh</option></select></div>
+              <div class="form-group"><label>Masa Mula *</label><input type="time" id="f-start"></div>
+              <div class="form-group"><label>Masa Tamat</label><input type="time" id="f-end" readonly></div>
+              <div class="form-group span-2"><label>Tujuan Penggunaan *</label><textarea id="f-purpose"></textarea></div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">03 - Resit Bayaran</div>
+            <div class="form-grid">
+              <div class="form-group span-2">
+                <label>Resit / Bukti Bayaran *</label>
+                <label class="upload-zone" for="f-receipt">
+                  <input type="file" id="f-receipt" accept="image/jpeg,image/png,image/gif,application/pdf">
+                  <div class="upload-icon"><i class="bi bi-receipt"></i></div>
+                  <div class="upload-title">Muat naik resit sebelum hantar</div>
+                  <div class="upload-sub">Format JPG, PNG, GIF atau PDF. Maksimum 5MB.</div>
+                </label>
+                <div class="upload-preview" id="receiptPreview">
+                  <i class="bi bi-file-earmark-check"></i>
+                  <div class="upload-preview-name" id="receiptFileName"></div>
+                  <button type="button" class="upload-preview-remove" onclick="clearReceiptUpload()" aria-label="Buang resit"><i class="bi bi-x-lg"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="width:100%; justify-content:center; padding:16px;" onclick="submitBooking()">Hantar Permohonan <i class="bi bi-arrow-right ms-2"></i></button>
+        </div>
+        <div class="success-screen" id="successScreen">
+          <div class="success-icon" style="color: var(--gold);"><i class="bi bi-stars"></i></div>
+          <h2 class="success-title">Permohonan Dihantar!</h2>
+          <div class="booking-ref"><div class="booking-ref-label">Nombor Rujukan</div><div class="booking-ref-code" id="refCode"></div></div>
+          <button class="btn btn-primary" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+        </div>
+      </div>
+      <div class="booking-sidebar">
+        <div class="sidebar-card"><div class="sidebar-title">Fasiliti Pilihan</div><div class="facility-select-list" id="facilitySelectorList"></div></div>
+        <div class="sidebar-card cost-card"><div class="sidebar-title">Anggaran Kos</div><div id="pricingBreakdown"></div></div>
+      </div>
+    </div>
+  </div>
+  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+</body>
+</html>
+
+
+

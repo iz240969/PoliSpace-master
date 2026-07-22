@@ -1,0 +1,70 @@
+:root {
+  /* Brand Colors (Adjusted for light background contrast) */
+  --gold: #A67C1E; 
+  --gold-light: #C9A84C;
+  --gold-dim: #F4ECE1; 
+  
+  /* Layout Colors */
+  --bg-main: #FDFCF8; /* Warm off-white background */
+  --surface: #FFFFFF; /* Pure white for cards/panels */
+  --surface-2: #F7F5F0; /* Slightly offset white */
+  --surface-3: #EFECE5; /* For hover states and inputs */
+  
+  /* Text Colors */
+  --text-main: #1A1A1A;
+  --text-inverse: #FFFFFF;
+  
+  /* Greys */
+  --grey-1: #E0E0E0;
+  --grey-2: #D5D5D5;
+  --grey-3: #999999;
+  --grey-4: #666666; /* Subtitles and secondary text */
+  --grey-5: #333333;
+  
+  /* Status Colors */
+  --green: #2E854C;
+  --red: #C64141;
+  --amber: #D68D1E;
+  
+  /* UI Elements */
+  --border: rgba(0, 0, 0, 0.08);
+  --border-light: rgba(0, 0, 0, 0.04);
+  --radius: 6px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg-main);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5 { font-family: 'Syne', sans-serif; color: var(--text-main); }
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-main); }
+::-webkit-scrollbar-thumb { background: var(--grey-2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--grey-3); }
+
+/* ===== VIEWS ===== */
+.view { display: none; min-height: 100vh; }
+.view.active { display: block; }
+
+/* ===== NOISE OVERLAY ===== */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.3; /* Lighter noise for light mode */
+}

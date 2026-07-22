@@ -1,0 +1,11 @@
+uploads/payments/*
+!uploads/payments/.gitkeep
+
+.env
+
+*.log
+.DS_Store
+Thumbs.db
+
+node_modules/
+vendor/

@@ -1,0 +1,47 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PoliSpace - Semak Status</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260718-split-assets">
+</head>
+<body>
+  <nav id="main-nav">
+    <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
+      <div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
+    </div>
+    <div class="nav-links">
+      <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
+      <button class="nav-link active" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+    </div>
+    <div class="nav-actions"></div>
+  </nav>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div id="status" class="view active page-transition">
+    <div class="status-page-content">
+      <h1 class="page-title">Semak Status Tempahan</h1>
+      <div class="status-search-bar">
+        <input type="text" id="statusInput" placeholder="cth: PS-0001" onkeydown="if(event.key==='Enter') checkStatus()">
+        <button class="btn btn-primary" onclick="checkStatus()">Semak</button>
+      </div>
+      <div class="status-result-card" id="statusResultCard">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+          <div><div style="font-size:11px;color:var(--grey-4)">Rujukan Tempahan</div><div style="font-size:22px;color:var(--gold);font-weight:800;" id="statusRef"></div></div>
+          <div id="statusBadge"></div>
+        </div>
+        <div id="statusDetails"></div>
+        <div class="status-timeline" id="statusTimeline"></div>
+      </div>
+    </div>
+  </div>
+  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+</body>
+</html>
+
+
+

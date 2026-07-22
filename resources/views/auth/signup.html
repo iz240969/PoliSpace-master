@@ -1,0 +1,174 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PoliSpace - Daftar Akaun</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260718-split-assets">
+  <style>
+    .signup-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px 80px;
+      background:
+        radial-gradient(ellipse 50% 40% at 50% 40%, rgba(201,168,76,0.08), transparent 65%),
+        var(--bg-main);
+    }
+
+    .signup-card {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 42px 40px;
+      box-shadow: var(--shadow);
+    }
+
+    .signup-head {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .signup-icon {
+      width: 58px;
+      height: 58px;
+      background: linear-gradient(145deg, var(--gold), #b3943a);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      margin: 0 auto 18px;
+    }
+
+    .signup-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 0;
+      margin-bottom: 8px;
+    }
+
+    .signup-sub {
+      color: var(--grey-4);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 auto;
+      max-width: 340px;
+    }
+
+    .signup-ref {
+      margin: 18px 0 24px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      background: var(--gold-dim);
+      color: var(--gold);
+      font-weight: 800;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .signup-error {
+      display: none;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      background: #FDECEC;
+      color: var(--red);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .signup-error.show { display: block; }
+
+    .signup-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .signup-card .btn-primary {
+      width: 100%;
+      justify-content: center;
+      margin-top: 22px;
+      padding: 15px;
+      border-radius: 60px;
+      background: linear-gradient(145deg, var(--gold), #b3943a);
+    }
+
+    .signup-link {
+      margin-top: 18px;
+      text-align: center;
+      color: var(--grey-4);
+      font-size: 13px;
+    }
+
+    .signup-link a {
+      color: var(--gold);
+      font-weight: 800;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <nav id="main-nav">
+    <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
+      <div class="nav-logo-mark"></div>
+      <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
+    </div>
+    <div class="nav-links">
+      <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+    </div>
+    <div class="nav-actions"></div>
+  </nav>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <main class="signup-page" id="signup-page">
+    <section class="signup-card" aria-label="Daftar akaun pelanggan">
+      <div class="signup-head">
+        <div class="signup-icon"></div>
+        <h1 class="signup-title">Daftar Akaun</h1>
+        <p class="signup-sub">Tempahan anda telah dihantar. Cipta kata laluan untuk log masuk dan melihat tempahan di dashboard.</p>
+      </div>
+
+      <div class="signup-ref">Rujukan Tempahan: <span id="signupRef">-</span></div>
+      <div class="signup-error" id="signupError"></div>
+
+      <form onsubmit="event.preventDefault(); doSignup();">
+        <div class="signup-grid">
+          <div class="form-group">
+            <label>Nama</label>
+            <input type="text" id="signup-name" autocomplete="name">
+          </div>
+          <div class="form-group">
+            <label>No Telefon</label>
+            <input type="tel" id="signup-phone" autocomplete="tel">
+          </div>
+          <div class="form-group">
+            <label>Alamat E-mel</label>
+            <input type="email" id="signup-email" autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label>Kata Laluan</label>
+            <input type="password" id="signup-password" autocomplete="new-password" placeholder="Minimum 6 aksara">
+          </div>
+          <div class="form-group">
+            <label>Sahkan Kata Laluan</label>
+            <input type="password" id="signup-password-confirm" autocomplete="new-password">
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-person-plus"></i> Daftar & Masuk Dashboard</button>
+      </form>
+
+      <div class="signup-link">Sudah ada akaun? <a href="/resources/views/auth/login.html">Log masuk</a></div>
+    </section>
+  </main>
+
+  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+</body>
+</html>
+
+

@@ -1,0 +1,11 @@
+@import url('./base/base.css');
+@import url('./components/navigation.css');
+@import url('./components/buttons.css');
+@import url('./pages/landing.css');
+@import url('./pages/booking.css');
+@import url('./pages/dashboard.css');
+@import url('./pages/status.css');
+@import url('./components/admin.css');
+@import url('./components/calendar.css');
+@import url('./components/success.css');
+@import url('./base/responsive.css');

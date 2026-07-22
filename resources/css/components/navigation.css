@@ -1,0 +1,176 @@
+/* ===== NAVIGATION ===== */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  padding: 16px 48px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+  align-items: center;
+  gap: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.nav-logo-mark {
+  width: 36px; height: 36px;
+  background: var(--gold-light);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+.nav-logo-sub { font-size: 10px; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; margin-top: -2px; }
+
+.nav-links {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+.nav-link {
+  padding: 8px 16px;
+  background: none; border: none;
+  color: var(--grey-4); cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+  border-radius: var(--radius);
+  transition: var(--transition);
+  text-transform: uppercase; letter-spacing: 0.8px;
+}
+.nav-link:hover { color: var(--text-main); background: rgba(0,0,0,0.04); }
+.nav-link.active { color: var(--gold); }
+.nav-link:disabled,
+.nav-link-disabled {
+  color: var(--grey-3);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.nav-link:disabled:hover,
+.nav-link-disabled:hover {
+  background: transparent;
+  color: var(--grey-3);
+}
+
+.nav-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.account-menu {
+  position: relative;
+}
+
+.btn-nav-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 18px;
+  transition: var(--transition);
+}
+.btn-nav-icon:hover,
+.btn-nav-icon.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.account-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  min-width: 190px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px) scale(0.98);
+  transform-origin: top right;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.account-menu.is-open .account-dropdown {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.account-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 16px;
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.account-dropdown-item {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--text-main);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  transition: var(--transition);
+}
+
+.account-dropdown-item i {
+  width: 18px;
+  color: var(--gold);
+  font-size: 16px;
+}
+
+.account-dropdown-item:hover {
+  background: var(--gold-dim);
+  color: var(--text-main);
+}
+
+.account-dropdown-item.is-disabled,
+.account-dropdown-item:disabled {
+  color: var(--grey-3);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.account-dropdown-item.is-disabled:hover,
+.account-dropdown-item:disabled:hover {
+  background: transparent;
+}
+
+.btn-nav-admin {
+  padding: 9px 20px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: var(--radius);
+  cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px;
+  transition: var(--transition); font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.btn-nav-admin:hover { background: var(--surface-3); border-color: var(--grey-2); }

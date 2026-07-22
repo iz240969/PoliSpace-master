@@ -1,0 +1,12 @@
+/* Success Screen */
+.success-screen { display: none; flex-direction: column; align-items: center; text-align: center; padding: 80px 48px; max-width: 600px; margin: 0 auto; }
+.success-screen.show { display: flex; }
+.success-icon { font-size: 64px; margin-bottom: 24px; }
+.success-title { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; letter-spacing: -1px; margin-bottom: 12px; }
+.success-sub { color: var(--grey-4); font-size: 15px; line-height: 1.7; margin-bottom: 32px; font-weight: 500;}
+.booking-ref { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 40px; margin-bottom: 32px; box-shadow: var(--shadow-sm); }
+.booking-ref-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--grey-4); }
+.booking-ref-code { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--gold); letter-spacing: 4px; margin-top: 6px; }
+
+.page-transition { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
