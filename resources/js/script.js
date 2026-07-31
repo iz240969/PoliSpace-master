@@ -3,7 +3,7 @@
 // Feature files are loaded in order because this app uses plain browser globals.
 (() => {
   const baseUrl = new URL('.', document.currentScript.src).href;
-  const version = '20260718-split-assets';
+  const version = '20260731-protected-nav';
   const files = [
     'core/config.js',
     'core/navigation.js',

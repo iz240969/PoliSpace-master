@@ -32,6 +32,7 @@ function formatBookingForFrontend(array $booking): array
         'duration' => $booking['duration'],
         'purpose' => $booking['purpose'],
         'setup' => $booking['setup_required'],
+        'equipment' => $booking['equipment_required'] ?? '',
         'pax' => $booking['participant_count'],
         'status' => $booking['status'],
         'adminNote' => $booking['admin_note'],

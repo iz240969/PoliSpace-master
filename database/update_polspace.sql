@@ -68,6 +68,26 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     INDEX idx_is_read (is_read)
 );
 
+SET @equipment_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'equipment_required'
+);
+
+SET @equipment_column_sql := IF(
+    @equipment_column_exists = 0,
+    'ALTER TABLE bookings ADD COLUMN equipment_required TEXT AFTER setup_required',
+    'SELECT 1'
+);
+PREPARE equipment_column_stmt FROM @equipment_column_sql;
+EXECUTE equipment_column_stmt;
+DEALLOCATE PREPARE equipment_column_stmt;
+
+ALTER TABLE bookings
+    MODIFY status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid';
+
 INSERT INTO users (email, password, full_name, role)
 VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb7rm40SpJI56', 'Administrator', 'admin')
 ON DUPLICATE KEY UPDATE
@@ -87,5 +107,3 @@ ON DUPLICATE KEY UPDATE
     price_per_hour = VALUES(price_per_hour),
     description = VALUES(description),
     is_available = VALUES(is_available);
-
-DELETE FROM facilities WHERE id > 4;

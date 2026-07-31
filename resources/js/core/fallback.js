@@ -28,10 +28,11 @@ function ensureFallbackSeed() {
     end: '13:00',
     duration: '4',
     purpose: 'Majlis',
+    equipment: 'Mikrofon',
     setup: 'full',
     pax: '300',
     paymentFile: '',
-    status: 'pending',
+    status: 'unpaid',
     createdAt: new Date().toISOString(),
     adminNote: '',
   }]);

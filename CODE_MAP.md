@@ -34,6 +34,7 @@ Admin dashboard styling     resources/css/components/admin.css
 
 Login/signup behavior       resources/js/features/auth.js
 API helper functions        resources/js/core/api.js
+Navigation/account menu     resources/js/core/navigation.js
 Shared helper functions     resources/js/core/helpers.js
 App startup logic           resources/js/core/init.js
 ```
@@ -41,11 +42,11 @@ App startup logic           resources/js/core/init.js
 ## Backend API Files
 
 ```text
-backend/api/auth.php        Login, signup, logout
-backend/api/bookings.php    Booking create/list/status/cancel
-backend/api/facilities.php  Facility list and availability
+backend/api/auth.php        Role-aware login, client signup, session check, logout
+backend/api/bookings.php    Booking create/list/status/edit/cancel/delete/calendar
+backend/api/facilities.php  Facility list and admin availability update
 backend/api/messages.php    Contact admin messages
-backend/api/users.php       Admin customer list/detail
+backend/api/users.php       Admin customer list/detail/password reset
 ```
 
 ## Configuration

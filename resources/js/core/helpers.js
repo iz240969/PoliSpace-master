@@ -15,6 +15,7 @@ function showToast(msg, type = 'success') {
 
 function statusBadgeHtml(status) {
   const labels = {
+    unpaid: '<div class="status-badge status-unpaid">Belum Bayar</div>',
     pending: '<div class="status-badge status-pending">Menunggu</div>',
     approved: '<div class="status-badge status-available">Diluluskan</div>',
     rejected: '<div class="status-badge status-booked">Ditolak</div>',

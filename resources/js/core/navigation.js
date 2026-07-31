@@ -1,6 +1,6 @@
 ﻿// ==================== NAVIGATION ACCESS ====================
 function isClientLoggedIn() {
-  return Boolean(localStorage.getItem('ps_user_email'));
+  return isValidEmail(localStorage.getItem('ps_user_email') || '');
 }
 
 function isAdminLoggedIn() {
@@ -23,8 +23,7 @@ function setupNavigationAccess() {
 function updateProtectedNavLinks(loggedIn) {
   document.querySelectorAll('button[onclick]').forEach((button) => {
     const action = button.getAttribute('onclick') || '';
-    const isProtectedLink = action.includes('/resources/views/booking/index.html')
-      || action.includes('/resources/views/status/index.html');
+    const isProtectedLink = isProtectedRouteAction(action);
 
     if (!isProtectedLink) return;
 
@@ -32,6 +31,17 @@ function updateProtectedNavLinks(loggedIn) {
     button.classList.toggle('nav-link-disabled', !loggedIn);
     button.title = loggedIn ? '' : 'Sila log masuk dahulu';
   });
+}
+
+function isProtectedRouteAction(action) {
+  return [
+    ROUTES.booking,
+    ROUTES.status,
+    ROUTES.dashboard,
+    '/resources/views/booking/index.html',
+    '/resources/views/status/index.html',
+    '/resources/views/dashboard/index.html',
+  ].some((route) => action.includes(route));
 }
 
 function updateNavActions(navActions, loggedIn) {
@@ -52,6 +62,10 @@ function updateNavActions(navActions, loggedIn) {
             <i class="bi bi-box-arrow-in-right"></i>
             <span>Log Masuk</span>
           </button>
+          <button class="account-dropdown-item" type="button" onclick="window.location.href='${ROUTES.signup}'">
+            <i class="bi bi-person-plus"></i>
+            <span>Daftar Akaun</span>
+          </button>
         </div>
       </div>
     `;
@@ -67,6 +81,10 @@ function updateNavActions(navActions, loggedIn) {
         <i class="bi bi-person-circle"></i>
       </button>
       <div class="account-dropdown" role="menu">
+        <button class="account-dropdown-item" type="button" onclick="window.location.href='${ROUTES.home}'">
+          <i class="bi bi-house-door"></i>
+          <span>Laman Utama</span>
+        </button>
         <button class="account-dropdown-item" type="button" onclick="window.location.href='${dashboardRoute}'">
           <i class="bi bi-speedometer2"></i>
           <span>Dashboard</span>

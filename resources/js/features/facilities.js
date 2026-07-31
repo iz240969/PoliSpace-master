@@ -59,7 +59,7 @@ async function loadPublicCalendarBookings(year, month) {
     const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
     return getBookings()
       .filter((b) => (b.date || '').startsWith(monthPrefix))
-      .filter((b) => ['pending', 'approved'].includes(b.status))
+      .filter((b) => ['unpaid', 'pending', 'approved'].includes(b.status))
       .map((b) => ({
         id: b.id || b.booking_ref,
         facilityId: b.facilityId || b.facility_id || '',

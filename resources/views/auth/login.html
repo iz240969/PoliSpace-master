@@ -123,7 +123,7 @@
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
-      <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/dashboard/index.html'">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -157,13 +157,13 @@
 
       <div class="login-helper">
         <i class="bi bi-info-circle"></i>
-        <span>Pelanggan baharu perlu membuat tempahan dahulu, kemudian cipta akaun selepas permohonan dihantar.</span>
+        <span>Pelanggan perlu mempunyai akaun dan log masuk sebelum membuat tempahan.</span>
       </div>
-      <div class="signup-login-link">Belum ada tempahan? <a href="/resources/views/booking/index.html">Buat tempahan</a></div>
+      <div class="signup-login-link">Belum ada akaun? <a href="/resources/views/auth/signup.html">Daftar akaun</a></div>
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+  <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
 </body>
 </html>
 

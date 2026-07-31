@@ -37,6 +37,53 @@ input::placeholder, textarea::placeholder { color: var(--grey-3); }
 select option { background: var(--surface); color: var(--text-main); }
 textarea { resize: vertical; min-height: 100px; }
 
+.quantity-control {
+  display: grid;
+  grid-template-columns: 46px minmax(72px, 1fr) 46px;
+  align-items: stretch;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--grey-2);
+  border-radius: var(--radius);
+}
+
+.quantity-control:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(201,168,76,0.15);
+}
+
+.quantity-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 0;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 14px;
+  transition: var(--transition);
+}
+
+.quantity-control button:hover {
+  background: var(--gold-dim);
+  color: var(--gold);
+}
+
+.quantity-control input {
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  text-align: center;
+  font-weight: 800;
+}
+
+.quantity-control input:focus {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
 .upload-zone {
   border: 2px dashed var(--grey-2); border-radius: var(--radius-lg);
   padding: 40px; text-align: center; cursor: pointer; transition: var(--transition);

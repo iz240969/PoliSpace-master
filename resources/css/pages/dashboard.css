@@ -232,6 +232,51 @@
   grid-column: span 2;
 }
 
+.confirm-modal {
+  max-width: 460px;
+  text-align: center;
+}
+
+.confirm-modal .modal-body {
+  padding: 34px 34px 24px;
+}
+
+.confirm-icon {
+  width: 58px;
+  height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  background: #FDECEC;
+  border-radius: 50%;
+  color: var(--red);
+  font-size: 24px;
+}
+
+.confirm-title {
+  margin-bottom: 10px;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.confirm-text {
+  max-width: 340px;
+  margin: 0 auto;
+  color: var(--grey-4);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.confirm-text strong {
+  color: var(--gold);
+}
+
+.confirm-modal .modal-footer {
+  justify-content: center;
+  padding-bottom: 28px;
+}
+
 .btn-cancel {
   min-height: 38px;
   padding: 0 14px;

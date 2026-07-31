@@ -15,6 +15,12 @@ function updateEndTime() {
 }
 
 async function submitBooking() {
+  if (!isClientLoggedIn()) {
+    showToast('Sila log masuk sebagai pelanggan sebelum membuat tempahan.', 'error');
+    window.location.href = ROUTES.login;
+    return;
+  }
+
   const receiptInput = document.getElementById('f-receipt');
   const receiptFile = receiptInput?.files?.[0] || null;
   const data = {
@@ -28,7 +34,8 @@ async function submitBooking() {
     end_time: document.getElementById('f-end')?.value || '',
     duration: document.getElementById('f-duration')?.value || '1',
     purpose: document.getElementById('f-purpose')?.value.trim() || '',
-    participant_count: 0,
+    equipment_required: document.getElementById('f-equipment')?.value.trim() || '',
+    participant_count: Number(document.getElementById('f-participants')?.value || 0),
     setup_required: 'full',
     estimated_cost: calculateCost().total,
   };
@@ -37,23 +44,28 @@ async function submitBooking() {
     showToast('Sila lengkapkan semua maklumat yang diperlukan.', 'error');
     return;
   }
+  if (!Number.isInteger(data.participant_count) || data.participant_count < 1) {
+    showToast('Sila masukkan angka / jumlah pengguna yang sah.', 'error');
+    return;
+  }
   if (!isValidEmail(data.email)) {
     showToast('Format e-mel tidak sah.', 'error');
     return;
   }
-  if (!receiptFile) {
-    showToast('Sila muat naik resit bayaran sebelum menghantar permohonan.', 'error');
-    return;
-  }
-  if (!isValidReceiptFile(receiptFile)) {
+  if (receiptFile && !isValidReceiptFile(receiptFile)) {
     showToast('Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.', 'error');
     return;
   }
-  data.payment_file = receiptFile;
+  if (receiptFile) data.payment_file = receiptFile;
   try {
     const result = apiOnline ? await createBookingApi(data) : null;
-    redirectToSignup(result?.booking_ref, data);
+    showBookingSuccess(result?.booking_ref);
   } catch (error) {
+    if (!canUseLocalFallback(error)) {
+      showToast(error.message || 'Tempahan gagal dihantar.', 'error');
+      return;
+    }
+
     apiOnline = false;
     const facility = getSelectedFacility();
     const id = generateId();
@@ -72,17 +84,41 @@ async function submitBooking() {
       end: data.end_time,
       duration: data.duration,
       purpose: data.purpose,
+      equipment: data.equipment_required,
       setup: data.setup_required,
       pax: data.participant_count || '-',
-      paymentFile: receiptFile.name,
-      status: 'pending',
+      paymentFile: receiptFile?.name || '',
+      status: receiptFile ? 'pending' : 'unpaid',
       createdAt: new Date().toISOString(),
       adminNote: '',
     };
     const bookings = getBookings();
     bookings.push(booking);
     saveBookings(bookings);
-    redirectToSignup(id, data);
+    showBookingSuccess(id);
+  }
+}
+
+async function initBookingPage() {
+  if (!document.getElementById('booking')) return;
+
+  const emailEl = document.getElementById('f-email');
+  const nameEl = document.getElementById('f-name');
+  const phoneEl = document.getElementById('f-phone');
+  const storedEmail = localStorage.getItem('ps_user_email') || '';
+
+  if (emailEl && storedEmail) {
+    emailEl.value = storedEmail;
+  }
+
+  try {
+    const result = await getCurrentUser();
+    const user = result.user || {};
+    if (emailEl) emailEl.value = user.email || storedEmail;
+    if (nameEl && user.name) nameEl.value = user.name;
+    if (phoneEl && user.phone) phoneEl.value = user.phone;
+  } catch (error) {
+    if (emailEl && storedEmail) emailEl.value = storedEmail;
   }
 }
 
@@ -121,16 +157,27 @@ function showBookingSuccess(ref) {
   setText('refCode', ref || '');
 }
 
-function redirectToSignup(ref, bookingData) {
-  localStorage.setItem('ps_pending_signup_ref', ref || '');
-  localStorage.setItem('ps_pending_signup_email', bookingData.email || '');
-  const params = new URLSearchParams({
-    ref: ref || '',
-    email: bookingData.email || '',
-    name: bookingData.full_name || '',
-    phone: bookingData.phone || '',
-  });
-  window.location.href = `${ROUTES.signup}?${params.toString()}`;
+function adjustParticipantCount(inputId, delta) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  const min = Number(input.min || 1);
+  const current = Number(input.value || min);
+  input.value = String(Math.max(min, current + delta));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function equipmentOptions(currentEquipment = '') {
+  const options = [
+    ['', 'Tiada Peralatan'],
+    ['Mikrofon', 'Mikrofon'],
+    ['Projektor', 'Projektor'],
+    ['PA System', 'PA System'],
+    ['Kerusi Tambahan', 'Kerusi Tambahan'],
+    ['Meja Tambahan', 'Meja Tambahan'],
+  ];
+
+  return options.map(([value, label]) => `<option value="${escapeAttr(value)}" ${String(currentEquipment || '') === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
 }
 
 async function doSignup() {
@@ -164,40 +211,29 @@ async function doSignup() {
     });
     localStorage.setItem('ps_user_email', result.email || email);
     localStorage.removeItem('ps_admin_logged_in');
-    window.location.href = ROUTES.dashboard;
+    window.location.href = ROUTES.booking;
   } catch (error) {
+    const message = error.message || 'Pendaftaran gagal.';
     if (errorEl) {
-      errorEl.textContent = error.message || 'Pendaftaran gagal.';
+      errorEl.textContent = message;
       errorEl.classList.add('show');
     } else {
-      showToast(error.message || 'Pendaftaran gagal.', 'error');
+      showToast(message, 'error');
     }
   }
-}
-
-function initSignupPage() {
-  const params = new URLSearchParams(window.location.search);
-  const ref = params.get('ref') || localStorage.getItem('ps_pending_signup_ref') || '';
-  const email = params.get('email') || localStorage.getItem('ps_pending_signup_email') || '';
-  const name = params.get('name') || '';
-  const phone = params.get('phone') || '';
-
-  setText('signupRef', ref || '-');
-  const emailEl = document.getElementById('signup-email');
-  const nameEl = document.getElementById('signup-name');
-  const phoneEl = document.getElementById('signup-phone');
-  if (emailEl) emailEl.value = email;
-  if (nameEl) nameEl.value = name;
-  if (phoneEl) phoneEl.value = phone;
 }
 
 function resetBookingForm() {
   document.getElementById('booking-form-wrap').style.display = '';
   document.getElementById('successScreen').classList.remove('show');
-  ['f-name', 'f-email', 'f-phone', 'f-facility', 'f-date', 'f-start', 'f-end', 'f-purpose', 'f-receipt'].forEach((id) => {
+  ['f-facility', 'f-date', 'f-start', 'f-end', 'f-duration', 'f-purpose', 'f-equipment', 'f-receipt'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  const durationEl = document.getElementById('f-duration');
+  if (durationEl) durationEl.value = '1';
+  const participantsEl = document.getElementById('f-participants');
+  if (participantsEl) participantsEl.value = '1';
   updateReceiptPreview();
   updatePricing();
 }

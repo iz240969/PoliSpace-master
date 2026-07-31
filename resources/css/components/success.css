@@ -7,6 +7,16 @@
 .booking-ref { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 40px; margin-bottom: 32px; box-shadow: var(--shadow-sm); }
 .booking-ref-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--grey-4); }
 .booking-ref-code { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: var(--gold); letter-spacing: 4px; margin-top: 6px; }
+.success-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.success-actions .btn { justify-content: center; min-width: 160px; }
+
+@media (max-width: 520px) {
+  .success-screen { padding: 56px 20px; }
+  .booking-ref { width: 100%; padding: 18px 20px; }
+  .booking-ref-code { font-size: 24px; letter-spacing: 2px; overflow-wrap: anywhere; }
+  .success-actions { width: 100%; }
+  .success-actions .btn { width: 100%; }
+}
 
 .page-transition { animation: fadeIn 0.3s ease; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }

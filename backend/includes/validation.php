@@ -24,7 +24,20 @@ function validateBookingData(array $data): array
         $errors['booking_date'] = 'Booking date cannot be in the past';
     }
 
+    if (!isset($data['participant_count']) || (int)$data['participant_count'] < 1) {
+        $errors['participant_count'] = 'Participant count must be at least 1';
+    }
+
+    if (isset($data['equipment_required']) && !isAllowedBookingEquipment((string)$data['equipment_required'])) {
+        $errors['equipment_required'] = 'Invalid equipment option';
+    }
+
     return $errors;
+}
+
+function isAllowedBookingEquipment(string $equipment): bool
+{
+    return in_array($equipment, ['', 'Mikrofon', 'Projektor', 'PA System', 'Kerusi Tambahan', 'Meja Tambahan'], true);
 }
 
 function validateContactMessage(array $data): array

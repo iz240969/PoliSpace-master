@@ -47,7 +47,7 @@
         <div class="admin-panel" id="panel-bookings">
           <div style="display:flex;justify-content:space-between;margin-bottom:32px;">
             <h2>Pengurusan Tempahan</h2>
-            <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('rejected', this)">Ditolak</button></div>
+            <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('unpaid', this)">Belum Bayar</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
           </div>
           <div class="admin-card"><table class="data-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div>
         </div>
@@ -59,7 +59,7 @@
           </div>
           <div class="admin-card">
             <table class="data-table">
-              <thead><tr><th>Nama</th><th>E-mel</th><th>No Telefon</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
+              <thead><tr><th>E-mel</th><th>No Telefon</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
               <tbody id="clientsTbody"></tbody>
             </table>
           </div>
@@ -86,7 +86,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+  <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
 </body>
 </html>
 

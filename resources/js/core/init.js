@@ -12,6 +12,7 @@ async function init() {
   await renderLandingCalendar();
   await renderPublicCalendarView();
   await populateBookingFacilities();
+  await initBookingPage();
   setMinDate();
   await renderAdminDashboard();
 
@@ -25,14 +26,8 @@ async function init() {
 
   if (document.getElementById('dashboard')) {
     initDashboard();
-    document.getElementById('dashEmailInput')?.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') setUserEmail();
-    });
   }
 
-  if (document.getElementById('signup-page')) {
-    initSignupPage();
-  }
 }
 
 if (document.readyState === 'loading') {

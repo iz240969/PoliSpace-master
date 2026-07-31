@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $db = Database::getInstance();
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
+ensureBookingEquipmentColumn($db);
 
 try {
     if ($method === 'GET') {
@@ -32,10 +33,6 @@ try {
         }
     }
 
-    if ($method === 'POST') {
-        createBooking($db);
-    }
-
     if ($method === 'PUT' && $action === 'status' && isset($_GET['id'])) {
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
         if (!empty($_SESSION['admin_id'])) {
@@ -50,6 +47,14 @@ try {
         updateOwnPendingBooking($db, (string)$_GET['id'], $input);
     }
 
+    if ($method === 'POST' && $action === 'receipt' && isset($_GET['id'])) {
+        uploadOwnReceipt($db, (string)$_GET['id']);
+    }
+
+    if ($method === 'POST') {
+        createBooking($db);
+    }
+
     if ($method === 'DELETE' && isset($_GET['id'])) {
         requireAdmin();
         deleteBooking($db, (string)$_GET['id']);
@@ -57,7 +62,8 @@ try {
 
     jsonResponse(['success' => false, 'error' => 'Invalid booking request'], 400);
 } catch (Throwable $e) {
-    jsonResponse(['success' => false, 'error' => 'Booking request failed'], 500);
+    $message = defined('APP_DEBUG') && APP_DEBUG ? $e->getMessage() : 'Booking request failed';
+    jsonResponse(['success' => false, 'error' => $message], 500);
 }
 
 function getAllBookings(Database $db, mixed $status = null): void
@@ -67,7 +73,7 @@ function getAllBookings(Database $db, mixed $status = null): void
             LEFT JOIN facilities f ON b.facility_id = f.id";
     $params = [];
 
-    if ($status && in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
+    if ($status && in_array($status, ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'], true)) {
         $sql .= ' WHERE b.status = ?';
         $params[] = $status;
     }
@@ -123,22 +129,41 @@ function getBookingByRef(Database $db, string $ref): void
 
 function createBooking(Database $db): void
 {
+    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+    $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
+    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    }
+
     $data = $_POST ?: (json_decode(file_get_contents('php://input'), true) ?? []);
+    $user = $db->fetchOne("SELECT id, email, full_name, phone FROM users WHERE id = ? AND email = ? AND role = 'user'", [$userId, $userEmail]);
+    if (!$user) {
+        jsonResponse(['success' => false, 'error' => 'Valid user account required'], 401);
+    }
+
+    $data['email'] = $user['email'];
+    $data['full_name'] = trim((string)($data['full_name'] ?? '')) ?: (string)($user['full_name'] ?? '');
+    $data['phone'] = trim((string)($data['phone'] ?? '')) ?: (string)($user['phone'] ?? '');
     $errors = validateBookingData($data);
 
     if ($errors) {
         jsonResponse(['success' => false, 'error' => 'Validation failed', 'details' => $errors], 400);
     }
 
-    if (empty($_FILES['payment_file']) || $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
-        jsonResponse(['success' => false, 'error' => 'Receipt upload is required'], 400);
-    }
+    $paymentFile = null;
+    $bookingStatus = 'unpaid';
+    if (!empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+        if ($_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
+            jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
+        }
 
-    $upload = handlePaymentUpload($_FILES['payment_file']);
-    if (!empty($upload['error'])) {
-        jsonResponse(['success' => false, 'error' => $upload['error']], 400);
+        $upload = handlePaymentUpload($_FILES['payment_file']);
+        if (!empty($upload['error'])) {
+            jsonResponse(['success' => false, 'error' => $upload['error']], 400);
+        }
+        $paymentFile = $upload['filename'];
+        $bookingStatus = 'pending';
     }
-    $paymentFile = $upload['filename'];
 
     $ref = generateBookingRef();
     $facility = $db->fetchOne('SELECT name FROM facilities WHERE id = ?', [$data['facility_id']]);
@@ -147,27 +172,17 @@ function createBooking(Database $db): void
         $data['setup_required'] = 'full';
     }
 
-    $existingUser = $db->fetchOne('SELECT id FROM users WHERE email = ?', [$data['email']]);
-    $userId = $existingUser ? (int)$existingUser['id'] : null;
-
-    if (!$userId) {
-        $userId = (int)$db->insert(
-            'INSERT INTO users (email, full_name, phone, role) VALUES (?, ?, ?, ?)',
-            [$data['email'], $data['full_name'], $data['phone'], 'user']
-        );
-    } else {
-        $db->update(
-            "UPDATE users SET full_name = ?, phone = ?, role = 'user' WHERE id = ? AND role = 'user'",
-            [$data['full_name'], $data['phone'], $userId]
-        );
-    }
+    $db->update(
+        "UPDATE users SET full_name = ?, phone = ? WHERE id = ? AND role = 'user'",
+        [$data['full_name'], $data['phone'], $userId]
+    );
 
     $db->insert(
         "INSERT INTO bookings (
             booking_ref, user_id, facility_id, full_name, organization, email, phone,
             booking_date, start_time, end_time, duration, purpose, participant_count,
-            setup_required, payment_file, status, estimated_cost
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            setup_required, equipment_required, payment_file, status, estimated_cost
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
             $ref,
             $userId,
@@ -183,8 +198,9 @@ function createBooking(Database $db): void
             $data['purpose'],
             $data['participant_count'] ?? 0,
             $data['setup_required'] ?? 'none',
+            $data['equipment_required'] ?? '',
             $paymentFile,
-            'pending',
+            $bookingStatus,
             $data['estimated_cost'] ?? 0,
         ]
     );
@@ -197,7 +213,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
     $status = $data['status'] ?? '';
     $adminNote = $data['admin_note'] ?? '';
 
-    if (!in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
+    if (!in_array($status, ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'], true)) {
         jsonResponse(['success' => false, 'error' => 'Invalid status'], 400);
     }
 
@@ -230,8 +246,8 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'You can only cancel your own booking'], 403);
     }
 
-    if ($booking['status'] !== 'pending') {
-        jsonResponse(['success' => false, 'error' => 'Only pending bookings can be cancelled'], 409);
+    if (!in_array($booking['status'], ['unpaid', 'pending'], true)) {
+        jsonResponse(['success' => false, 'error' => 'Only unpaid or pending bookings can be cancelled'], 409);
     }
 
     $db->update(
@@ -260,8 +276,8 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'You can only edit your own booking'], 403);
     }
 
-    if ($booking['status'] !== 'pending') {
-        jsonResponse(['success' => false, 'error' => 'Only pending bookings can be edited'], 409);
+    if (!in_array($booking['status'], ['unpaid', 'pending'], true)) {
+        jsonResponse(['success' => false, 'error' => 'Only unpaid or pending bookings can be edited'], 409);
     }
 
     $bookingDate = trim((string)($data['booking_date'] ?? ''));
@@ -269,6 +285,8 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
     $endTime = trim((string)($data['end_time'] ?? ''));
     $duration = trim((string)($data['duration'] ?? '1'));
     $purpose = trim((string)($data['purpose'] ?? ''));
+    $equipment = trim((string)($data['equipment_required'] ?? ''));
+    $participantCount = (int)($data['participant_count'] ?? 0);
 
     if ($bookingDate === '' || $bookingDate < date('Y-m-d')) {
         jsonResponse(['success' => false, 'error' => 'Valid future booking date required'], 400);
@@ -282,12 +300,80 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'Purpose is required'], 400);
     }
 
+    if ($participantCount < 1) {
+        jsonResponse(['success' => false, 'error' => 'Participant count must be at least 1'], 400);
+    }
+
+    if (!isAllowedBookingEquipment($equipment)) {
+        jsonResponse(['success' => false, 'error' => 'Invalid equipment option'], 400);
+    }
+
     $db->update(
-        'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, purpose = ? WHERE id = ?',
-        [$bookingDate, $startTime, $endTime ?: null, $duration, $purpose, $booking['id']]
+        'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, purpose = ?, equipment_required = ?, participant_count = ? WHERE id = ?',
+        [$bookingDate, $startTime, $endTime ?: null, $duration, $purpose, $equipment, $participantCount, $booking['id']]
     );
 
     jsonResponse(['success' => true, 'message' => 'Booking updated']);
+}
+
+function ensureBookingEquipmentColumn(Database $db): void
+{
+    $column = $db->fetchOne("SHOW COLUMNS FROM bookings LIKE 'equipment_required'");
+    if (!$column) {
+        $db->query('ALTER TABLE bookings ADD COLUMN equipment_required TEXT AFTER setup_required');
+    }
+
+    $statusColumn = $db->fetchOne("SHOW COLUMNS FROM bookings LIKE 'status'");
+    if ($statusColumn && isset($statusColumn['Type']) && strpos((string)$statusColumn['Type'], "'unpaid'") === false) {
+        $db->query("ALTER TABLE bookings MODIFY status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid'");
+    }
+}
+
+function uploadOwnReceipt(Database $db, string $id): void
+{
+    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+    $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
+    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    }
+
+    $field = ctype_digit($id) ? 'id' : 'booking_ref';
+    $booking = $db->fetchOne("SELECT id, user_id, email, status, payment_file FROM bookings WHERE {$field} = ?", [$id]);
+    if (!$booking) {
+        jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
+    }
+
+    $ownsBooking = (int)$booking['user_id'] === $userId || strtolower((string)$booking['email']) === strtolower($userEmail);
+    if (!$ownsBooking) {
+        jsonResponse(['success' => false, 'error' => 'You can only update your own booking'], 403);
+    }
+
+    if ($booking['status'] !== 'unpaid') {
+        jsonResponse(['success' => false, 'error' => 'Receipt can only be uploaded for unpaid bookings'], 409);
+    }
+
+    if (empty($_FILES['payment_file']) || $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(['success' => false, 'error' => 'Receipt upload is required'], 400);
+    }
+
+    $upload = handlePaymentUpload($_FILES['payment_file']);
+    if (!empty($upload['error'])) {
+        jsonResponse(['success' => false, 'error' => $upload['error']], 400);
+    }
+
+    if (!empty($booking['payment_file'])) {
+        $oldPath = UPLOAD_DIR . basename((string)$booking['payment_file']);
+        if (is_file($oldPath)) {
+            unlink($oldPath);
+        }
+    }
+
+    $db->update(
+        "UPDATE bookings SET payment_file = ?, status = 'pending', admin_note = '' WHERE id = ?",
+        [$upload['filename'], $booking['id']]
+    );
+
+    jsonResponse(['success' => true, 'message' => 'Receipt uploaded', 'payment_file' => $upload['filename'], 'status' => 'pending']);
 }
 
 function deleteBooking(Database $db, string $id): void
@@ -309,6 +395,7 @@ function deleteBooking(Database $db, string $id): void
 function getDashboardStats(Database $db): void
 {
     $total = $db->fetchOne('SELECT COUNT(*) AS count FROM bookings');
+    $unpaid = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'unpaid'");
     $pending = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'pending'");
     $approved = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'approved'");
     $today = $db->fetchOne('SELECT COUNT(*) AS count FROM bookings WHERE booking_date = CURDATE()');
@@ -317,6 +404,7 @@ function getDashboardStats(Database $db): void
         'success' => true,
         'data' => [
             'total' => (int)$total['count'],
+            'unpaid' => (int)$unpaid['count'],
             'pending' => (int)$pending['count'],
             'approved' => (int)$approved['count'],
             'today' => (int)$today['count'],
@@ -347,7 +435,7 @@ function getPublicCalendarBookings(Database $db): void
          FROM bookings b
          LEFT JOIN facilities f ON b.facility_id = f.id
          WHERE b.booking_date BETWEEN ? AND ?
-           AND b.status IN ('pending', 'approved')
+           AND b.status IN ('unpaid', 'pending', 'approved')
          ORDER BY b.booking_date ASC, b.start_time ASC",
         [$start, $end]
     );

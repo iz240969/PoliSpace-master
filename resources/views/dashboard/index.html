@@ -22,7 +22,7 @@
         <div class="nav-links">
             <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
             <button class="nav-link" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
-            <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+            <button class="nav-link active" onclick="window.location.href='/resources/views/dashboard/index.html'">Dashboard</button>
         </div>
         <div class="nav-actions"></div>
     </nav>
@@ -95,6 +95,21 @@
         </div>
     </div>
 
+    <!-- ===== CANCEL CONFIRMATION MODAL ===== -->
+    <div class="modal-overlay" id="cancelBookingModal">
+        <div class="modal confirm-modal">
+            <div class="modal-body">
+                <div class="confirm-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <h2 class="confirm-title">Batalkan Tempahan?</h2>
+                <p class="confirm-text">Tempahan <strong id="cancelBookingRef">-</strong> akan dibatalkan dan tindakan ini tidak boleh dibuat asal.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('cancelBookingModal')">Tidak</button>
+                <button class="btn btn-danger" onclick="confirmCancelUserBooking()"><i class="bi bi-x-lg"></i> Ya, Batalkan</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== BOOKING DETAIL / EDIT MODAL ===== -->
     <div class="modal-overlay" id="userBookingModal">
         <div class="modal">
@@ -104,6 +119,29 @@
             </div>
             <div class="modal-body" id="userBookingModalBody"></div>
             <div class="modal-footer" id="userBookingModalFooter"></div>
+        </div>
+    </div>
+
+    <!-- ===== RECEIPT UPLOAD MODAL ===== -->
+    <div class="modal-overlay" id="receiptUploadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title"><i class="bi bi-receipt modal-title-icon"></i> Muat Naik Resit</div>
+                <button class="modal-close" onclick="closeModal('receiptUploadModal')"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="contact-intro">Tempahan <strong id="receiptBookingRef">-</strong> akan dihantar untuk semakan selepas resit dimuat naik.</p>
+                <label class="upload-zone dashboard-receipt-upload" for="dashboardReceiptInput">
+                    <input type="file" id="dashboardReceiptInput" accept="image/jpeg,image/png,image/gif,application/pdf" onchange="updateDashboardReceiptFileName()">
+                    <div class="upload-icon"><i class="bi bi-receipt"></i></div>
+                    <div class="upload-title">Pilih resit bayaran</div>
+                    <div class="upload-sub" id="dashboardReceiptFileName">Tiada fail dipilih</div>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('receiptUploadModal')">Batal</button>
+                <button class="btn btn-primary" onclick="submitDashboardReceipt()"><i class="bi bi-upload"></i> Hantar Resit</button>
+            </div>
         </div>
     </div>
 
@@ -135,7 +173,7 @@
         </div>
     </div>
 
-    <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+    <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
 
 </body>
 </html>

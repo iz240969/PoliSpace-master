@@ -27,13 +27,16 @@ function renderStatusCard(booking, card) {
     <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value" style="display:flex;align-items:center;gap:6px">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
     <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
     <div class="detail-row"><span class="detail-label">Masa</span><span class="detail-value">${escapeHtml(booking.start)} - ${escapeHtml(booking.end || '-')}</span></div>
+    <div class="detail-row"><span class="detail-label">Angka</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+    <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose)}</span></div>
     ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value" style="color:var(--amber)">${escapeHtml(booking.adminNote)}</span></div>` : ''}
   `;
 
   const steps = [
     { label: 'Permohonan Dihantar', done: true, time: formatDateTime(booking.createdAt) },
-    { label: 'Semakan Permohonan', done: booking.status !== 'pending', active: booking.status === 'pending', time: booking.status !== 'pending' ? 'Selesai' : 'Dalam proses...' },
+    { label: 'Bayaran / Resit', done: booking.status !== 'unpaid', active: booking.status === 'unpaid', time: booking.status === 'unpaid' ? 'Menunggu resit bayaran' : 'Resit diterima' },
+    { label: 'Semakan Permohonan', done: !['unpaid', 'pending'].includes(booking.status), active: booking.status === 'pending', time: booking.status === 'unpaid' ? 'Belum bermula' : booking.status === 'pending' ? 'Dalam proses...' : 'Selesai' },
     { label: booking.status === 'rejected' ? 'Permohonan Ditolak' : 'Tempahan Disahkan', done: booking.status === 'approved', active: booking.status === 'rejected', time: booking.status === 'approved' ? 'E-mel pengesahan dihantar' : booking.status === 'rejected' ? 'Sila hubungi pentadbir' : 'Menunggu' },
   ];
   document.getElementById('statusTimeline').innerHTML = steps.map((s) => `

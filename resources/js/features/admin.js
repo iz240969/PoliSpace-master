@@ -17,13 +17,14 @@ async function renderAdminDashboard() {
     const today = new Date().toISOString().split('T')[0];
     stats = {
       total: bookings.length,
+      unpaid: bookings.filter((b) => b.status === 'unpaid').length,
       pending: bookings.filter((b) => b.status === 'pending').length,
       approved: bookings.filter((b) => b.status === 'approved').length,
       today: bookings.filter((b) => b.date === today).length,
     };
   }
 
-  setText('pendingBadge', stats.pending);
+  setText('pendingBadge', Number(stats.unpaid || 0) + Number(stats.pending || 0));
   dashDate.textContent = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   document.getElementById('adminStats').innerHTML = buildStatsHTML(stats);
   renderBookingsTable('recentBookingsTbody', bookings.slice(0, 5), true);
@@ -36,9 +37,9 @@ async function renderAdminDashboard() {
 function buildStatsHTML(stats) {
   return `
     <div class="stat-card"><div class="stat-card-label">Jumlah Tempahan</div><div class="stat-card-value">${stats.total}</div></div>
+    <div class="stat-card"><div class="stat-card-label">Belum Bayar</div><div class="stat-card-value" style="color:#4F46E5">${stats.unpaid || 0}</div></div>
     <div class="stat-card"><div class="stat-card-label">Menunggu Semakan</div><div class="stat-card-value" style="color:var(--amber)">${stats.pending}</div></div>
     <div class="stat-card"><div class="stat-card-label">Diluluskan</div><div class="stat-card-value" style="color:var(--green)">${stats.approved}</div></div>
-    <div class="stat-card"><div class="stat-card-label">Hari Ini</div><div class="stat-card-value">${stats.today}</div></div>
   `;
 }
 
@@ -112,7 +113,7 @@ async function loadClients() {
     const result = await tryApi('users.php');
     renderClientsTable(result.data || []);
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
   }
 }
 
@@ -121,13 +122,12 @@ function renderClientsTable(clients) {
   if (!tbody) return;
 
   if (!clients.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = clients.map((client) => `
     <tr>
-      <td><div class="tenant-name">${escapeHtml(client.full_name || '-')}</div></td>
       <td>${escapeHtml(client.email)}</td>
       <td>${escapeHtml(client.phone || '-')}</td>
       <td><span class="status-badge status-pending">${Number(client.booking_count || 0)} tempahan</span></td>
@@ -221,17 +221,18 @@ function calendarStatusLabels(bookings = []) {
   if (!bookings.length) return '';
 
   const statusConfig = {
-    pending: { label: 'Pending', color: 'var(--amber)', bg: '#FDF3E3' },
-    approved: { label: 'Booked', color: 'var(--green)', bg: '#EAF5EE' },
-    rejected: { label: 'Rejected', color: 'var(--red)', bg: '#FDECEC' },
-    cancelled: { label: 'Cancelled', color: 'var(--red)', bg: '#FDECEC' },
+    unpaid: { label: 'Belum Bayar', color: '#4F46E5', bg: '#EEF2FF' },
+    pending: { label: 'Menunggu', color: 'var(--amber)', bg: '#FDF3E3' },
+    approved: { label: 'Diluluskan', color: 'var(--green)', bg: '#EAF5EE' },
+    rejected: { label: 'Ditolak', color: 'var(--red)', bg: '#FDECEC' },
+    cancelled: { label: 'Dibatalkan', color: 'var(--red)', bg: '#FDECEC' },
   };
   const counts = bookings.reduce((acc, booking) => {
     if (statusConfig[booking.status]) acc[booking.status] = (acc[booking.status] || 0) + 1;
     return acc;
   }, {});
 
-  const order = ['pending', 'approved', 'rejected', 'cancelled'];
+  const order = ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'];
   const labels = order
     .filter((status) => counts[status])
     .map((status) => {
@@ -279,6 +280,9 @@ async function viewBookingDetail(id) {
     </div>
     <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
     <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
+    <div class="detail-row"><span class="detail-label">Angka</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+    <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
+    <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
     ${booking.status === 'pending' ? '<div style="margin-top:20px"><label>Nota (pilihan)</label><textarea id="modalNote" style="min-height:80px"></textarea></div>' : ''}
   `;

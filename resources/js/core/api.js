@@ -45,7 +45,9 @@ async function loadFacilities() {
 async function createBookingApi(data) {
   const formData = new FormData();
   Object.keys(data).forEach((key) => {
-    formData.append(key, data[key]);
+    if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
+      formData.append(key, data[key]);
+    }
   });
 
   const response = await fetch(`${API_BASE}/bookings.php`, {
@@ -55,7 +57,27 @@ async function createBookingApi(data) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || result.success === false) {
-    throw new Error(result.error || 'Failed to create booking');
+    const error = new Error(result.error || 'Failed to create booking');
+    error.status = response.status;
+    throw error;
+  }
+  return result;
+}
+
+async function uploadBookingReceiptApi(id, file) {
+  const formData = new FormData();
+  formData.append('payment_file', file);
+
+  const response = await fetch(`${API_BASE}/bookings.php?action=receipt&id=${encodeURIComponent(id)}`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.success === false) {
+    const error = new Error(result.error || 'Failed to upload receipt');
+    error.status = response.status;
+    throw error;
   }
   return result;
 }
@@ -94,4 +116,8 @@ async function autoLogin(email, password) {
 
 async function signupClient(data) {
   return await authRequest('signup', data);
+}
+
+async function getCurrentUser() {
+  return await apiRequest('auth.php?action=me');
 }

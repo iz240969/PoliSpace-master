@@ -17,7 +17,7 @@
     <div class="nav-links">
       <button class="nav-link active" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
-      <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/dashboard/index.html'">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -36,7 +36,7 @@
       <p class="hero-sub">Sistem pengurusan tempahan fasiliti politeknik yang cekap, selamat, dan boleh diakses 24/7 oleh orang awam dan staf.</p>
       <div class="hero-actions">
         <button class="btn btn-primary" onclick="window.location.href='/resources/views/booking/index.html'"><span><i class="bi bi-calendar-event"></i></span> Buat Tempahan</button>
-        <button class="btn btn-secondary" onclick="window.location.href='/resources/views/status/index.html'"><span><i class="bi bi-search"></i></span> Semak Status</button>
+        <button class="btn btn-secondary" onclick="window.location.href='/resources/views/dashboard/index.html'"><span><i class="bi bi-speedometer2"></i></span> Dashboard</button>
       </div>
       <div class="hero-stats">
         <div class="stat-item"><div class="stat-num" id="stat-facilities-legacy">4</div><div class="stat-label">Fasiliti Tersedia</div></div>
@@ -44,6 +44,7 @@
         <div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">Akses Online</div></div>
       </div>
       <aside class="hero-calendar-wrap" aria-label="Kalendar tempahan">
+        <p class="hero-calendar-notice">Permohonan hendaklah dibuat 3 hari sebelum tarikh penggunaan.</p>
         <h2 class="hero-calendar-title">Kalendar Tempahan</h2>
         <div class="hero-calendar-card"><div id="calendarView"></div></div>
       </aside>
@@ -64,7 +65,7 @@
           <div class="hero-info-icon"><i class="bi bi-clock-history"></i></div>
           <div class="hero-info-value">24/7</div>
           <h2>Akses Online</h2>
-          <p>Pengguna boleh membuat tempahan, semak status, dan log masuk pada bila-bila masa.</p>
+          <p>Pengguna boleh membuat tempahan, membuka dashboard, dan log masuk pada bila-bila masa.</p>
         </div>
       </aside> -->
     </section>
@@ -76,7 +77,7 @@
       <div class="facilities-grid" id="facilitiesGrid"></div>
     </section>
   </div>
-  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+  <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
 </body>
 </html>
 

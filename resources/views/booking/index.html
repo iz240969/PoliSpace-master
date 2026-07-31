@@ -17,7 +17,7 @@
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link active" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
-      <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/dashboard/index.html'">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -46,17 +46,19 @@
               <div class="form-group"><label>Masa Mula *</label><input type="time" id="f-start"></div>
               <div class="form-group"><label>Masa Tamat</label><input type="time" id="f-end" readonly></div>
               <div class="form-group span-2"><label>Tujuan Penggunaan *</label><textarea id="f-purpose"></textarea></div>
+              <div class="form-group"><label>Peralatan Diperlukan</label><select id="f-equipment"><option value="">Tiada Peralatan</option><option value="Mikrofon">Mikrofon</option><option value="Projektor">Projektor</option><option value="PA System">PA System</option><option value="Kerusi Tambahan">Kerusi Tambahan</option><option value="Meja Tambahan">Meja Tambahan</option></select></div>
+              <div class="form-group"><label>Jumlah Pengguna *</label><div class="quantity-control"><button type="button" onclick="adjustParticipantCount('f-participants', -1)" aria-label="Kurangkan jumlah pengguna"><i class="bi bi-dash-lg"></i></button><input type="number" id="f-participants" min="1" step="1" value="1"><button type="button" onclick="adjustParticipantCount('f-participants', 1)" aria-label="Tambah jumlah pengguna"><i class="bi bi-plus-lg"></i></button></div></div>
             </div>
           </div>
           <div class="form-section">
             <div class="form-section-title">03 - Resit Bayaran</div>
             <div class="form-grid">
               <div class="form-group span-2">
-                <label>Resit / Bukti Bayaran *</label>
+                <label>Resit / Bukti Bayaran</label>
                 <label class="upload-zone" for="f-receipt">
                   <input type="file" id="f-receipt" accept="image/jpeg,image/png,image/gif,application/pdf">
                   <div class="upload-icon"><i class="bi bi-receipt"></i></div>
-                  <div class="upload-title">Muat naik resit sebelum hantar</div>
+                  <div class="upload-title">Muat naik resit sekarang atau kemudian</div>
                   <div class="upload-sub">Format JPG, PNG, GIF atau PDF. Maksimum 5MB.</div>
                 </label>
                 <div class="upload-preview" id="receiptPreview">
@@ -73,7 +75,10 @@
           <div class="success-icon" style="color: var(--gold);"><i class="bi bi-stars"></i></div>
           <h2 class="success-title">Permohonan Dihantar!</h2>
           <div class="booking-ref"><div class="booking-ref-label">Nombor Rujukan</div><div class="booking-ref-code" id="refCode"></div></div>
-          <button class="btn btn-primary" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+          <div class="success-actions">
+            <button class="btn btn-primary" onclick="window.location.href='/resources/views/dashboard/index.html'"><i class="bi bi-speedometer2"></i> Dashboard</button>
+            <button class="btn btn-secondary" onclick="resetBookingForm()"><i class="bi bi-calendar-plus"></i> Tempahan Baru</button>
+          </div>
         </div>
       </div>
       <div class="booking-sidebar">
@@ -82,7 +87,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+  <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
 </body>
 </html>
 

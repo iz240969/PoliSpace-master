@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -58,17 +58,6 @@
       max-width: 340px;
     }
 
-    .signup-ref {
-      margin: 18px 0 24px;
-      padding: 12px 14px;
-      border-radius: var(--radius);
-      background: var(--gold-dim);
-      color: var(--gold);
-      font-weight: 800;
-      font-size: 13px;
-      text-align: center;
-    }
-
     .signup-error {
       display: none;
       margin-bottom: 16px;
@@ -119,7 +108,7 @@
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="window.location.href='/resources/views/booking/index.html'">Tempahan</button>
-      <button class="nav-link" onclick="window.location.href='/resources/views/status/index.html'">Semak Status</button>
+      <button class="nav-link" onclick="window.location.href='/resources/views/dashboard/index.html'">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -131,10 +120,9 @@
       <div class="signup-head">
         <div class="signup-icon"></div>
         <h1 class="signup-title">Daftar Akaun</h1>
-        <p class="signup-sub">Tempahan anda telah dihantar. Cipta kata laluan untuk log masuk dan melihat tempahan di dashboard.</p>
+        <p class="signup-sub">Cipta akaun pelanggan dahulu untuk membuat dan mengurus tempahan fasiliti.</p>
       </div>
 
-      <div class="signup-ref">Rujukan Tempahan: <span id="signupRef">-</span></div>
       <div class="signup-error" id="signupError"></div>
 
       <form onsubmit="event.preventDefault(); doSignup();">
@@ -160,15 +148,13 @@
             <input type="password" id="signup-password-confirm" autocomplete="new-password">
           </div>
         </div>
-        <button class="btn btn-primary" type="submit"><i class="bi bi-person-plus"></i> Daftar & Masuk Dashboard</button>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-person-plus"></i> Daftar Akaun</button>
       </form>
 
       <div class="signup-link">Sudah ada akaun? <a href="/resources/views/auth/login.html">Log masuk</a></div>
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260718-split-assets"></script>
+  <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
 </body>
 </html>
-
-

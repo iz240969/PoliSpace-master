@@ -109,9 +109,33 @@ if ($action === 'signup') {
         'success' => true,
         'message' => 'Signup successful',
         'role' => 'user',
-        'redirect' => 'dashboard.html',
+        'redirect' => 'booking.html',
         'email' => $email,
     ]);
+}
+
+if ($action === 'me') {
+    if (!empty($_SESSION['user_id'])) {
+        $user = $db->fetchOne("SELECT id, email, full_name, phone, role FROM users WHERE id = ? AND role = 'user'", [$_SESSION['user_id']]);
+        if ($user) {
+            jsonResponse([
+                'success' => true,
+                'role' => 'user',
+                'user' => [
+                    'id' => (int)$user['id'],
+                    'email' => $user['email'],
+                    'name' => $user['full_name'],
+                    'phone' => $user['phone'],
+                ],
+            ]);
+        }
+    }
+
+    if (!empty($_SESSION['admin_id'])) {
+        jsonResponse(['success' => true, 'role' => 'admin']);
+    }
+
+    jsonResponse(['success' => false, 'error' => 'Login required'], 401);
 }
 
 if ($action === 'login') {
