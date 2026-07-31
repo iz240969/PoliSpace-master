@@ -110,7 +110,7 @@ Default admin credentials:
 
 ```text
 admin@polspace.com
-admin123
+Use the seeded local setup password, then change it before production use.
 ```
 
 ## Facilities
@@ -122,6 +122,8 @@ Dewan Utama         RM450  800 orang  Econ, PA system, projector
 Dewan Syarahan      RM400  120 orang  Econ, PA system, projector
 Bilik Persidangan   RM350  60 orang   LCD, projector, econ
 Bilik Seminar       RM250  45 orang   TV besar, econ
+Makmal Komputer - ILL 1  RM100  50 orang   ILL 1
+Asrama - Bilik           RM10   2 orang    Harga untuk satu bilik
 ```
 
 For all four facilities, the setup option is only `Pakej Lengkap`.

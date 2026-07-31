@@ -5,11 +5,13 @@ PoliSpace is a Laragon-based facility booking system for Politeknik Besut. It us
 ## Features
 
 - Public landing page with facility overview and booking calendar.
-- Booking form for four facilities:
+- Booking form for six facilities:
   - Dewan Utama
   - Dewan Syarahan
   - Bilik Persidangan
   - Bilik Seminar
+  - Makmal Komputer - ILL 1
+  - Asrama - Bilik
 - Client signup before booking.
 - Booking requires a client login.
 - Client login and dashboard.
@@ -146,7 +148,7 @@ The root HTML files are kept as redirects so old URLs still work.
 
 ```text
 Admin email: admin@polspace.com
-Admin password: admin123
+Admin password: use the seeded local setup password, then change it before production use.
 ```
 
 Client accounts are created before booking. Clients sign up or log in first, then submit booking requests.

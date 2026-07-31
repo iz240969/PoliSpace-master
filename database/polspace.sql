@@ -79,7 +79,9 @@ INSERT INTO facilities (id, name, icon, capacity, price_per_hour, description, i
 (1, 'Dewan Utama', 'bi-bank', 800, 450.00, 'Kemudahan: Econ, PA system, projector.', TRUE),
 (2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, 'Kemudahan: Econ, PA system, projector.', TRUE),
 (3, 'Bilik Persidangan', 'bi-people', 60, 350.00, 'Kemudahan: LCD, projector, econ.', TRUE),
-(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, 'Kemudahan: TV besar, econ.', TRUE)
+(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, 'Kemudahan: TV besar, econ.', TRUE),
+(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', TRUE),
+(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', TRUE)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     icon = VALUES(icon),
@@ -88,4 +90,4 @@ ON DUPLICATE KEY UPDATE
     description = VALUES(description),
     is_available = VALUES(is_available);
 
-DELETE FROM facilities WHERE id > 4;
+DELETE FROM facilities WHERE id > 6;

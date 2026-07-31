@@ -4,13 +4,19 @@ declare(strict_types=1);
 function jsonResponse(array $payload, int $status = 200): void
 {
     http_response_code($status);
-    echo json_encode($payload);
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 function generateBookingRef(): string
 {
     return 'PS' . date('ym') . strtoupper(substr(uniqid('', true), -6));
+}
+
+function jsonInput(): array
+{
+    $input = json_decode(file_get_contents('php://input'), true);
+    return is_array($input) ? $input : [];
 }
 
 function formatBookingForFrontend(array $booking): array
@@ -44,15 +50,20 @@ function formatBookingForFrontend(array $booking): array
 
 function handlePaymentUpload(array $file): array
 {
-    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    $allowedTypes = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'application/pdf' => 'pdf',
+    ];
     $maxSize = 5 * 1024 * 1024;
 
     if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
         return ['error' => 'Invalid upload.'];
     }
 
-    $type = mime_content_type($file['tmp_name']) ?: $file['type'];
-    if (!in_array($type, $allowedTypes, true)) {
+    $type = mime_content_type($file['tmp_name']) ?: ($file['type'] ?? '');
+    if (!isset($allowedTypes[$type])) {
         return ['error' => 'File type not allowed. Upload JPG, PNG, GIF, or PDF.'];
     }
 
@@ -64,7 +75,7 @@ function handlePaymentUpload(array $file): array
         return ['error' => 'Upload directory could not be created.'];
     }
 
-    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $extension = $allowedTypes[$type];
     $filename = 'payment_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
     $destination = UPLOAD_DIR . $filename;
 

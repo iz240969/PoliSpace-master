@@ -238,6 +238,7 @@ function updateFacilityInfo() {
   });
   updateSetupOptions();
   updatePricing();
+  renderBookingDatePicker();
 }
 
 function getSelectedFacility() {
@@ -265,5 +266,107 @@ function updatePricing() {
       <span>RM</span>
       <strong>${cost.total}</strong>
     </div>
+    <p class="pricing-note">Nota: Sewaan dicaj mengikut hari.</p>
   `;
 }
+
+async function renderBookingDatePicker() {
+  const picker = document.getElementById('bookingDatePicker');
+  if (!picker) return;
+
+  const year = bookingDatePickerDate.getFullYear();
+  const month = bookingDatePickerDate.getMonth();
+  const displayMonth = month + 1;
+  const monthNames = ['Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun', 'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'];
+  const selectedDate = document.getElementById('f-date')?.value || '';
+  const selectedFacilityId = document.getElementById('f-facility')?.value || '';
+  const bookings = await loadPublicCalendarBookings(year, displayMonth);
+  const bookedDates = new Set(
+    bookings
+      .filter((booking) => selectedFacilityId && String(booking.facilityId) === String(selectedFacilityId))
+      .map((booking) => booking.date)
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const firstDay = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  let html = `
+    <div class="booking-date-picker-head">
+      <button type="button" onclick="changeBookingDatePickerMonth(-1)" aria-label="Bulan sebelum"><i class="bi bi-chevron-left"></i></button>
+      <strong>${monthNames[month]} ${year}</strong>
+      <button type="button" onclick="changeBookingDatePickerMonth(1)" aria-label="Bulan seterusnya"><i class="bi bi-chevron-right"></i></button>
+    </div>
+    <div class="booking-date-picker-weekdays">
+      ${['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'].map((day) => `<span>${day}</span>`).join('')}
+    </div>
+    <div class="booking-date-picker-grid">
+  `;
+
+  for (let i = 0; i < firstDay; i += 1) {
+    html += '<span class="booking-date-picker-blank"></span>';
+  }
+
+  for (let day = 1; day <= days; day += 1) {
+    const date = `${year}-${String(displayMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dateObj = new Date(year, month, day);
+    const isPast = dateObj < today;
+    const isBooked = bookedDates.has(date);
+    const isSelected = selectedDate === date;
+    const classes = [
+      'booking-date-picker-day',
+      isPast ? 'is-disabled' : '',
+      isBooked ? 'is-booked' : 'is-available',
+      isSelected ? 'is-selected' : '',
+    ].filter(Boolean).join(' ');
+    const disabled = isPast || isBooked;
+    html += `<button type="button" class="${classes}" ${disabled ? 'disabled' : ''} onclick="selectBookingDate('${date}')">${day}</button>`;
+  }
+
+  picker.innerHTML = `${html}</div><div class="booking-date-picker-legend"><span><i class="available"></i> Tersedia</span><span><i class="booked"></i> Telah ditempah</span></div>`;
+}
+
+function toggleBookingDatePicker() {
+  const picker = document.getElementById('bookingDatePicker');
+  const toggle = document.querySelector('.booking-date-toggle');
+  if (!picker) return;
+
+  const isOpen = picker.classList.toggle('is-open');
+  toggle?.classList.toggle('is-active', isOpen);
+  toggle?.setAttribute('aria-expanded', String(isOpen));
+  if (isOpen) renderBookingDatePicker();
+}
+
+function changeBookingDatePickerMonth(delta) {
+  bookingDatePickerDate = new Date(bookingDatePickerDate.getFullYear(), bookingDatePickerDate.getMonth() + delta, 1);
+  renderBookingDatePicker();
+}
+
+function selectBookingDate(date) {
+  const input = document.getElementById('f-date');
+  if (!input) return;
+  input.value = date;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  document.getElementById('bookingDatePicker')?.classList.remove('is-open');
+  document.querySelector('.booking-date-toggle')?.classList.remove('is-active');
+  document.querySelector('.booking-date-toggle')?.setAttribute('aria-expanded', 'false');
+}
+
+document.addEventListener('click', (event) => {
+  const picker = document.getElementById('bookingDatePicker');
+  const toggle = document.querySelector('.booking-date-toggle');
+  if (!picker?.classList.contains('is-open')) return;
+  if (picker.contains(event.target) || toggle?.contains(event.target)) return;
+
+  picker.classList.remove('is-open');
+  toggle?.classList.remove('is-active');
+  toggle?.setAttribute('aria-expanded', 'false');
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+
+  document.getElementById('bookingDatePicker')?.classList.remove('is-open');
+  document.querySelector('.booking-date-toggle')?.classList.remove('is-active');
+  document.querySelector('.booking-date-toggle')?.setAttribute('aria-expanded', 'false');
+});

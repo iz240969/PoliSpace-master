@@ -13,6 +13,7 @@ async function init() {
   await renderPublicCalendarView();
   await populateBookingFacilities();
   await initBookingPage();
+  await renderBookingDatePicker();
   setMinDate();
   await renderAdminDashboard();
 
@@ -21,6 +22,7 @@ async function init() {
     startEl.addEventListener('change', updateEndTime);
     document.getElementById('f-duration')?.addEventListener('change', () => { updateEndTime(); updatePricing(); });
     document.getElementById('f-facility')?.addEventListener('change', updateFacilityInfo);
+    document.getElementById('f-date')?.addEventListener('change', renderBookingDatePicker);
     document.getElementById('f-receipt')?.addEventListener('change', updateReceiptPreview);
   }
 

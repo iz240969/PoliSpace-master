@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    $input = jsonInput();
     $password = (string)($input['password'] ?? '');
 
     if ($id <= 0) {

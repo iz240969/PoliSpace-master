@@ -1,5 +1,6 @@
 uploads/payments/*
 !uploads/payments/.gitkeep
+!uploads/payments/.htaccess
 
 .env
 

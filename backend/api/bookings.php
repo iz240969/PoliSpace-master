@@ -34,7 +34,7 @@ try {
     }
 
     if ($method === 'PUT' && $action === 'status' && isset($_GET['id'])) {
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $input = jsonInput();
         if (!empty($_SESSION['admin_id'])) {
             updateBookingStatus($db, (string)$_GET['id'], $input);
         } else {
@@ -43,7 +43,7 @@ try {
     }
 
     if ($method === 'PUT' && $action === 'user-update' && isset($_GET['id'])) {
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $input = jsonInput();
         updateOwnPendingBooking($db, (string)$_GET['id'], $input);
     }
 
@@ -107,6 +107,10 @@ function getUserBookings(Database $db, string $email): void
 
 function getBookingByRef(Database $db, string $ref): void
 {
+    if (empty($_SESSION['admin_id']) && empty($_SESSION['user_email'])) {
+        jsonResponse(['success' => false, 'error' => 'Login required'], 401);
+    }
+
     $booking = $db->fetchOne(
         "SELECT b.*, f.name AS facility_name, f.icon
          FROM bookings b
@@ -119,7 +123,7 @@ function getBookingByRef(Database $db, string $ref): void
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
 
-    if (empty($_SESSION['admin_id']) && !empty($_SESSION['user_email'])
+    if (empty($_SESSION['admin_id'])
         && strtolower((string)$booking['email']) !== strtolower((string)$_SESSION['user_email'])) {
         jsonResponse(['success' => false, 'error' => 'You can only view your own booking'], 403);
     }
@@ -135,7 +139,7 @@ function createBooking(Database $db): void
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
-    $data = $_POST ?: (json_decode(file_get_contents('php://input'), true) ?? []);
+    $data = $_POST ?: jsonInput();
     $user = $db->fetchOne("SELECT id, email, full_name, phone FROM users WHERE id = ? AND email = ? AND role = 'user'", [$userId, $userEmail]);
     if (!$user) {
         jsonResponse(['success' => false, 'error' => 'Valid user account required'], 401);
@@ -167,6 +171,9 @@ function createBooking(Database $db): void
 
     $ref = generateBookingRef();
     $facility = $db->fetchOne('SELECT name FROM facilities WHERE id = ?', [$data['facility_id']]);
+    if (!$facility) {
+        jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
+    }
     $packageOnlyFacilities = ['dewan utama', 'dewan syarahan', 'bilik persidangan', 'bilik seminar'];
     if ($facility && in_array(strtolower((string)$facility['name']), $packageOnlyFacilities, true)) {
         $data['setup_required'] = 'full';

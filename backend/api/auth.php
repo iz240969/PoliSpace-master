@@ -9,8 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $db = Database::getInstance();
-$rawInput = file_get_contents('php://input');
-$input = $_POST ?: $_GET ?: (json_decode($rawInput, true) ?? []);
+$input = $_POST ?: jsonInput();
 $action = $_GET['action'] ?? '';
 
 if ($action === 'auto') {
@@ -21,7 +20,10 @@ if ($action === 'auto') {
         jsonResponse(['success' => false, 'error' => 'Email and password required'], 400);
     }
 
-    $user = $db->fetchOne('SELECT * FROM users WHERE email = ?', [$email]);
+    $user = $db->fetchOne(
+        'SELECT id, email, password, full_name, role FROM users WHERE email = ?',
+        [$email]
+    );
     if (!$user || empty($user['password']) || !password_verify($password, (string)$user['password'])) {
         jsonResponse(['success' => false, 'error' => 'Invalid credentials'], 401);
     }
@@ -146,19 +148,11 @@ if ($action === 'login') {
         jsonResponse(['success' => false, 'error' => 'Email and password required'], 400);
     }
 
-    $user = $db->fetchOne("SELECT * FROM users WHERE email = ? AND role = 'admin'", [$email]);
+    $user = $db->fetchOne(
+        "SELECT id, email, password, full_name, role FROM users WHERE email = ? AND role = 'admin'",
+        [$email]
+    );
     $validPassword = $user && password_verify($password, (string)$user['password']);
-
-    if (!$validPassword && $user && $email === 'admin@polspace.com' && $password === 'admin123') {
-        $newHash = password_hash('admin123', PASSWORD_DEFAULT);
-        $db->update(
-            "UPDATE users SET password = ?, full_name = COALESCE(NULLIF(full_name, ''), 'Administrator'), role = 'admin' WHERE id = ?",
-            [$newHash, $user['id']]
-        );
-        $user['password'] = $newHash;
-        $user['full_name'] = $user['full_name'] ?: 'Administrator';
-        $validPassword = true;
-    }
 
     if ($user && $validPassword) {
         $_SESSION['admin_id'] = $user['id'];

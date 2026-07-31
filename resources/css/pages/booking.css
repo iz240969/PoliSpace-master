@@ -37,6 +37,332 @@ input::placeholder, textarea::placeholder { color: var(--grey-3); }
 select option { background: var(--surface); color: var(--text-main); }
 textarea { resize: vertical; min-height: 100px; }
 
+.booking-date-input-wrap {
+  position: relative;
+}
+
+.booking-date-input-wrap input {
+  padding-right: 56px;
+}
+
+.booking-date-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  background: var(--gold-dim);
+  border: 1px solid rgba(166, 124, 30, 0.18);
+  border-radius: var(--radius);
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 17px;
+  transition: var(--transition);
+}
+
+.booking-date-toggle:hover,
+.booking-date-toggle.is-active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.booking-date-picker {
+  position: absolute;
+  z-index: 30;
+  display: none;
+  width: min(100%, 430px);
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.booking-date-picker.is-open {
+  display: block;
+}
+
+.booking-date-picker-head {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.booking-date-picker-head strong {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.booking-date-picker-head button {
+  width: 34px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.booking-date-picker-head button:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.booking-date-picker-weekdays,
+.booking-date-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.booking-date-picker-weekdays span {
+  color: var(--grey-4);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.booking-date-picker-day,
+.booking-date-picker-blank {
+  min-height: 34px;
+  border-radius: 5px;
+}
+
+.booking-date-picker-day {
+  background: #EAF5EE;
+  border: 1px solid rgba(46, 133, 76, 0.18);
+  color: var(--text-main);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.booking-date-picker-day:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.booking-date-picker-day.is-booked {
+  background: #FDECEC;
+  border-color: rgba(198, 65, 65, 0.24);
+  color: var(--red);
+}
+
+.booking-date-picker-day.is-disabled {
+  background: var(--surface-2);
+  color: var(--grey-3);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.booking-date-picker-day.is-selected {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.booking-date-picker-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--grey-4);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.booking-date-picker-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.booking-date-picker-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.booking-date-picker-legend .available { background: var(--green); }
+.booking-date-picker-legend .booked { background: var(--red); }
+
+.time-input-wrap {
+  position: relative;
+}
+
+.time-input-wrap input {
+  padding-right: 56px;
+}
+
+.time-picker-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  background: var(--gold-dim);
+  border: 1px solid rgba(166, 124, 30, 0.18);
+  border-radius: var(--radius);
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 17px;
+  transition: var(--transition);
+}
+
+.time-picker-toggle:hover,
+.time-picker-toggle.is-active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.time-picker-toggle i {
+  font-size: 19px;
+  font-weight: 900;
+  -webkit-text-stroke: 0.4px currentColor;
+}
+
+.time-picker-popover {
+  position: absolute;
+  z-index: 29;
+  display: none;
+  width: min(100%, 330px);
+  margin-top: 8px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.time-picker-popover.is-open {
+  display: block;
+}
+
+.time-clock-period {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.time-clock-period button {
+  height: 34px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-main);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.time-clock-period button.is-selected {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.time-clock-face {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  touch-action: none;
+  user-select: none;
+}
+
+.time-clock-number {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-94px) rotate(calc(-1 * var(--angle)));
+  border-radius: 50%;
+  color: var(--text-main);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.time-clock-hand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 76px;
+  background: var(--gold);
+  border-radius: 999px;
+  transform: translate(-50%, -100%) rotate(var(--angle));
+  transform-origin: 50% 100%;
+  box-shadow: 0 0 0 5px rgba(166, 124, 30, 0.12);
+  pointer-events: none;
+}
+
+.time-clock-hand::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  background: var(--gold);
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.time-clock-center {
+  position: absolute;
+  inset: 50%;
+  width: 86px;
+  height: 86px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--gold);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.time-clock-center span {
+  color: var(--text-main);
+  font-size: 11px;
+}
+
 .quantity-control {
   display: grid;
   grid-template-columns: 46px minmax(72px, 1fr) 46px;
@@ -157,6 +483,14 @@ textarea { resize: vertical; min-height: 100px; }
   font-size: 34px;
   font-weight: 800;
   letter-spacing: 0;
+}
+
+.pricing-note {
+  margin-top: 10px;
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .steps-list { display: flex; flex-direction: column; gap: 16px; }

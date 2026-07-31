@@ -12,24 +12,34 @@ $db = Database::getInstance();
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $facilities = $db->fetchAll('SELECT * FROM facilities ORDER BY id');
+        $facilities = $db->fetchAll(
+            'SELECT id, name, icon, capacity, price_per_hour, description, is_available, created_at, updated_at
+             FROM facilities
+             ORDER BY id'
+        );
         jsonResponse(['success' => true, 'data' => $facilities]);
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         requireAdmin();
-        $id = $_GET['id'] ?? null;
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        $input = jsonInput();
 
-        if (!$id) {
+        if ($id <= 0) {
             jsonResponse(['success' => false, 'error' => 'Facility ID required'], 400);
         }
 
-        $isAvailable = isset($input['is_available']) ? (int)(bool)$input['is_available'] : null;
-        if ($isAvailable !== null) {
-            $db->update('UPDATE facilities SET is_available = ? WHERE id = ?', [$isAvailable, $id]);
+        if (!array_key_exists('is_available', $input)) {
+            jsonResponse(['success' => false, 'error' => 'Availability value required'], 400);
         }
 
+        $isAvailable = (int)(bool)$input['is_available'];
+        $facility = $db->fetchOne('SELECT id FROM facilities WHERE id = ?', [$id]);
+        if (!$facility) {
+            jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
+        }
+
+        $db->update('UPDATE facilities SET is_available = ? WHERE id = ?', [$isAvailable, $id]);
         jsonResponse(['success' => true, 'message' => 'Facility updated']);
     }
 

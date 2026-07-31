@@ -1,5 +1,5 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ms">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -41,10 +41,28 @@
             <div class="form-section-title">02 - Butiran Tempahan</div>
             <div class="form-grid">
               <div class="form-group span-2"><label>Nama Fasiliti *</label><select id="f-facility"></select></div>
-              <div class="form-group"><label>Tarikh Tempahan *</label><input type="date" id="f-date"></div>
+              <div class="form-group span-2">
+                <label>Tarikh Tempahan *</label>
+                <div class="booking-date-input-wrap">
+                  <input type="date" id="f-date">
+                  <button type="button" class="booking-date-toggle" onclick="toggleBookingDatePicker()" aria-label="Buka kalendar ketersediaan">
+                    <i class="bi bi-calendar3"></i>
+                  </button>
+                </div>
+                <div class="booking-date-picker" id="bookingDatePicker"></div>
+              </div>
               <div class="form-group"><label>Tempoh Penggunaan</label><select id="f-duration"><option value="1">1 Jam</option><option value="2">2 Jam</option><option value="3">3 Jam</option><option value="4">4 Jam</option><option value="halfday">Setengah Hari</option><option value="fullday">Sehari Penuh</option></select></div>
-              <div class="form-group"><label>Masa Mula *</label><input type="time" id="f-start"></div>
-              <div class="form-group"><label>Masa Tamat</label><input type="time" id="f-end" readonly></div>
+              <div class="form-group span-2">
+                <label>Masa Mula *</label>
+                <div class="time-input-wrap">
+                  <input type="time" id="f-start">
+                  <button type="button" class="time-picker-toggle" onclick="toggleStartTimePicker()" aria-label="Buka pilihan masa">
+                    <i class="bi bi-clock-history"></i>
+                  </button>
+                </div>
+                <div class="time-picker-popover" id="startTimePicker" onclick="event.stopPropagation()"></div>
+                <input type="hidden" id="f-end">
+              </div>
               <div class="form-group span-2"><label>Tujuan Penggunaan *</label><textarea id="f-purpose"></textarea></div>
               <div class="form-group"><label>Peralatan Diperlukan</label><select id="f-equipment"><option value="">Tiada Peralatan</option><option value="Mikrofon">Mikrofon</option><option value="Projektor">Projektor</option><option value="PA System">PA System</option><option value="Kerusi Tambahan">Kerusi Tambahan</option><option value="Meja Tambahan">Meja Tambahan</option></select></div>
               <div class="form-group"><label>Jumlah Pengguna *</label><div class="quantity-control"><button type="button" onclick="adjustParticipantCount('f-participants', -1)" aria-label="Kurangkan jumlah pengguna"><i class="bi bi-dash-lg"></i></button><input type="number" id="f-participants" min="1" step="1" value="1"><button type="button" onclick="adjustParticipantCount('f-participants', 1)" aria-label="Tambah jumlah pengguna"><i class="bi bi-plus-lg"></i></button></div></div>

@@ -12,6 +12,93 @@ function updateEndTime() {
   const [hours, mins] = start.split(':').map(Number);
   const total = hours * 60 + mins + (durationMap[duration] || 60);
   document.getElementById('f-end').value = `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  renderStartTimePicker();
+}
+
+function selectStartTime(time) {
+  const input = document.getElementById('f-start');
+  if (!input) return;
+  input.value = time;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function renderStartTimePicker() {
+  const picker = document.getElementById('startTimePicker');
+  if (!picker) return;
+
+  const selected = document.getElementById('f-start')?.value || '';
+  const selectedHour = selected ? Number(selected.split(':')[0]) : 8;
+  const hour12 = selectedHour % 12 || 12;
+  const angle = hour12 * 30;
+  picker.innerHTML = `
+    <div class="time-clock-period" role="group" aria-label="Pilihan pagi atau petang">
+      <button type="button" class="${selectedHour < 12 ? 'is-selected' : ''}" onclick="setClockPeriod('AM')">AM</button>
+      <button type="button" class="${selectedHour >= 12 ? 'is-selected' : ''}" onclick="setClockPeriod('PM')">PM</button>
+    </div>
+    <div class="time-clock-face" id="timeClockFace" aria-label="Pilih masa mula" onpointerdown="startClockDrag(event)">
+      ${Array.from({ length: 12 }, (_, index) => {
+        const hour = index + 1;
+        return `<span class="time-clock-number" style="--angle:${hour * 30}deg">${hour}</span>`;
+      }).join('')}
+      <div class="time-clock-hand" id="timeClockHand" style="--angle:${angle}deg"></div>
+      <div class="time-clock-center"><i class="bi bi-clock-history"></i><span>${selected ? formatTimeLabel(selected) : 'Masa'}</span></div>
+    </div>
+  `;
+}
+
+function formatTimeLabel(time) {
+  const [hour, minute] = time.split(':').map(Number);
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
+}
+
+function toggleStartTimePicker() {
+  const picker = document.getElementById('startTimePicker');
+  const toggle = document.querySelector('.time-picker-toggle');
+  if (!picker) return;
+
+  const isOpen = picker.classList.toggle('is-open');
+  toggle?.classList.toggle('is-active', isOpen);
+  toggle?.setAttribute('aria-expanded', String(isOpen));
+  if (isOpen) renderStartTimePicker();
+}
+
+function setClockPeriod(period) {
+  const input = document.getElementById('f-start');
+  const current = input?.value || '08:00';
+  let hour = Number(current.split(':')[0]);
+  if (period === 'AM' && hour >= 12) hour -= 12;
+  if (period === 'PM' && hour < 12) hour += 12;
+  selectStartTime(`${String(hour).padStart(2, '0')}:00`);
+}
+
+function startClockDrag(event) {
+  event.preventDefault();
+  updateClockFromPointer(event);
+  document.addEventListener('pointermove', updateClockFromPointer);
+  document.addEventListener('pointerup', stopClockDrag, { once: true });
+}
+
+function stopClockDrag() {
+  document.removeEventListener('pointermove', updateClockFromPointer);
+}
+
+function updateClockFromPointer(event) {
+  const face = document.getElementById('timeClockFace');
+  if (!face) return;
+
+  const rect = face.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const angle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180 / Math.PI;
+  const normalized = (angle + 90 + 360) % 360;
+  const hour12 = Math.max(1, Math.round(normalized / 30) || 12);
+  const current = document.getElementById('f-start')?.value || '08:00';
+  const currentHour = Number(current.split(':')[0]);
+  const isPm = currentHour >= 12;
+  const hour24 = isPm ? (hour12 === 12 ? 12 : hour12 + 12) : (hour12 === 12 ? 0 : hour12);
+  selectStartTime(`${String(hour24).padStart(2, '0')}:00`);
 }
 
 async function submitBooking() {
@@ -236,4 +323,24 @@ function resetBookingForm() {
   if (participantsEl) participantsEl.value = '1';
   updateReceiptPreview();
   updatePricing();
+  renderStartTimePicker();
 }
+
+document.addEventListener('click', (event) => {
+  const picker = document.getElementById('startTimePicker');
+  const toggle = document.querySelector('.time-picker-toggle');
+  if (!picker?.classList.contains('is-open')) return;
+  if (picker.contains(event.target) || toggle?.contains(event.target)) return;
+
+  picker.classList.remove('is-open');
+  toggle?.classList.remove('is-active');
+  toggle?.setAttribute('aria-expanded', 'false');
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+
+  document.getElementById('startTimePicker')?.classList.remove('is-open');
+  document.querySelector('.time-picker-toggle')?.classList.remove('is-active');
+  document.querySelector('.time-picker-toggle')?.setAttribute('aria-expanded', 'false');
+});

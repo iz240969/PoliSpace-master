@@ -14,12 +14,16 @@ $db = Database::getInstance();
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         requireAdmin();
-        $messages = $db->fetchAll('SELECT * FROM contact_messages ORDER BY created_at DESC');
+        $messages = $db->fetchAll(
+            'SELECT id, email, subject, message, is_read, replied_at, created_at
+             FROM contact_messages
+             ORDER BY created_at DESC'
+        );
         jsonResponse(['success' => true, 'data' => $messages]);
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $input = jsonInput();
         $errors = validateContactMessage($input);
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Validation failed', 'details' => $errors], 400);

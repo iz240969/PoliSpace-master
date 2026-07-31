@@ -49,12 +49,8 @@ async function doLogin() {
     localStorage.setItem('ps_admin_logged_in', '1');
     window.location.href = ROUTES.adminDashboard;
   } catch (error) {
-    if ((!error.status || error.status === 405 || error.status >= 500) && (rawUser === 'admin' || rawUser === 'admin@polspace.com') && password === 'admin123') {
-      localStorage.setItem('ps_admin_logged_in', '1');
-      window.location.href = ROUTES.adminDashboard;
-      return;
-    }
     if (errorEl) {
+      errorEl.textContent = error.message || 'Nama pengguna atau kata laluan tidak sah.';
       errorEl.classList.add('show');
       errorEl.style.display = 'block';
     }

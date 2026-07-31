@@ -15,10 +15,13 @@ let apiOnline = true;
 let facilitiesCache = [];
 let landingCalendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let bookingCalendarDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let bookingDatePickerDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
 const FALLBACK_FACILITIES = [
   { id: 1, name: 'Dewan Utama', icon: 'bi-bank', capacity: 800, price_per_hour: 450, description: 'Kemudahan: Econ, PA system, projector.', is_available: true },
   { id: 2, name: 'Dewan Syarahan', icon: 'bi-mortarboard', capacity: 120, price_per_hour: 400, description: 'Kemudahan: Econ, PA system, projector.', is_available: true },
   { id: 3, name: 'Bilik Persidangan', icon: 'bi-people', capacity: 60, price_per_hour: 350, description: 'Kemudahan: LCD, projector, econ.', is_available: true },
   { id: 4, name: 'Bilik Seminar', icon: 'bi-easel', capacity: 45, price_per_hour: 250, description: 'Kemudahan: TV besar, econ.', is_available: true },
+  { id: 5, name: 'Makmal Komputer - ILL 1', icon: 'bi-pc-display', capacity: 50, price_per_hour: 100, description: 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', is_available: true },
+  { id: 6, name: 'Asrama - Bilik', icon: 'bi-door-open', capacity: 2, price_per_hour: 10, description: 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', is_available: true },
 ];

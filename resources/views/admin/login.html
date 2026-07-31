@@ -1,5 +1,5 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ms">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,8 +17,8 @@
       </div>
       <div class="login-form">
         <div class="login-error" id="loginError">Nama pengguna atau kata laluan tidak sah.</div>
-        <div class="form-group"><label>E-mel Admin</label><input type="text" id="login-user" value="admin@polspace.com"></div>
-        <div class="form-group"><label>Kata Laluan</label><input type="password" id="login-pass" value="admin123" onkeydown="if(event.key==='Enter') doLogin()"></div>
+        <div class="form-group"><label>E-mel Admin</label><input type="text" id="login-user" placeholder="admin@polspace.com"></div>
+        <div class="form-group"><label>Kata Laluan</label><input type="password" id="login-pass" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()"></div>
         <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doLogin()">Log Masuk</button>
         <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="window.location.href='/resources/views/welcome.html'"><i class="bi bi-arrow-left"></i> Kembali ke Web</button>
       </div>

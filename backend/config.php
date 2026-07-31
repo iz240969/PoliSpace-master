@@ -48,10 +48,24 @@ define('UPLOAD_DIR', dirname(__DIR__) . '/uploads/payments/');
 
 ini_set('session.cookie_httponly', '1');
 ini_set('session.use_only_cookies', '1');
+ini_set('session.use_strict_mode', '1');
+ini_set('session.cookie_samesite', 'Lax');
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    ini_set('session.cookie_secure', '1');
+}
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+if (!empty($_SERVER['HTTP_ORIGIN'])) {
+    $origin = (string)$_SERVER['HTTP_ORIGIN'];
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $originHost = parse_url($origin, PHP_URL_HOST);
+    if ($originHost !== false && strcasecmp((string)$originHost, (string)$host) === 0) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Credentials: true');
+        header('Vary: Origin');
+    }
+}
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 ?>
