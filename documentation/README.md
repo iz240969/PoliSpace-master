@@ -1,214 +1,211 @@
-# PoliSpace
+# PoliSpace Project Documentation
 
-PoliSpace is a Laragon-based facility booking system for Politeknik Besut. It uses HTML, CSS, JavaScript, PHP APIs, and MySQL.
+PoliSpace is a facility booking system for Politeknik Besut. It is built with plain HTML, CSS, JavaScript, PHP API endpoints, and MySQL.
 
-## Features
-
-- Public landing page with facility overview and booking calendar.
-- Booking form for six facilities:
-  - Dewan Utama
-  - Dewan Syarahan
-  - Bilik Persidangan
-  - Bilik Seminar
-  - Makmal Komputer - ILL 1
-  - Asrama - Bilik
-- Client signup before booking.
-- Booking requires a client login.
-- Client login and dashboard.
-- Client booking view, receipt upload, edit, and cancellation while a booking is unpaid or pending.
-- Admin login and dashboard.
-- Admin booking approval/rejection.
-- Admin customer management page.
-- Admin dashboard stats and booking calendar.
-- MySQL-backed data with localStorage fallback for preview.
-- `.env` support for database and app configuration.
-
-## Project Structure
+## Structure
 
 ```text
-PoliSpace/
-  index.html                  Redirect to resources/views/welcome.html
-  booking.html                Redirect to booking view
-  status.html                 Redirect to status view
-  dashboard.html              Redirect to client dashboard view
-  login.html                  Redirect to login view
-  signup.html                 Redirect to signup view
-  admin-login.html            Redirect to admin login view
-  admin-dashboard.html        Redirect to admin dashboard view
-
-  resources/
-    css/
-      style.css
-      base/
-        base.css
-        responsive.css
-      components/
-        admin.css
-        buttons.css
-        calendar.css
-        navigation.css
-        success.css
-      pages/
-        booking.css
-        dashboard.css
-        landing.css
-        status.css
-    js/
-      script.js
-      core/
-        api.js
-        config.js
-        fallback.js
-        helpers.js
-        init.js
-        navigation.js
-      features/
-        admin.js
-        auth.js
-        booking.js
-        dashboard.js
-        facilities.js
-        status.js
-    views/
-      welcome.html
-      admin/
-        dashboard.html
-        login.html
-      auth/
-        login.html
-        signup.html
-      booking/
-        index.html
-      dashboard/
-        index.html
-      status/
-        index.html
-
-  backend/
-    config.php
-    db.php
-    api/
-      auth.php
-      bookings.php
-      facilities.php
-      messages.php
-      users.php
-    includes/
-      functions.php
-      validation.php
-
-  database/
-    polspace.sql
-
-  uploads/
-    payments/
+resources/views/      Maintained HTML pages
+resources/css/        Base, component, and page CSS
+resources/js/         Browser behavior split into core and feature modules
+backend/api/          PHP API endpoints
+backend/includes/     Shared PHP helpers and validation
+database/             Fresh install and update SQL files
+uploads/payments/     Uploaded receipt files
 ```
 
-## Local Setup
+Root files such as `index.html`, `booking.html`, `dashboard.html`, `login.html`, and `signup.html` are compatibility redirect wrappers. The maintained pages live under `resources/views/`.
 
-1. Place the project in Laragon:
+## Frontend Entry Points
+
+Every main page loads:
+
+```html
+<link rel="stylesheet" href="/resources/css/style.css?v=20260801-responsive">
+<script src="/resources/js/script.js?v=20260801-session-nav"></script>
+```
+
+`resources/js/script.js` loads the plain browser-global JavaScript modules in order. `resources/css/style.css` imports the base, component, and page CSS files.
+
+## Authentication
+
+Authentication is session-based through `backend/api/auth.php`.
 
 ```text
-C:\laragon\www\PoliSpace-master
+POST auth.php?action=auto     Role-aware login for admin or user
+POST auth.php?action=signup   User signup
+POST auth.php?action=user     User login
+POST auth.php?action=login    Admin-only login
+GET  auth.php?action=me       Current session
+POST auth.php?action=logout   Logout
 ```
 
-2. Import the database:
+Navigation uses `resources/js/core/navigation.js` to check the session before enabling protected tabs. The first-load navigation state should come from `auth.php?action=me`, not only from localStorage.
 
-```bash
+## Booking Statuses
+
+The database stores English status values. The UI displays Malay labels.
+
+```text
+unpaid     Belum Bayar
+pending    Menunggu
+approved   Diluluskan
+rejected   Ditolak
+cancelled  Dibatalkan
+```
+
+Availability rules:
+
+```text
+Blocks availability:
+pending, approved
+
+Does not block availability:
+unpaid, rejected, cancelled
+```
+
+Business behavior:
+
+- A new booking without a receipt starts as `unpaid` and does not reserve the slot.
+- A booking with a receipt starts as `pending`, unless another `pending` or `approved` booking already overlaps the same facility/date/time.
+- Uploading a receipt from the dashboard changes an `unpaid` booking to `pending` and performs the same conflict check.
+- `approved` bookings remain reserved.
+- Admin can reject `unpaid`, `pending`, or `approved` bookings. A rejection note is required.
+- User cancellation changes an `unpaid` or `pending` booking to `cancelled`.
+- `rejected` and `cancelled` bookings release the slot but remain in history.
+- The API does not permanently delete bookings. `DELETE backend/api/bookings.php?id=...` returns 405.
+
+## Booking Form
+
+The booking form is maintained in:
+
+```text
+resources/views/booking/index.html
+resources/js/features/booking.js
+resources/css/pages/booking.css
+```
+
+The email field is read-only and is filled from the logged-in user session. The backend also ignores submitted email for booking creation and uses the registered account email from the session.
+
+Required booking fields include name, email, phone, facility, date, start time, purpose, and participant count. Participant count must be at least 1.
+
+Receipt uploads accept JPG, PNG, GIF, or PDF up to 5MB.
+
+## Dashboard
+
+The client dashboard is maintained in:
+
+```text
+resources/views/dashboard/index.html
+resources/js/features/dashboard.js
+resources/css/pages/dashboard.css
+```
+
+User bookings are loaded from the current session through:
+
+```text
+GET backend/api/bookings.php?action=user
+```
+
+The list is shown as a table, sorted by most recent. Users can search and filter by status chips. Users can view details, upload receipts for `unpaid` bookings, edit `unpaid` or `pending` bookings, and cancel `unpaid` or `pending` bookings.
+
+## Admin
+
+The admin dashboard is maintained in:
+
+```text
+resources/views/admin/dashboard.html
+resources/js/features/admin.js
+resources/css/components/admin.css
+```
+
+Admin can:
+
+- View recent and all bookings.
+- Filter bookings by status.
+- Approve `pending` bookings.
+- Reject `unpaid`, `pending`, and `approved` bookings.
+- View customers and customer booking history.
+- Reset/set customer passwords.
+- Toggle facility availability.
+- View the booking calendar.
+
+The admin navbar logo is static and does not navigate to the public site.
+
+## Facilities
+
+Default facilities:
+
+```text
+Dewan Utama              RM450  800 orang
+Dewan Syarahan           RM400  120 orang
+Bilik Persidangan        RM350  60 orang
+Bilik Seminar            RM250  45 orang
+Makmal Komputer - ILL 1  RM100  50 orang
+Asrama - Bilik           RM10   2 orang - 1 bilik
+```
+
+Facility cards use `Arial Black` for the facility name. The Asrama capacity label is rendered as `2 orang - 1 bilik`.
+
+For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the backend forces `setup_required` to `full`.
+
+## Database
+
+Fresh install:
+
+```powershell
 mysql -u root -p < database/polspace.sql
 ```
 
-For an existing database, run the update script instead. It keeps current booking
-data and only applies missing schema/default-data updates:
+Update existing database:
 
-```bash
+```powershell
 mysql -u root -p < database/update_polspace.sql
 ```
 
-3. Create or update `.env` with your local MySQL credentials:
-
-```env
-DB_HOST=127.0.0.1
-DB_NAME=polspace
-DB_USER=root
-DB_PASS=
-APP_ENV=local
-APP_DEBUG=true
-```
-
-4. Open the app:
+Important booking columns:
 
 ```text
-http://localhost/
+booking_ref
+user_id
+facility_id
+booking_date
+start_time
+end_time
+duration
+equipment_required
+payment_file
+status
+admin_note
+created_at
+updated_at
 ```
 
-The root HTML files are kept as redirects so old URLs still work.
-
-## Default Login
-
-```text
-Admin email: admin@polspace.com
-Admin password: use the seeded local setup password, then change it before production use.
-```
-
-Client accounts are created before booking. Clients sign up or log in first, then submit booking requests.
-
-## Main Pages
-
-```text
-Home:             /resources/views/welcome.html
-Booking:          /resources/views/booking/index.html
-Check Status:     /resources/views/status/index.html
-Login:            /resources/views/auth/login.html
-Signup:           /resources/views/auth/signup.html
-Client Dashboard: /resources/views/dashboard/index.html
-Admin Dashboard:  /resources/views/admin/dashboard.html
-```
-
-## API Endpoints
-
-```text
-POST backend/api/auth.php?action=auto
-POST backend/api/auth.php?action=login
-POST backend/api/auth.php?action=signup
-GET  backend/api/auth.php?action=me
-POST backend/api/auth.php?action=user
-POST backend/api/auth.php?action=logout
-GET  backend/api/facilities.php
-PUT  backend/api/facilities.php?id=1
-GET  backend/api/bookings.php
-POST backend/api/bookings.php
-POST backend/api/bookings.php?action=receipt&id=PS...
-GET  backend/api/bookings.php?action=calendar
-GET  backend/api/bookings.php?action=calendar&year=2026&month=7
-GET  backend/api/bookings.php?action=public-stats
-GET  backend/api/bookings.php?action=stats
-GET  backend/api/bookings.php?action=ref&ref=PS...
-GET  backend/api/bookings.php?action=user&email=user@example.com
-PUT  backend/api/bookings.php?action=status&id=PS...
-PUT  backend/api/bookings.php?action=user-update&id=PS...
-DELETE backend/api/bookings.php?id=PS...
-GET  backend/api/users.php
-GET  backend/api/users.php?action=detail&id=1
-PUT  backend/api/users.php?id=1
-GET  backend/api/messages.php
-POST backend/api/messages.php
-```
-
-Admin-only endpoints require an active admin session. Client booking create/list/edit/cancel endpoints require an active client session, and users can only work with their own bookings.
+Do not add a unique index on facility/date/time because unpaid bookings are allowed to overlap. Slot blocking is enforced by checking only `pending` and `approved` bookings.
 
 ## Verification
+
+Run these after changes when PHP and Node are available:
 
 ```powershell
 Get-ChildItem -Recurse resources/js -Filter *.js | ForEach-Object { node --check $_.FullName }
 Get-ChildItem -Recurse backend -Filter *.php | ForEach-Object { php -l $_.FullName }
 ```
 
-## Notes
+Quick local checks:
 
-- Do not commit `.env`.
-- Store real secrets only in `.env`.
-- Payment proof upload is optional on the booking form; unpaid bookings can upload a receipt later from Dashboard.
-- Uploads are stored under `uploads/payments/`.
-- `resources/js/core/config.js` keeps `APP_ROOT = ''` for a site served from `http://localhost/`; update it if the project is served from a subfolder.
-- Change the default admin password before production use.
+```powershell
+Invoke-WebRequest -UseBasicParsing http://localhost/
+Invoke-WebRequest -UseBasicParsing http://localhost/resources/views/welcome.html
+Invoke-WebRequest -UseBasicParsing http://localhost/backend/api/facilities.php
+```
+
+## Production Notes
+
+Before production use:
+
+- Change the default admin password.
+- Add CSRF protection.
+- Restrict CORS to trusted origins.
+- Use HTTPS-only cookies.
+- Consider transaction or lock-based protection for truly simultaneous receipt uploads.

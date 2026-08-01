@@ -34,6 +34,7 @@
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
   --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --display-font: "Arial Black", Arial, sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,7 +47,7 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, h5 { font-family: 'Syne', sans-serif; color: var(--text-main); }
+h1, h2, h3, h4, h5 { font-family: var(--display-font); color: var(--text-main); }
 
 /* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar { width: 8px; }

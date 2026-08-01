@@ -53,7 +53,7 @@ Root files such as `index.html`, `booking.html`, `login.html`, and `dashboard.ht
 backend/config.php          Loads .env and session/config values
 backend/db.php              PDO connection helper
 backend/api/auth.php        Admin login, auto login, client signup/login
-backend/api/bookings.php    Booking create/list/status/edit/cancel/delete/calendar endpoints
+backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar endpoints
 backend/api/facilities.php  Facility list/admin availability update endpoint
 backend/api/messages.php    Contact message endpoint
 backend/api/users.php       Admin customer list/detail/password reset endpoint
@@ -88,7 +88,7 @@ All main pages load:
 1. User opens the landing page.
 2. User signs up or logs in with a client account.
 3. User clicks `Buat Tempahan`.
-4. User fills booking details and can upload payment proof immediately or later from Dashboard.
+4. User fills booking details. The booking form email is locked to the registered account email from the active session.
 5. Booking is inserted into MySQL through `backend/api/bookings.php`.
 6. The booking page shows the reference number and links to Dashboard.
 7. User can view their bookings in the client dashboard.
@@ -97,12 +97,43 @@ All main pages load:
 
 Payment proof upload is optional on the booking form. If no receipt is uploaded, the booking starts as `unpaid`; uploading a receipt changes it to `pending` for admin review.
 
+## Booking Status Rules
+
+The database stores status values in English and the UI displays Malay labels:
+
+```text
+unpaid     Belum Bayar
+pending    Menunggu
+approved   Diluluskan
+rejected   Ditolak
+cancelled  Dibatalkan
+```
+
+Availability is intentionally status-based:
+
+```text
+Blocks slot availability:
+pending, approved
+
+Does not block slot availability:
+unpaid, rejected, cancelled
+```
+
+Important behavior:
+
+- `unpaid` bookings are history records only until payment is made. They do not reserve the facility.
+- Uploading a receipt changes `unpaid` to `pending`. This is the point where the slot becomes reserved, unless another `pending` or `approved` booking already overlaps it.
+- `approved` bookings remain reserved.
+- Admin can reject `unpaid`, `pending`, or `approved` bookings. Rejection requires an admin note and releases the slot.
+- User cancellation changes `unpaid` or `pending` bookings to `cancelled` and releases the slot.
+- Booking records must be preserved for history and reporting. The DELETE endpoint returns 405 and does not delete rows.
+
 ## Admin Flow
 
 1. Admin logs in from the same login page as clients.
 2. The system detects role by email/password through `auth.php?action=auto`.
 3. Admin dashboard loads bookings, facilities, calendar, and customers.
-4. Admin can approve or reject bookings.
+4. Admin can approve pending bookings and reject unpaid, pending, or approved bookings.
 5. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
 6. Admin can set or reset a client password from the customer management flow.
 
@@ -123,10 +154,19 @@ Dewan Syarahan      RM400  120 orang  Econ, PA system, projector
 Bilik Persidangan   RM350  60 orang   LCD, projector, econ
 Bilik Seminar       RM250  45 orang   TV besar, econ
 Makmal Komputer - ILL 1  RM100  50 orang   ILL 1
-Asrama - Bilik           RM10   2 orang    Harga untuk satu bilik
+Asrama - Bilik           RM10   2 orang - 1 bilik    Harga untuk satu bilik
 ```
 
-For all four facilities, the setup option is only `Pakej Lengkap`.
+For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the setup option is forced to `Pakej Lengkap` by the backend.
+
+## Current UI Notes
+
+- Global display headings use `Arial Black` through `--display-font`.
+- Facility cards also use `Arial Black` for the facility name and capacity emphasis.
+- Client dashboard bookings are rendered as a table like the admin booking table, sorted by most recent.
+- Client dashboard filtering is by search text plus status chips.
+- Admin dashboard logo is static and does not navigate to the public site when clicked.
+- Navigation access is session-aware. Protected tabs are disabled until the session check completes and confirms login.
 
 ## Verification Commands
 
@@ -162,14 +202,15 @@ GET  backend/api/bookings.php?status=pending   Admin filtered booking list
 GET  backend/api/bookings.php?status=unpaid    Admin unpaid booking list
 POST backend/api/bookings.php                  Client booking create
 POST backend/api/bookings.php?action=receipt&id=PS...
-GET  backend/api/bookings.php?action=user&email=user@example.com
+GET  backend/api/bookings.php?action=user              Current user's bookings from session
+GET  backend/api/bookings.php?action=user&email=user@example.com  Legacy-compatible; must match session email
 GET  backend/api/bookings.php?action=ref&ref=PS...
 GET  backend/api/bookings.php?action=calendar&year=2026&month=7
 GET  backend/api/bookings.php?action=public-stats
 GET  backend/api/bookings.php?action=stats     Admin dashboard stats
 PUT  backend/api/bookings.php?action=status&id=PS...
 PUT  backend/api/bookings.php?action=user-update&id=PS...
-DELETE backend/api/bookings.php?id=PS...
+DELETE backend/api/bookings.php?id=PS...        Disabled: returns 405 to preserve history
 
 GET  backend/api/facilities.php
 PUT  backend/api/facilities.php?id=1
@@ -180,7 +221,7 @@ GET  backend/api/messages.php
 POST backend/api/messages.php
 ```
 
-Admin-only endpoints call `requireAdmin()`. Client booking actions rely on the PHP session and ownership checks in `bookings.php`.
+Admin-only endpoints call `requireAdmin()`. Client booking actions rely on the PHP session and ownership checks in `bookings.php`. Booking creation ignores any submitted email and uses the registered account email from the session.
 
 ## Git Notes
 
@@ -212,5 +253,6 @@ root redirect HTML files
 - `APP_ROOT` is hardcoded to ''.
 - There is no `.env.example` in this checkout; keep local database settings in `.env`.
 - Production hardening is still needed: CSRF protection, restricted CORS, HTTPS-only cookies, and changing default admin credentials.
+- Race-condition hardening for simultaneous receipt uploads would need database-level locking or transactions; current conflict checks enforce the rules for normal request flow.
 
 

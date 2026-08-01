@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PoliSpace - Dashboard Pengguna</title>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/resources/css/style.css?v=20260718-split-assets">
+    <link rel="stylesheet" href="/resources/css/style.css?v=20260801-responsive">
 </head>
 <body>
 
@@ -76,7 +76,19 @@
                     Tempahan Saya
                     <small id="bookingCountLabel">0 tempahan</small>
                 </div>
-                <div>
+                <div class="dash-booking-tools">
+                    <div class="dash-search">
+                        <i class="bi bi-search"></i>
+                        <input type="search" id="bookingSearchInput" placeholder="Cari rujukan atau fasiliti" oninput="applyBookingFilters()">
+                    </div>
+                    <div class="dash-filter-chips" role="group" aria-label="Tapis status tempahan">
+                        <button class="dash-filter-chip active" type="button" data-status="all" onclick="setBookingStatusFilter(this)">Semua</button>
+                        <button class="dash-filter-chip" type="button" data-status="unpaid" onclick="setBookingStatusFilter(this)">Belum Bayar</button>
+                        <button class="dash-filter-chip" type="button" data-status="pending" onclick="setBookingStatusFilter(this)">Menunggu</button>
+                        <button class="dash-filter-chip" type="button" data-status="approved" onclick="setBookingStatusFilter(this)">Diluluskan</button>
+                        <button class="dash-filter-chip" type="button" data-status="rejected" onclick="setBookingStatusFilter(this)">Ditolak</button>
+                        <button class="dash-filter-chip" type="button" data-status="cancelled" onclick="setBookingStatusFilter(this)">Dibatalkan</button>
+                    </div>
                     <button class="btn btn-secondary btn-sm" onclick="loadUserBookings()">
                         <i class="bi bi-arrow-clockwise"></i> Muat Semula
                     </button>
@@ -173,7 +185,7 @@
         </div>
     </div>
 
-    <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
+    <script src="/resources/js/script.js?v=20260801-session-nav"></script>
 
 </body>
 </html>

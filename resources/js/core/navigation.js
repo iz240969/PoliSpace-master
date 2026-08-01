@@ -1,10 +1,57 @@
 ﻿// ==================== NAVIGATION ACCESS ====================
+let psAuthState = {
+  checked: false,
+  role: null,
+  user: null,
+};
+
+async function refreshAuthState() {
+  try {
+    const result = await getCurrentUser();
+    psAuthState = {
+      checked: true,
+      role: result.role || null,
+      user: result.user || null,
+    };
+    syncStoredAuthState();
+  } catch (error) {
+    psAuthState = {
+      checked: true,
+      role: null,
+      user: null,
+    };
+    clearStoredAuthState();
+  }
+  return psAuthState;
+}
+
+function syncStoredAuthState() {
+  if (psAuthState.role === 'admin') {
+    localStorage.setItem('ps_admin_logged_in', '1');
+    localStorage.removeItem('ps_user_email');
+    return;
+  }
+
+  if (psAuthState.role === 'user' && isValidEmail(psAuthState.user?.email || '')) {
+    localStorage.removeItem('ps_admin_logged_in');
+    localStorage.setItem('ps_user_email', psAuthState.user.email);
+    return;
+  }
+
+  clearStoredAuthState();
+}
+
+function clearStoredAuthState() {
+  localStorage.removeItem('ps_user_email');
+  localStorage.removeItem('ps_admin_logged_in');
+}
+
 function isClientLoggedIn() {
-  return isValidEmail(localStorage.getItem('ps_user_email') || '');
+  return psAuthState.role === 'user' && isValidEmail(psAuthState.user?.email || localStorage.getItem('ps_user_email') || '');
 }
 
 function isAdminLoggedIn() {
-  return localStorage.getItem('ps_admin_logged_in') === '1';
+  return psAuthState.role === 'admin';
 }
 
 function isLoggedIn() {
@@ -12,7 +59,7 @@ function isLoggedIn() {
 }
 
 function setupNavigationAccess() {
-  const loggedIn = isLoggedIn();
+  const loggedIn = psAuthState.checked && isLoggedIn();
   const navActions = document.querySelector('#main-nav .nav-actions');
 
   updateProtectedNavLinks(loggedIn);

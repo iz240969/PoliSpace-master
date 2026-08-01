@@ -2,8 +2,13 @@
 let psCurrentUserEmail = localStorage.getItem('ps_user_email') || '';
 let pendingCancelBookingId = '';
 let pendingReceiptBookingId = '';
+let psDashboardBookings = [];
 
 function initDashboard() {
+  psCurrentUserEmail = psAuthState.role === 'user'
+    ? (psAuthState.user?.email || localStorage.getItem('ps_user_email') || '')
+    : '';
+
   if (!psCurrentUserEmail) {
     window.location.href = ROUTES.login;
     return;
@@ -23,41 +28,108 @@ async function loadUserBookings() {
 
   let bookings = [];
   try {
-    const result = await tryApi(`bookings.php?action=user&email=${encodeURIComponent(psCurrentUserEmail)}`);
+    const result = await tryApi('bookings.php?action=user');
     bookings = result.data || [];
   } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      psCurrentUserEmail = '';
+      clearStoredAuthState();
+      window.location.href = ROUTES.login;
+      return;
+    }
     bookings = getBookings().filter((b) => b.email && b.email.toLowerCase() === psCurrentUserEmail.toLowerCase());
   }
-  renderUserBookings(bookings, container);
+  psDashboardBookings = bookings;
+  applyBookingFilters();
 }
 
-function renderUserBookings(bookings, container) {
-  bookings.sort((a, b) => (a.date > b.date ? -1 : 1));
-  setText('bookingCountLabel', `${bookings.length} tempahan`);
+function applyBookingFilters() {
+  const container = document.getElementById('dashBookingsContainer');
+  if (!container) return;
+
+  const query = (document.getElementById('bookingSearchInput')?.value || '').trim().toLowerCase();
+  const status = document.querySelector('.dash-filter-chip.active')?.dataset.status || 'all';
+  const bookings = psDashboardBookings
+    .filter((booking) => {
+      if (status !== 'all' && booking.status !== status) return false;
+      if (!query) return true;
+
+      return [
+        booking.id,
+        booking.booking_ref,
+        booking.facilityName,
+        booking.purpose,
+        booking.date,
+        booking.status,
+      ].some((value) => String(value || '').toLowerCase().includes(query));
+    })
+    .sort(compareBookingsByMostRecent);
+
+  renderUserBookings(bookings, container, psDashboardBookings.length);
+}
+
+function setBookingStatusFilter(button) {
+  document.querySelectorAll('.dash-filter-chip').forEach((chip) => {
+    chip.classList.toggle('active', chip === button);
+  });
+  applyBookingFilters();
+}
+
+function compareBookingsByMostRecent(a, b) {
+  const createdA = Date.parse(a.createdAt || a.created_at || '') || 0;
+  const createdB = Date.parse(b.createdAt || b.created_at || '') || 0;
+  const dateA = `${a.date || ''} ${a.start || ''}`;
+  const dateB = `${b.date || ''} ${b.start || ''}`;
+
+  if (createdA || createdB) return createdB - createdA;
+  return dateB.localeCompare(dateA);
+}
+
+function renderUserBookings(bookings, container, totalCount = bookings.length) {
+  setText('bookingCountLabel', totalCount === bookings.length ? `${bookings.length} tempahan` : `${bookings.length} / ${totalCount} tempahan`);
   if (bookings.length === 0) {
-    container.innerHTML = `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Tiada Tempahan</div><div class="empty-sub">Anda belum membuat sebarang tempahan dengan e-mel ini.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan Sekarang</button></div>`;
+    const hasFilters = totalCount > 0;
+    container.innerHTML = hasFilters
+      ? `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-funnel"></i></div><div class="empty-title">Tiada Padanan</div><div class="empty-sub">Cuba ubah carian atau filter status tempahan.</div></div>`
+      : `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Tiada Tempahan</div><div class="empty-sub">Anda belum membuat sebarang tempahan dengan e-mel ini.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan Sekarang</button></div>`;
     return;
   }
   container.innerHTML = `
-    <div class="dash-table-wrap">
-      <table class="data-table dash-bookings-table">
-        <thead><tr><th>Rujukan</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead>
-        <tbody>${bookings.map((b) => `
+    <div class="dashboard-table-wrap">
+      <table class="dashboard-booking-table">
+        <thead>
           <tr>
-            <td><div class="booking-id">${escapeHtml(b.id)}</div></td>
-            <td><span style="display:flex;align-items:center;gap:6px;">${b.facilityIcon || ''} ${escapeHtml(b.facilityName)}</span></td>
-            <td>${formatDate(b.date)}</td>
-            <td>${escapeHtml(b.start)} - ${escapeHtml(b.end || '-')}</td>
-            <td>${statusBadgeHtml(b.status)}</td>
-            <td>
-              <div class="booking-row-actions">
-                <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
-                ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
-                ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button><button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
-              </div>
-            </td>
+            <th>ID</th>
+            <th>Fasiliti</th>
+            <th>Tarikh</th>
+            <th>Masa</th>
+            <th>Status</th>
+            <th>Tindakan</th>
           </tr>
-        `).join('')}</tbody>
+        </thead>
+        <tbody>
+          ${bookings.map((b) => `
+            <tr>
+              <td><span class="booking-id">${escapeHtml(b.id)}</span></td>
+              <td>
+                <div class="dashboard-facility-cell">
+                  <span class="dashboard-facility-icon">${b.facilityIcon || '<i class="bi bi-building"></i>'}</span>
+                  <span>${escapeHtml(b.facilityName || '-')}</span>
+                </div>
+              </td>
+              <td>${formatDate(b.date)}</td>
+              <td>${escapeHtml(b.start || '-')} - ${escapeHtml(b.end || '-')}</td>
+              <td>${statusBadgeHtml(b.status)}</td>
+              <td>
+                <div class="booking-row-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
+                  ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
+                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button><button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
       </table>
     </div>
   `;
@@ -315,6 +387,16 @@ async function submitDashboardReceipt() {
     const bookings = getBookings();
     const booking = bookings.find((item) => item.id === id || item.booking_ref === id);
     if (booking && booking.status === 'unpaid') {
+      if (hasLocalBlockingConflict({
+        facility_id: booking.facilityId || booking.facility_id,
+        booking_date: booking.date || booking.booking_date,
+        start_time: booking.start || booking.start_time,
+        end_time: booking.end || booking.end_time,
+        duration: booking.duration,
+      }, booking.id || booking.booking_ref)) {
+        showToast('Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.', 'error');
+        return;
+      }
       booking.paymentFile = file.name;
       booking.status = 'pending';
       saveBookings(bookings);

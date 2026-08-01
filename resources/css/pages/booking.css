@@ -8,7 +8,7 @@
 .form-section { margin-bottom: 40px; padding-bottom: 40px; border-bottom: 1px solid var(--border); }
 .form-section:last-child { border-bottom: none; }
 .form-section-title {
-  font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+  font-family: var(--display-font); font-size: 13px; font-weight: 900;
   text-transform: uppercase; letter-spacing: 2px; color: var(--gold);
   margin-bottom: 24px; display: flex; align-items: center; gap: 12px;
 }
@@ -411,14 +411,18 @@ textarea { resize: vertical; min-height: 100px; }
 }
 
 .upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   border: 2px dashed var(--grey-2); border-radius: var(--radius-lg);
   padding: 40px; text-align: center; cursor: pointer; transition: var(--transition);
-  background: var(--surface); position: relative;
+  background: var(--surface); position: relative; width: 100%;
 }
 .upload-zone:hover { border-color: var(--gold); background: var(--gold-dim); }
 .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .upload-icon { font-size: 36px; margin-bottom: 12px; color: var(--gold); }
-.upload-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.upload-title { font-family: var(--display-font); font-size: 16px; font-weight: 900; margin-bottom: 6px; }
 .upload-sub { font-size: 12px; color: var(--grey-4); }
 
 .upload-preview {
@@ -437,7 +441,7 @@ textarea { resize: vertical; min-height: 100px; }
   border-radius: var(--radius-lg); padding: 28px; margin-bottom: 16px;
   box-shadow: var(--shadow-sm);
 }
-.sidebar-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; margin-bottom: 20px; }
+.sidebar-title { font-family: var(--display-font); font-size: 16px; font-weight: 900; margin-bottom: 20px; }
 
 .cost-card {
   padding: 28px;
@@ -471,7 +475,7 @@ textarea { resize: vertical; min-height: 100px; }
   align-items: baseline;
   gap: 8px;
   color: var(--gold);
-  font-family: 'Syne', sans-serif;
+  font-family: var(--display-font);
 }
 
 .pricing-minimal span {

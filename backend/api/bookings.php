@@ -5,6 +5,8 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/validation.php';
 
+const BLOCKING_BOOKING_STATUSES = ['pending', 'approved'];
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
 }
@@ -16,8 +18,8 @@ ensureBookingEquipmentColumn($db);
 
 try {
     if ($method === 'GET') {
-        if ($action === 'user' && isset($_GET['email'])) {
-            getUserBookings($db, (string)$_GET['email']);
+        if ($action === 'user') {
+            getUserBookings($db, (string)($_GET['email'] ?? ''));
         } elseif ($action === 'ref' && isset($_GET['ref'])) {
             getBookingByRef($db, (string)$_GET['ref']);
         } elseif ($action === 'public-stats') {
@@ -83,23 +85,25 @@ function getAllBookings(Database $db, mixed $status = null): void
     jsonResponse(['success' => true, 'data' => $bookings]);
 }
 
-function getUserBookings(Database $db, string $email): void
+function getUserBookings(Database $db, string $email = ''): void
 {
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        jsonResponse(['success' => false, 'error' => 'Valid email required'], 400);
+    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+    $sessionEmail = trim((string)($_SESSION['user_email'] ?? ''));
+    if ($userId <= 0 || !filter_var($sessionEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
-    if (empty($_SESSION['user_email']) || strtolower((string)$_SESSION['user_email']) !== strtolower($email)) {
-        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    if ($email !== '' && strtolower($sessionEmail) !== strtolower($email)) {
+        jsonResponse(['success' => false, 'error' => 'You can only view your own bookings'], 403);
     }
 
     $bookings = $db->fetchAll(
         "SELECT b.*, f.name AS facility_name, f.icon
          FROM bookings b
          LEFT JOIN facilities f ON b.facility_id = f.id
-         WHERE b.email = ?
+         WHERE b.user_id = ? OR LOWER(b.email) = LOWER(?)
          ORDER BY b.created_at DESC",
-        [$email]
+        [$userId, $sessionEmail]
     );
 
     jsonResponse(['success' => true, 'data' => array_map('formatBookingForFrontend', $bookings)]);
@@ -154,9 +158,24 @@ function createBooking(Database $db): void
         jsonResponse(['success' => false, 'error' => 'Validation failed', 'details' => $errors], 400);
     }
 
+    $ref = generateBookingRef();
+    $facility = $db->fetchOne('SELECT name FROM facilities WHERE id = ?', [$data['facility_id']]);
+    if (!$facility) {
+        jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
+    }
+    $packageOnlyFacilities = ['dewan utama', 'dewan syarahan', 'bilik persidangan', 'bilik seminar'];
+    if ($facility && in_array(strtolower((string)$facility['name']), $packageOnlyFacilities, true)) {
+        $data['setup_required'] = 'full';
+    }
+
     $paymentFile = null;
     $bookingStatus = 'unpaid';
-    if (!empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+    $hasPaymentFile = !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
+    if ($hasPaymentFile && hasBlockingBookingConflict($db, (int)$data['facility_id'], $data['booking_date'], $data['start_time'], $data['end_time'] ?? null, $data['duration'] ?? '1')) {
+        jsonResponse(['success' => false, 'error' => 'Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.'], 409);
+    }
+
+    if ($hasPaymentFile) {
         if ($_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
             jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
         }
@@ -167,16 +186,6 @@ function createBooking(Database $db): void
         }
         $paymentFile = $upload['filename'];
         $bookingStatus = 'pending';
-    }
-
-    $ref = generateBookingRef();
-    $facility = $db->fetchOne('SELECT name FROM facilities WHERE id = ?', [$data['facility_id']]);
-    if (!$facility) {
-        jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
-    }
-    $packageOnlyFacilities = ['dewan utama', 'dewan syarahan', 'bilik persidangan', 'bilik seminar'];
-    if ($facility && in_array(strtolower((string)$facility['name']), $packageOnlyFacilities, true)) {
-        $data['setup_required'] = 'full';
     }
 
     $db->update(
@@ -218,13 +227,35 @@ function createBooking(Database $db): void
 function updateBookingStatus(Database $db, string $id, array $data): void
 {
     $status = $data['status'] ?? '';
-    $adminNote = $data['admin_note'] ?? '';
+    $adminNote = trim((string)($data['admin_note'] ?? ''));
 
     if (!in_array($status, ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'], true)) {
         jsonResponse(['success' => false, 'error' => 'Invalid status'], 400);
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, start_time, end_time, duration FROM bookings WHERE {$field} = ?", [$id]);
+    if (!$booking) {
+        jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
+    }
+
+    if ($status === 'rejected' && $adminNote === '') {
+        jsonResponse(['success' => false, 'error' => 'Rejection reason required'], 400);
+    }
+
+    if (in_array($status, BLOCKING_BOOKING_STATUSES, true)
+        && hasBlockingBookingConflict(
+            $db,
+            (int)$booking['facility_id'],
+            (string)$booking['booking_date'],
+            (string)$booking['start_time'],
+            $booking['end_time'] ? (string)$booking['end_time'] : null,
+            (string)($booking['duration'] ?? '1'),
+            (int)$booking['id']
+        )) {
+        jsonResponse(['success' => false, 'error' => 'Slot ini sudah ditempah oleh tempahan berbayar/lulus yang lain.'], 409);
+    }
+
     $db->update("UPDATE bookings SET status = ?, admin_note = ? WHERE {$field} = ?", [$status, $adminNote, $id]);
     jsonResponse(['success' => true, 'message' => 'Booking status updated']);
 }
@@ -243,7 +274,7 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, user_id, email, status FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, user_id, email, status, facility_id FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -273,7 +304,7 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, user_id, email, status FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, user_id, email, status, facility_id FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -315,6 +346,11 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'Invalid equipment option'], 400);
     }
 
+    if (in_array($booking['status'], BLOCKING_BOOKING_STATUSES, true)
+        && hasBlockingBookingConflict($db, (int)$booking['facility_id'], $bookingDate, $startTime, $endTime ?: null, $duration, (int)$booking['id'])) {
+        jsonResponse(['success' => false, 'error' => 'Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.'], 409);
+    }
+
     $db->update(
         'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, purpose = ?, equipment_required = ?, participant_count = ? WHERE id = ?',
         [$bookingDate, $startTime, $endTime ?: null, $duration, $purpose, $equipment, $participantCount, $booking['id']]
@@ -345,7 +381,7 @@ function uploadOwnReceipt(Database $db, string $id): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, user_id, email, status, payment_file FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, user_id, email, status, payment_file, facility_id, booking_date, start_time, end_time, duration FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -357,6 +393,18 @@ function uploadOwnReceipt(Database $db, string $id): void
 
     if ($booking['status'] !== 'unpaid') {
         jsonResponse(['success' => false, 'error' => 'Receipt can only be uploaded for unpaid bookings'], 409);
+    }
+
+    if (hasBlockingBookingConflict(
+        $db,
+        (int)$booking['facility_id'],
+        (string)$booking['booking_date'],
+        (string)$booking['start_time'],
+        $booking['end_time'] ? (string)$booking['end_time'] : null,
+        (string)($booking['duration'] ?? '1'),
+        (int)$booking['id']
+    )) {
+        jsonResponse(['success' => false, 'error' => 'Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.'], 409);
     }
 
     if (empty($_FILES['payment_file']) || $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
@@ -385,18 +433,10 @@ function uploadOwnReceipt(Database $db, string $id): void
 
 function deleteBooking(Database $db, string $id): void
 {
-    $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT payment_file FROM bookings WHERE {$field} = ?", [$id]);
-
-    if ($booking && !empty($booking['payment_file'])) {
-        $path = UPLOAD_DIR . basename((string)$booking['payment_file']);
-        if (is_file($path)) {
-            unlink($path);
-        }
-    }
-
-    $db->update("DELETE FROM bookings WHERE {$field} = ?", [$id]);
-    jsonResponse(['success' => true, 'message' => 'Booking deleted successfully']);
+    jsonResponse([
+        'success' => false,
+        'error' => 'Booking records are preserved for history. Use rejected or cancelled status instead.'
+    ], 405);
 }
 
 function getDashboardStats(Database $db): void
@@ -442,7 +482,7 @@ function getPublicCalendarBookings(Database $db): void
          FROM bookings b
          LEFT JOIN facilities f ON b.facility_id = f.id
          WHERE b.booking_date BETWEEN ? AND ?
-           AND b.status IN ('unpaid', 'pending', 'approved')
+           AND b.status IN ('pending', 'approved')
          ORDER BY b.booking_date ASC, b.start_time ASC",
         [$start, $end]
     );
@@ -461,5 +501,76 @@ function getPublicCalendarBookings(Database $db): void
     }, $rows);
 
     jsonResponse(['success' => true, 'data' => $bookings]);
+}
+
+function hasBlockingBookingConflict(
+    Database $db,
+    int $facilityId,
+    string $bookingDate,
+    string $startTime,
+    ?string $endTime,
+    string $duration = '1',
+    ?int $excludeBookingId = null
+): bool {
+    $sql = "SELECT id, start_time, end_time, duration
+            FROM bookings
+            WHERE facility_id = ?
+              AND booking_date = ?
+              AND status IN ('pending', 'approved')";
+    $params = [$facilityId, $bookingDate];
+
+    if ($excludeBookingId !== null) {
+        $sql .= ' AND id <> ?';
+        $params[] = $excludeBookingId;
+    }
+
+    $requestedStart = bookingTimeToMinutes($startTime);
+    $requestedEnd = bookingEndToMinutes($startTime, $endTime, $duration);
+    if ($requestedStart === null || $requestedEnd === null || $requestedEnd <= $requestedStart) {
+        return false;
+    }
+
+    foreach ($db->fetchAll($sql, $params) as $booking) {
+        $existingStart = bookingTimeToMinutes((string)$booking['start_time']);
+        $existingEnd = bookingEndToMinutes(
+            (string)$booking['start_time'],
+            $booking['end_time'] ? (string)$booking['end_time'] : null,
+            (string)($booking['duration'] ?? '1')
+        );
+
+        if ($existingStart === null || $existingEnd === null || $existingEnd <= $existingStart) {
+            continue;
+        }
+
+        if ($requestedStart < $existingEnd && $requestedEnd > $existingStart) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function bookingTimeToMinutes(string $time): ?int
+{
+    if (!preg_match('/^(\d{2}):(\d{2})/', $time, $matches)) {
+        return null;
+    }
+    return ((int)$matches[1] * 60) + (int)$matches[2];
+}
+
+function bookingEndToMinutes(string $startTime, ?string $endTime, string $duration): ?int
+{
+    $end = $endTime ? bookingTimeToMinutes($endTime) : null;
+    if ($end !== null) {
+        return $end;
+    }
+
+    $start = bookingTimeToMinutes($startTime);
+    if ($start === null) {
+        return null;
+    }
+
+    $durationMap = ['1' => 60, '2' => 120, '3' => 180, '4' => 240, 'halfday' => 240, 'fullday' => 480];
+    return $start + ($durationMap[$duration] ?? 60);
 }
 ?>

@@ -78,7 +78,7 @@
   max-width: 560px;
   align-items: center;
 }
-.stat-num { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 700; color: var(--gold); }
+.stat-num { font-family: var(--display-font); font-size: 36px; font-weight: 900; color: var(--gold); }
 .stat-label { font-size: 12px; color: var(--grey-4); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; font-weight: 600; }
 
 .hero-calendar-wrap {
@@ -148,7 +148,7 @@
 }
 
 .hero-info-value {
-  font-family: 'Syne', sans-serif;
+  font-family: var(--display-font);
   font-size: 34px;
   font-weight: 800;
   color: var(--gold);
@@ -363,11 +363,11 @@
   font-size: 22px; margin-bottom: 20px; color: var(--gold);
 }
 
-.facility-name { font-family: 'DM Sans', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 0; margin-bottom: 8px; color: var(--text-main); }
+.facility-name { font-family: var(--display-font); font-size: 20px; font-weight: 900; letter-spacing: 0; margin-bottom: 8px; color: var(--text-main); }
 .facility-desc { font-size: 13px; color: var(--grey-4); line-height: 1.6; margin-bottom: 20px; }
 .facility-meta { display: flex; gap: 16px; align-items: center; }
 .facility-cap { font-size: 12px; color: var(--grey-4); font-weight: 500; }
-.facility-cap span { color: var(--text-main); font-weight: 700; }
+.facility-cap span { color: var(--text-main); font-family: var(--display-font); font-weight: 900; }
 
 .status-badge {
   display: inline-flex; align-items: center; gap: 6px;

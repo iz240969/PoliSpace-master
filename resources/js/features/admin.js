@@ -51,7 +51,10 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
     return;
   }
 
-  tbody.innerHTML = bookings.map((b) => `
+  tbody.innerHTML = bookings.map((b) => {
+    const canApprove = b.status === 'pending';
+    const canReject = ['unpaid', 'pending', 'approved'].includes(b.status);
+    return `
     <tr>
       <td><div class="booking-id">${escapeHtml(b.id)}</div></td>
       <td><div class="tenant-name">${escapeHtml(b.name)}</div><div class="tenant-org">${escapeHtml(b.org || '')}</div></td>
@@ -59,9 +62,10 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
       <td>${formatDate(b.date)}</td>
       ${!isRecent ? `<td>${escapeHtml(b.start)} - ${escapeHtml(b.end || '?')}</td>` : ''}
       <td>${statusBadgeHtml(b.status)}</td>
-      <td><div class="table-actions"><button class="btn btn-secondary btn-sm" onclick="viewBookingDetail('${escapeAttr(b.id)}')">Lihat</button>${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="approveBooking('${escapeAttr(b.id)}')"><i class="bi bi-check-lg"></i></button><button class="btn btn-danger btn-sm" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i></button>` : ''}</div></td>
+      <td><div class="table-actions"><button class="btn btn-secondary btn-sm" onclick="viewBookingDetail('${escapeAttr(b.id)}')">Lihat</button>${canApprove ? `<button class="btn btn-success btn-sm" onclick="approveBooking('${escapeAttr(b.id)}')" title="Luluskan"><i class="bi bi-check-lg"></i></button>` : ''}${canReject ? `<button class="btn btn-danger btn-sm" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}</div></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function filterBookings(filter, btn) {
@@ -275,7 +279,7 @@ async function viewBookingDetail(id) {
   document.getElementById('modalBody').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding:16px;background:var(--surface-3);border-radius:8px">
       <div style="font-size:32px;color:var(--gold)">${booking.facilityIcon || ''}</div>
-      <div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">${escapeHtml(booking.facilityName)}</div><div style="font-size:12px;color:var(--grey-4);margin-top:2px">${formatDate(booking.date)}</div></div>
+      <div><div style="font-family:var(--display-font);font-size:16px;font-weight:900">${escapeHtml(booking.facilityName)}</div><div style="font-size:12px;color:var(--grey-4);margin-top:2px">${formatDate(booking.date)}</div></div>
       <div style="margin-left:auto">${statusBadgeHtml(booking.status)}</div>
     </div>
     <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
@@ -284,12 +288,29 @@ async function viewBookingDetail(id) {
     <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
-    ${booking.status === 'pending' ? '<div style="margin-top:20px"><label>Nota (pilihan)</label><textarea id="modalNote" style="min-height:80px"></textarea></div>' : ''}
+    ${['unpaid', 'pending', 'approved'].includes(booking.status) ? rejectNoteHtml(booking.status, booking.adminNote) : ''}
   `;
   document.getElementById('modalFooter').innerHTML = booking.status === 'pending'
     ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> Luluskan</button>`
+    : ['unpaid', 'approved'].includes(booking.status)
+      ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak Tempahan</button>`
     : `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
   document.getElementById('bookingModal')?.classList.add('active');
+}
+
+function rejectNoteHtml(status, currentNote = '') {
+  const helper = status === 'approved'
+    ? 'Tempahan ini sudah diluluskan / dibayar. Nyatakan sebab tarikh tersebut tidak dapat diberikan kepada pengguna.'
+    : status === 'unpaid'
+      ? 'Tempahan ini belum dibayar dan belum mengunci slot. Nyatakan sebab borang/permohonan ini ditolak.'
+      : 'Nyatakan sebab permohonan ini ditolak.';
+  return `
+    <div class="admin-reject-note">
+      <label>Sebab Penolakan *</label>
+      <textarea id="modalNote" style="min-height:96px" placeholder="cth: Fasiliti perlu digunakan untuk program rasmi pada tarikh tersebut.">${escapeHtml(currentNote || '')}</textarea>
+      <div class="admin-note-help">${helper}</div>
+    </div>
+  `;
 }
 
 async function updateStatus(id, status, note = '') {
@@ -327,7 +348,13 @@ function rejectBookingPrompt(id) {
 }
 
 async function rejectBookingFromModal(id) {
-  await updateStatus(id, 'rejected', document.getElementById('modalNote')?.value || 'Ditolak.');
+  const note = document.getElementById('modalNote')?.value.trim() || '';
+  if (!note) {
+    showToast('Sila masukkan sebab penolakan.', 'error');
+    document.getElementById('modalNote')?.focus();
+    return;
+  }
+  await updateStatus(id, 'rejected', note);
   closeModal('bookingModal');
   showToast('Ditolak', 'error');
 }

@@ -14,13 +14,14 @@ nav {
 }
 
 .nav-logo { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.nav-logo-static { cursor: default; }
 .nav-logo-mark {
   width: 36px; height: 36px;
   background: var(--gold-light);
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   display: flex; align-items: center; justify-content: center;
 }
-.nav-logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+.nav-logo-text { font-family: var(--display-font); font-weight: 900; font-size: 18px; letter-spacing: -0.5px; }
 .nav-logo-sub { font-size: 10px; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; margin-top: -2px; }
 
 .nav-links {

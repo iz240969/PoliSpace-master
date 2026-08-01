@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PoliSpace - Admin Portal</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260718-split-assets">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260801-responsive">
 </head>
 <body>
   <nav id="main-nav">
-    <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
+    <div class="nav-logo nav-logo-static">
       <div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div></div>
     </div>
     <div class="nav-links"><span style="color:var(--gold);font-size:12px;text-transform:uppercase;">Admin Mode</span></div>
@@ -32,7 +32,7 @@
 
       <div class="admin-content">
         <div class="admin-panel active" id="panel-dashboard">
-          <h2 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:8px">Dashboard</h2>
+          <h2 style="font-family:var(--display-font);font-size:28px;font-weight:900;margin-bottom:8px">Dashboard</h2>
           <p style="color:var(--grey-4);font-size:13px;margin-bottom:32px" id="dashDate"></p>
           <div class="stats-grid" id="adminStats"></div>
           <div class="admin-card">
@@ -40,16 +40,16 @@
               <div class="admin-card-title">Tempahan Terbaru</div>
               <button class="btn btn-ghost btn-sm" onclick="showAdminPanel('bookings', document.querySelectorAll('.admin-menu-item')[1])">Lihat Semua <i class="bi bi-arrow-right"></i></button>
             </div>
-            <table class="data-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="recentBookingsTbody"></tbody></table>
+            <div class="data-table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="recentBookingsTbody"></tbody></table></div>
           </div>
         </div>
 
         <div class="admin-panel" id="panel-bookings">
           <div style="display:flex;justify-content:space-between;margin-bottom:32px;">
             <h2>Pengurusan Tempahan</h2>
-            <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('unpaid', this)">Belum Bayar</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
+            <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('unpaid', this)">Belum Bayar</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
           </div>
-          <div class="admin-card"><table class="data-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div>
+          <div class="admin-card"><div class="data-table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div></div>
         </div>
 
         <div class="admin-panel" id="panel-clients">
@@ -58,10 +58,10 @@
             <button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
           </div>
           <div class="admin-card">
-            <table class="data-table">
+            <div class="data-table-wrap"><table class="data-table">
               <thead><tr><th>E-mel</th><th>No Telefon</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
               <tbody id="clientsTbody"></tbody>
-            </table>
+            </table></div>
           </div>
         </div>
 
@@ -86,7 +86,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260731-protected-nav"></script>
+  <script src="/resources/js/script.js?v=20260801-session-nav"></script>
 </body>
 </html>
 

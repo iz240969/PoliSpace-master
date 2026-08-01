@@ -15,6 +15,58 @@ function facilityIconHtml(facility) {
   return `<i class="bi ${escapeAttr(facility.icon)}"></i>`;
 }
 
+function facilityCapacityLabel(facility) {
+  const capacity = Number(facility.capacity || 0);
+  const name = String(facility.name || '').toLowerCase();
+  if (name.includes('asrama')) return `${capacity} orang - 1 bilik`;
+  return `${capacity} orang`;
+}
+
+function isBlockingBookingStatus(status) {
+  return ['pending', 'approved'].includes(status);
+}
+
+function bookingTimeToMinutes(time) {
+  const parts = String(time || '').split(':').map(Number);
+  if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return null;
+  return parts[0] * 60 + parts[1];
+}
+
+function bookingEndToMinutes(start, end, duration = '1') {
+  const endMinutes = bookingTimeToMinutes(end);
+  if (endMinutes !== null) return endMinutes;
+
+  const startMinutes = bookingTimeToMinutes(start);
+  if (startMinutes === null) return null;
+
+  const durationMap = { '1': 60, '2': 120, '3': 180, '4': 240, halfday: 240, fullday: 480 };
+  return startMinutes + (durationMap[duration] || 60);
+}
+
+function bookingsOverlap(aStart, aEnd, bStart, bEnd) {
+  return aStart < bEnd && aEnd > bStart;
+}
+
+function hasLocalBlockingConflict(data, excludeId = '') {
+  const requestedStart = bookingTimeToMinutes(data.start_time || data.start);
+  const requestedEnd = bookingEndToMinutes(data.start_time || data.start, data.end_time || data.end, data.duration);
+  if (requestedStart === null || requestedEnd === null || requestedEnd <= requestedStart) return false;
+
+  return getBookings().some((booking) => {
+    const bookingId = booking.id || booking.booking_ref || '';
+    if (excludeId && String(bookingId) === String(excludeId)) return false;
+    if (!isBlockingBookingStatus(booking.status)) return false;
+    if (String(booking.facilityId || booking.facility_id) !== String(data.facility_id || data.facilityId)) return false;
+    if (String(booking.date || booking.booking_date) !== String(data.booking_date || data.date)) return false;
+
+    const existingStart = bookingTimeToMinutes(booking.start || booking.start_time);
+    const existingEnd = bookingEndToMinutes(booking.start || booking.start_time, booking.end || booking.end_time, booking.duration);
+    if (existingStart === null || existingEnd === null || existingEnd <= existingStart) return false;
+
+    return bookingsOverlap(requestedStart, requestedEnd, existingStart, existingEnd);
+  });
+}
+
 async function renderFacilities() {
   const grid = document.getElementById('facilitiesGrid');
   if (!grid) return;
@@ -28,7 +80,7 @@ async function renderFacilities() {
       <div class="facility-name">${escapeHtml(f.name)}</div>
       <div class="facility-desc">${escapeHtml(f.description)}</div>
       <div class="facility-meta">
-        <div class="facility-cap">Kapasiti: <span>${f.capacity} orang</span></div>
+        <div class="facility-cap">Kapasiti: <span>${escapeHtml(facilityCapacityLabel(f))}</span></div>
         <div class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}">
           ${f.is_available ? '<i class="bi bi-check-circle"></i> Tersedia' : '<i class="bi bi-x-circle"></i> Ditempah'}
         </div>
@@ -59,7 +111,7 @@ async function loadPublicCalendarBookings(year, month) {
     const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
     return getBookings()
       .filter((b) => (b.date || '').startsWith(monthPrefix))
-      .filter((b) => ['unpaid', 'pending', 'approved'].includes(b.status))
+      .filter((b) => isBlockingBookingStatus(b.status))
       .map((b) => ({
         id: b.id || b.booking_ref,
         facilityId: b.facilityId || b.facility_id || '',
@@ -281,7 +333,7 @@ async function renderBookingDatePicker() {
   const selectedDate = document.getElementById('f-date')?.value || '';
   const selectedFacilityId = document.getElementById('f-facility')?.value || '';
   const bookings = await loadPublicCalendarBookings(year, displayMonth);
-  const bookedDates = new Set(
+    const bookedDates = new Set(
     bookings
       .filter((booking) => selectedFacilityId && String(booking.facilityId) === String(selectedFacilityId))
       .map((booking) => booking.date)
@@ -319,7 +371,7 @@ async function renderBookingDatePicker() {
       isBooked ? 'is-booked' : 'is-available',
       isSelected ? 'is-selected' : '',
     ].filter(Boolean).join(' ');
-    const disabled = isPast || isBooked;
+    const disabled = isPast;
     html += `<button type="button" class="${classes}" ${disabled ? 'disabled' : ''} onclick="selectBookingDate('${date}')">${day}</button>`;
   }
 

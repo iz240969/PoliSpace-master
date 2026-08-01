@@ -110,10 +110,13 @@ async function submitBooking() {
 
   const receiptInput = document.getElementById('f-receipt');
   const receiptFile = receiptInput?.files?.[0] || null;
+  const accountEmail = psAuthState.role === 'user'
+    ? (psAuthState.user?.email || localStorage.getItem('ps_user_email') || '')
+    : '';
   const data = {
     full_name: document.getElementById('f-name')?.value.trim() || '',
     organization: '',
-    email: document.getElementById('f-email')?.value.trim() || '',
+    email: accountEmail || document.getElementById('f-email')?.value.trim() || '',
     phone: document.getElementById('f-phone')?.value.trim() || '',
     facility_id: document.getElementById('f-facility')?.value || '',
     booking_date: document.getElementById('f-date')?.value || '',
@@ -154,6 +157,10 @@ async function submitBooking() {
     }
 
     apiOnline = false;
+    if (receiptFile && hasLocalBlockingConflict(data)) {
+      showToast('Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.', 'error');
+      return;
+    }
     const facility = getSelectedFacility();
     const id = generateId();
     const booking = {
@@ -194,12 +201,15 @@ async function initBookingPage() {
   const phoneEl = document.getElementById('f-phone');
   const storedEmail = localStorage.getItem('ps_user_email') || '';
 
-  if (emailEl && storedEmail) {
-    emailEl.value = storedEmail;
+  if (emailEl) {
+    emailEl.readOnly = true;
+    emailEl.value = psAuthState.role === 'user'
+      ? (psAuthState.user?.email || storedEmail)
+      : storedEmail;
   }
 
   try {
-    const result = await getCurrentUser();
+    const result = psAuthState.checked ? psAuthState : await getCurrentUser();
     const user = result.user || {};
     if (emailEl) emailEl.value = user.email || storedEmail;
     if (nameEl && user.name) nameEl.value = user.name;

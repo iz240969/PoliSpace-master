@@ -43,7 +43,7 @@ App startup logic           resources/js/core/init.js
 
 ```text
 backend/api/auth.php        Role-aware login, client signup, session check, logout
-backend/api/bookings.php    Booking create/list/status/edit/cancel/delete/calendar
+backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar; DELETE is disabled
 backend/api/facilities.php  Facility list and admin availability update
 backend/api/messages.php    Contact admin messages
 backend/api/users.php       Admin customer list/detail/password reset
@@ -55,6 +55,36 @@ backend/api/users.php       Admin customer list/detail/password reset
 .env                        Database settings
 backend/config.php          Loads .env and starts PHP session
 backend/db.php              Creates the PDO database connection
+```
+
+## Booking Rules
+
+```text
+Only pending and approved bookings block facility/date/time availability.
+Unpaid, rejected, and cancelled bookings remain as history but do not block availability.
+Admin can reject unpaid, pending, and approved bookings.
+Users can cancel unpaid and pending bookings.
+Booking deletion is intentionally disabled in the API.
+```
+
+Useful places for these rules:
+
+```text
+Backend conflict checks      backend/api/bookings.php
+Public calendar filtering    backend/api/bookings.php, resources/js/features/facilities.js
+Receipt upload behavior      backend/api/bookings.php, resources/js/features/dashboard.js
+Admin reject UI              resources/js/features/admin.js
+Status label rendering       resources/js/core/helpers.js
+```
+
+## Current UI Touchpoints
+
+```text
+Locked booking account email resources/views/booking/index.html, resources/js/features/booking.js
+Client booking table         resources/js/features/dashboard.js, resources/css/pages/dashboard.css
+Admin booking table          resources/views/admin/dashboard.html, resources/css/components/admin.css
+Facility card typography     resources/css/pages/landing.css
+Static admin logo            resources/views/admin/dashboard.html, resources/css/components/navigation.css
 ```
 
 ## After Editing

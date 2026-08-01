@@ -2,9 +2,11 @@
 async function init() {
   ensureFallbackSeed();
   setupNavigationAccess();
+  await refreshAuthState();
+  setupNavigationAccess();
   protectLoggedInPages();
 
-  if (document.getElementById('admin') && localStorage.getItem('ps_admin_logged_in') !== '1') {
+  if (document.getElementById('admin') && !isAdminLoggedIn()) {
     window.location.href = ROUTES.login;
     return;
   }

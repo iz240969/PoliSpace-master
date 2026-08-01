@@ -14,7 +14,7 @@ Root HTML files are compatibility redirects. The maintained pages live in `resou
 
 ## Documentation
 
-- [Code Map](CODE_MAP.md)
+- [Code Map](documentation/CODE_MAP.md)
 - [Project Documentation](documentation/README.md)
 - [Developer Handoff](documentation/HANDOFF.md)
 
@@ -43,3 +43,24 @@ Update an existing database without dropping current data:
 ```powershell
 mysql -u root -p < database/update_polspace.sql
 ```
+
+## Current Booking Rules
+
+PoliSpace keeps all booking records for history. Bookings are never permanently deleted by the API.
+
+Only these statuses block facility availability:
+
+```text
+pending   = Menunggu
+approved  = Diluluskan
+```
+
+These statuses do not block availability:
+
+```text
+unpaid     = Belum Bayar
+rejected   = Ditolak
+cancelled  = Dibatalkan
+```
+
+An unpaid booking does not reserve the slot. The slot is secured only when a receipt is uploaded and the booking becomes `pending`, unless another `pending` or `approved` booking already overlaps the same facility/date/time.

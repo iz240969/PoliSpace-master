@@ -1,4 +1,9 @@
 @media (max-width: 1120px) {
+  nav {
+    padding: 14px 28px;
+    grid-template-columns: auto 1fr auto;
+  }
+
   .hero-title {
     font-size: 72px;
   }
@@ -18,19 +23,51 @@
     margin-top: 48px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .booking-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    max-width: 860px;
+  }
+
+  .booking-sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .sidebar-card {
+    margin-bottom: 0;
+  }
+
+  .dash-actions {
+    grid-template-columns: repeat(2, minmax(0, 280px));
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
   nav {
     padding: 14px 18px;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
   }
 
   .nav-logo { display: none; }
-  .nav-links { justify-content: flex-start; overflow-x: auto; }
+  .nav-links {
+    justify-content: flex-start;
+    overflow-x: auto;
+    min-width: 0;
+    scrollbar-width: none;
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
   .nav-link { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
   .btn-nav-admin { padding: 8px 12px; }
+  .nav-actions { min-width: 42px; }
   .account-dropdown {
     right: -4px;
     min-width: 176px;
@@ -58,4 +95,277 @@
   .landing-calendar-blank { min-height: 42px; }
   .section { padding: 56px 18px; }
   .section-header { align-items: flex-start; gap: 20px; flex-direction: column; }
+
+  .hero-actions,
+  .success-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hero-actions .btn,
+  .success-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .facilities-grid,
+  .facility-manage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #booking,
+  #dashboard,
+  #status {
+    padding-top: 82px;
+  }
+
+  .booking-layout,
+  .status-page-content {
+    padding: 36px 18px;
+  }
+
+  .booking-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid,
+  .contact-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group.span-2 {
+    grid-column: auto;
+  }
+
+  .page-title {
+    font-size: 32px;
+    letter-spacing: 0;
+  }
+
+  .page-subtitle {
+    margin-bottom: 32px;
+  }
+
+  .form-section {
+    margin-bottom: 30px;
+    padding-bottom: 30px;
+  }
+
+  .upload-zone {
+    padding: 28px 18px;
+  }
+
+  .booking-date-picker,
+  .time-picker-popover {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+
+  .time-clock-face {
+    width: 220px;
+    height: 220px;
+  }
+
+  .time-clock-number {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-84px) rotate(calc(-1 * var(--angle)));
+  }
+
+  .dash-hero,
+  .dash-section {
+    margin-left: 18px;
+    margin-right: 18px;
+    padding: 28px 20px;
+  }
+
+  .dash-hero h1 {
+    font-size: 32px;
+    letter-spacing: 0;
+  }
+
+  .dash-section-header,
+  .modal-footer,
+  .confirm-modal .modal-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dash-section-header .btn,
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-card {
+    overflow-x: auto;
+  }
+
+  .modal-overlay {
+    padding: 16px;
+  }
+
+  .modal {
+    max-height: calc(100vh - 32px);
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .admin-layout {
+    padding-top: 82px;
+  }
+}
+
+@media (max-width: 560px) {
+  nav {
+    padding: 10px 12px;
+  }
+
+  .nav-link {
+    padding: 7px 8px;
+    font-size: 10px;
+  }
+
+  .btn-nav-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .hero {
+    padding: 94px 14px 40px;
+  }
+
+  .hero-title {
+    font-size: 40px;
+  }
+
+  .hero-sub {
+    font-size: 14px;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .stat-item {
+    width: 100%;
+  }
+
+  .hero-calendar-card,
+  .landing-calendar-panel {
+    padding: 12px;
+  }
+
+  .section {
+    padding: 44px 14px;
+  }
+
+  .section-title {
+    font-size: 28px;
+  }
+
+  .booking-layout,
+  .status-page-content {
+    padding: 28px 14px;
+  }
+
+  .sidebar-card,
+  .dash-hero,
+  .dash-section,
+  .dash-bookings-card {
+    border-radius: var(--radius);
+  }
+
+  .sidebar-card {
+    padding: 20px;
+  }
+
+  .dash-hero,
+  .dash-section {
+    margin-left: 14px;
+    margin-right: 14px;
+    padding: 24px 16px;
+  }
+
+  .dash-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-action-card {
+    min-height: 132px;
+    padding: 20px;
+  }
+
+  .user-booking-summary {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .booking-row-actions {
+    justify-content: stretch;
+  }
+
+  .booking-row-actions .btn,
+  .booking-row-actions .btn-cancel {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .login-card,
+  .unified-login-card {
+    width: 100%;
+    padding: 28px 18px;
+  }
+
+  .admin-content {
+    padding: 20px 14px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toast-container {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .toast {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero-title {
+    font-size: 34px;
+  }
+
+  .page-title,
+  .dash-hero h1 {
+    font-size: 28px;
+  }
+
+  input,
+  select,
+  textarea {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .time-clock-face {
+    width: 196px;
+    height: 196px;
+  }
+
+  .time-clock-number {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-74px) rotate(calc(-1 * var(--angle)));
+  }
 }
