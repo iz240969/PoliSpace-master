@@ -140,6 +140,52 @@ if ($action === 'me') {
     jsonResponse(['success' => false, 'error' => 'Login required'], 401);
 }
 
+if ($action === 'profile') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
+        jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);
+    }
+
+    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+    if ($userId <= 0) {
+        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    }
+
+    $fullName = trim((string)($input['full_name'] ?? ''));
+    $phone = trim((string)($input['phone'] ?? ''));
+
+    if (strlen($fullName) < 2 || strlen($fullName) > 100) {
+        jsonResponse(['success' => false, 'error' => 'Full name must contain between 2 and 100 characters'], 400);
+    }
+
+    if ($phone !== '' && (strlen($phone) < 7 || strlen($phone) > 20 || !preg_match('/^[0-9+()\-\s]+$/', $phone))) {
+        jsonResponse(['success' => false, 'error' => 'Valid phone number required'], 400);
+    }
+
+    $db->update(
+        "UPDATE users SET full_name = ?, phone = ? WHERE id = ? AND role = 'user'",
+        [$fullName, $phone !== '' ? $phone : null, $userId]
+    );
+
+    $user = $db->fetchOne(
+        "SELECT id, email, full_name, phone FROM users WHERE id = ? AND role = 'user'",
+        [$userId]
+    );
+    if (!$user) {
+        jsonResponse(['success' => false, 'error' => 'User account not found'], 404);
+    }
+
+    jsonResponse([
+        'success' => true,
+        'message' => 'Profile updated',
+        'user' => [
+            'id' => (int)$user['id'],
+            'email' => $user['email'],
+            'name' => $user['full_name'],
+            'phone' => $user['phone'],
+        ],
+    ]);
+}
+
 if ($action === 'login') {
     $email = trim((string)($input['email'] ?? ''));
     $password = (string)($input['password'] ?? '');

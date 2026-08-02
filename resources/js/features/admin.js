@@ -47,7 +47,8 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   if (!bookings.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-inbox"></i></div><div class="empty-state-title">Tiada Tempahan</div></div></td></tr>`;
+    const columnCount = isRecent ? 6 : 7;
+    tbody.innerHTML = `<tr><td colspan="${columnCount}"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-inbox"></i></div><div class="empty-state-title">Tiada Tempahan</div></div></td></tr>`;
     return;
   }
 
@@ -56,13 +57,13 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
     const canReject = ['unpaid', 'pending', 'approved'].includes(b.status);
     return `
     <tr>
-      <td><div class="booking-id">${escapeHtml(b.id)}</div></td>
-      <td><div class="tenant-name">${escapeHtml(b.name)}</div><div class="tenant-org">${escapeHtml(b.org || '')}</div></td>
-      <td><span style="display:flex;align-items:center;gap:6px">${b.facilityIcon || ''} ${escapeHtml(b.facilityName)}</span></td>
-      <td>${formatDate(b.date)}</td>
-      ${!isRecent ? `<td>${escapeHtml(b.start)} - ${escapeHtml(b.end || '?')}</td>` : ''}
-      <td>${statusBadgeHtml(b.status)}</td>
-      <td><div class="table-actions"><button class="btn btn-secondary btn-sm" onclick="viewBookingDetail('${escapeAttr(b.id)}')">Lihat</button>${canApprove ? `<button class="btn btn-success btn-sm" onclick="approveBooking('${escapeAttr(b.id)}')" title="Luluskan"><i class="bi bi-check-lg"></i></button>` : ''}${canReject ? `<button class="btn btn-danger btn-sm" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}</div></td>
+      <td><div class="booking-id" title="${escapeAttr(b.id)}">${escapeHtml(b.id)}</div></td>
+      <td><div class="tenant-name">${escapeHtml(b.name)}</div>${b.org ? `<div class="tenant-org">${escapeHtml(b.org)}</div>` : ''}</td>
+      <td><span class="table-facility">${b.facilityIcon || ''}<span>${escapeHtml(b.facilityName)}</span></span></td>
+      <td class="table-date">${formatDate(b.date)}</td>
+      ${!isRecent ? `<td class="table-time">${escapeHtml(b.start)} - ${escapeHtml(b.end || '?')}</td>` : ''}
+      <td class="table-status">${statusBadgeHtml(b.status)}</td>
+      <td><div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(b.id)}')" title="Terima tempahan" aria-label="Terima tempahan ${escapeAttr(b.id)}"><i class="bi bi-check-lg"></i> Terima</button>` : ''}${canReject ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(b.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(b.id)}"><i class="bi bi-eye"></i></button></div></td>
     </tr>
   `;
   }).join('');
@@ -132,12 +133,12 @@ function renderClientsTable(clients) {
 
   tbody.innerHTML = clients.map((client) => `
     <tr>
-      <td>${escapeHtml(client.email)}</td>
-      <td>${escapeHtml(client.phone || '-')}</td>
-      <td><span class="status-badge status-pending">${Number(client.booking_count || 0)} tempahan</span></td>
+      <td><span class="table-email" title="${escapeAttr(client.email)}">${escapeHtml(client.email)}</span></td>
+      <td class="table-phone">${escapeHtml(client.phone || '-')}</td>
+      <td class="table-status"><span class="status-badge status-pending">${Number(client.booking_count || 0)} tempahan</span></td>
       <td>
         <div class="table-actions">
-          <button class="btn btn-secondary btn-sm" onclick="viewClientDetail(${Number(client.id)})"><i class="bi bi-eye"></i> Lihat</button>
+          <button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewClientDetail(${Number(client.id)})" title="Lihat pelanggan" aria-label="Lihat pelanggan ${escapeAttr(client.email)}"><i class="bi bi-eye"></i></button>
         </div>
       </td>
     </tr>
@@ -160,7 +161,7 @@ async function viewClientDetail(id) {
         <div class="admin-card-title" style="margin-bottom:12px">Tempahan Pelanggan</div>
         ${bookings.length ? `
           <div style="overflow-x:auto">
-            <table class="data-table">
+            <table class="data-table admin-client-bookings-table">
               <thead><tr><th>Rujukan</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th></tr></thead>
               <tbody>${bookings.map((booking) => `
                 <tr>

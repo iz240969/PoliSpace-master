@@ -22,7 +22,8 @@ async function init() {
   const startEl = document.getElementById('f-start');
   if (startEl) {
     startEl.addEventListener('change', updateEndTime);
-    document.getElementById('f-duration')?.addEventListener('change', () => { updateEndTime(); updatePricing(); });
+    document.getElementById('f-duration')?.addEventListener('input', () => { updateEndTime(); updatePricing(); });
+    document.getElementById('f-duration')?.addEventListener('blur', () => normalizeDurationInput());
     document.getElementById('f-facility')?.addEventListener('change', updateFacilityInfo);
     document.getElementById('f-date')?.addEventListener('change', renderBookingDatePicker);
     document.getElementById('f-receipt')?.addEventListener('change', updateReceiptPreview);

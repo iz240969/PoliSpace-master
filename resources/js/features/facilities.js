@@ -39,8 +39,7 @@ function bookingEndToMinutes(start, end, duration = '1') {
   const startMinutes = bookingTimeToMinutes(start);
   if (startMinutes === null) return null;
 
-  const durationMap = { '1': 60, '2': 120, '3': 180, '4': 240, halfday: 240, fullday: 480 };
-  return startMinutes + (durationMap[duration] || 60);
+  return startMinutes + durationToMinutes(duration);
 }
 
 function bookingsOverlap(aStart, aEnd, bStart, bEnd) {

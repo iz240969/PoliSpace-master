@@ -122,9 +122,10 @@ function renderUserBookings(bookings, container, totalCount = bookings.length) {
               <td>${statusBadgeHtml(b.status)}</td>
               <td>
                 <div class="booking-row-actions">
-                  <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
                   ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
-                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button><button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
+                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
+                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button>` : ''}
+                  <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
                 </div>
               </td>
             </tr>
@@ -237,9 +238,14 @@ async function openEditBookingModal(id) {
         </div>
         <div class="form-group">
           <label>Tempoh Penggunaan</label>
-          <select id="edit-booking-duration">
-            ${bookingDurationOptions(booking.duration)}
-          </select>
+          <div class="duration-field">
+            <div class="duration-input-wrap" role="group" aria-label="Tempoh penggunaan dalam jam">
+              <button type="button" class="duration-step-button" onclick="adjustDuration(-1, 'edit-booking-duration')" aria-label="Kurangkan tempoh penggunaan"><i class="bi bi-dash-lg"></i></button>
+              <input type="number" id="edit-booking-duration" min="1" step="1" value="${escapeAttr(durationInputValue(booking.duration || '1'))}" inputmode="numeric" aria-label="Tempoh penggunaan dalam jam">
+              <span class="duration-unit">Jam</span>
+              <button type="button" class="duration-step-button" onclick="adjustDuration(1, 'edit-booking-duration')" aria-label="Tambah tempoh penggunaan"><i class="bi bi-plus-lg"></i></button>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label>Masa Mula *</label>
@@ -255,7 +261,19 @@ async function openEditBookingModal(id) {
         </div>
         <div class="form-group span-2">
           <label>Peralatan Diperlukan</label>
-          <select id="edit-booking-equipment">${equipmentOptions(booking.equipment || '')}</select>
+          <div class="equipment-field">
+            <input type="hidden" id="edit-booking-equipment" value="${escapeAttr(booking.equipment || '')}">
+            <div class="equipment-add-row">
+              <div class="equipment-select-wrap">
+                <select id="editEquipmentAddSelect" aria-label="Pilih peralatan"></select>
+                <i class="bi bi-chevron-down"></i>
+              </div>
+              <button type="button" class="equipment-add-button" onclick="addEquipmentItem('edit-booking-equipment', 'editEquipmentAddSelect', 'editEquipmentList')" aria-label="Tambah peralatan">
+                <i class="bi bi-plus-lg"></i> Tambah
+              </button>
+            </div>
+            <div class="equipment-list" id="editEquipmentList"></div>
+          </div>
         </div>
         <div class="form-group">
           <label>Jumlah Pengguna</label>
@@ -277,22 +295,12 @@ async function openEditBookingModal(id) {
     const dateEl = document.getElementById('edit-booking-date');
     if (dateEl) dateEl.min = minDate;
     document.getElementById('edit-booking-start')?.addEventListener('change', updateEditEndTime);
-    document.getElementById('edit-booking-duration')?.addEventListener('change', updateEditEndTime);
+    document.getElementById('edit-booking-duration')?.addEventListener('input', updateEditEndTime);
+    document.getElementById('edit-booking-duration')?.addEventListener('blur', () => normalizeDurationInput('edit-booking-duration'));
+    initializeEquipmentField(booking.equipment || '', 'edit-booking-equipment', 'editEquipmentAddSelect', 'editEquipmentList');
   } catch (error) {
     showToast(error.message || 'Borang edit gagal dimuatkan.', 'error');
   }
-}
-
-function bookingDurationOptions(currentDuration) {
-  const options = [
-    ['1', '1 Jam'],
-    ['2', '2 Jam'],
-    ['3', '3 Jam'],
-    ['4', '4 Jam'],
-    ['halfday', 'Setengah Hari'],
-    ['fullday', 'Sehari Penuh'],
-  ];
-  return options.map(([value, label]) => `<option value="${value}" ${String(currentDuration || '1') === value ? 'selected' : ''}>${label}</option>`).join('');
 }
 
 function updateEditEndTime() {
@@ -301,13 +309,14 @@ function updateEditEndTime() {
   const endEl = document.getElementById('edit-booking-end');
   if (!start || !endEl) return;
 
-  const durationMap = { '1': 60, '2': 120, '3': 180, '4': 240, halfday: 240, fullday: 480 };
   const [hours, mins] = start.split(':').map(Number);
-  const total = hours * 60 + mins + (durationMap[duration] || 60);
+  const total = hours * 60 + mins + durationToMinutes(duration);
   endEl.value = `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 async function submitUserBookingEdit(id) {
+  normalizeDurationInput('edit-booking-duration');
+  normalizeEquipmentField('edit-booking-equipment', 'editEquipmentList');
   const data = {
     booking_date: document.getElementById('edit-booking-date')?.value || '',
     duration: document.getElementById('edit-booking-duration')?.value || '1',
@@ -317,9 +326,14 @@ async function submitUserBookingEdit(id) {
     equipment_required: document.getElementById('edit-booking-equipment')?.value.trim() || '',
     participant_count: Number(document.getElementById('edit-booking-participants')?.value || 0),
   };
+  const durationHours = Number.parseFloat(String(data.duration).replace(',', '.'));
 
   if (!data.booking_date || !data.start_time || !data.purpose || !Number.isInteger(data.participant_count) || data.participant_count < 1) {
     showToast('Sila lengkapkan tarikh, masa mula, tujuan dan angka pengguna.', 'error');
+    return;
+  }
+  if (!Number.isInteger(durationHours) || durationHours <= 0) {
+    showToast('Sila masukkan tempoh penggunaan dalam jam penuh.', 'error');
     return;
   }
 

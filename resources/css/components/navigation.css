@@ -40,6 +40,17 @@ nav {
 }
 .nav-link:hover { color: var(--text-main); background: rgba(0,0,0,0.04); }
 .nav-link.active { color: var(--gold); }
+.nav-mode-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
 .nav-link:disabled,
 .nav-link-disabled {
   color: var(--grey-3);
@@ -162,6 +173,25 @@ nav {
 .account-dropdown-item.is-disabled:hover,
 .account-dropdown-item:disabled:hover {
   background: transparent;
+}
+
+.modal.profile-modal {
+  max-width: 520px;
+}
+
+.profile-form {
+  display: grid;
+  gap: 18px;
+}
+
+.profile-form .form-group {
+  margin: 0;
+}
+
+.profile-readonly {
+  background: var(--surface-2);
+  color: var(--grey-4);
+  cursor: not-allowed;
 }
 
 .btn-nav-admin {

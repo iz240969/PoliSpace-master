@@ -13,21 +13,30 @@
 .admin-sidebar {
   width: 240px; flex-shrink: 0; background: var(--surface);
   border-right: 1px solid var(--border); padding: 32px 0;
-  position: sticky; top: 80px; height: calc(100vh - 80px); overflow-y: auto;
+  position: fixed; top: 80px; bottom: 0; left: 0; height: auto; overflow-y: auto;
 }
 .admin-menu-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--grey-3); padding: 0 20px; margin-bottom: 12px; margin-top: 24px; }
 .admin-menu-label:first-child { margin-top: 0; }
 .admin-menu-item {
-  display: flex; align-items: center; gap: 12px; padding: 11px 20px; cursor: pointer;
+  display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 20px; cursor: pointer;
   font-size: 13px; font-weight: 600; color: var(--grey-4);
   transition: var(--transition); border: none; background: none; width: 100%; text-align: left;
   border-left: 3px solid transparent;
 }
+.admin-menu-item .menu-icon {
+  width: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-menu-item .menu-icon i {
+  line-height: 1;
+}
 .admin-menu-item:hover { color: var(--text-main); background: rgba(0,0,0,0.02); }
 .admin-menu-item.active { color: var(--gold); border-left-color: var(--gold); background: var(--gold-dim); }
-.admin-badge { margin-left: auto; background: var(--gold); color: var(--text-inverse); font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 100px; }
+.admin-badge { background: var(--gold); color: var(--text-inverse); font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 100px; }
 
-.admin-content { flex: 1; padding: 40px; overflow: auto; }
+.admin-content { flex: 1; margin-left: 240px; padding: 40px; overflow: auto; }
 .admin-panel { display: none; }
 .admin-panel.active { display: block; }
 
@@ -40,25 +49,156 @@
 .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 24px; box-shadow: var(--shadow-sm); }
 .admin-card-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .admin-card-title { font-family: var(--display-font); font-size: 16px; font-weight: 900; }
+.admin-panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
 
-.data-table-wrap { width: 100%; overflow-x: auto; }
-.data-table { width: 100%; min-width: 960px; border-collapse: collapse; table-layout: fixed; }
-.data-table th:nth-child(1), .data-table td:nth-child(1) { width: 12%; }
-.data-table th:nth-child(2), .data-table td:nth-child(2) { width: 21%; }
-.data-table th:nth-child(3), .data-table td:nth-child(3) { width: 21%; }
-.data-table th:nth-child(4), .data-table td:nth-child(4) { width: 16%; }
-.data-table th:nth-child(5), .data-table td:nth-child(5) { width: 15%; }
-.data-table th:nth-child(6), .data-table td:nth-child(6) { width: 15%; }
-.data-table th { padding: 14px 24px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey-4); border-bottom: 1px solid var(--border); background: var(--surface-2); }
-.data-table td { padding: 16px 24px; font-size: 13px; font-weight: 500; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+.data-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+.data-table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; }
+.data-table th { padding: 14px 18px; text-align: left; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; line-height: 1.3; text-transform: uppercase; color: var(--grey-4); border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.data-table td { height: 72px; padding: 16px 18px; font-size: 13px; font-weight: 600; line-height: 1.4; color: var(--text-main); border-bottom: 1px solid var(--border-light); vertical-align: middle; }
 .data-table td { overflow: hidden; text-overflow: ellipsis; }
 .data-table tbody tr:last-child td { border-bottom: 0; }
-.data-table tr:hover td { background: var(--surface-2); }
+.data-table tbody tr { transition: background-color 0.15s ease; }
+.data-table tbody tr:hover td { background: var(--surface-2); }
+
+.admin-bookings-table {
+  min-width: 1090px;
+}
+
+.admin-bookings-table-recent th:nth-child(1), .admin-bookings-table-recent td:nth-child(1) { width: 150px; }
+.admin-bookings-table-recent th:nth-child(2), .admin-bookings-table-recent td:nth-child(2) { width: 200px; }
+.admin-bookings-table-recent th:nth-child(3), .admin-bookings-table-recent td:nth-child(3) { width: 220px; }
+.admin-bookings-table-recent th:nth-child(4), .admin-bookings-table-recent td:nth-child(4) { width: 140px; }
+.admin-bookings-table-recent th:nth-child(5), .admin-bookings-table-recent td:nth-child(5) { width: 150px; }
+
+.admin-bookings-table-full { min-width: 1205px; }
+.admin-bookings-table-full th:nth-child(1), .admin-bookings-table-full td:nth-child(1) { width: 150px; }
+.admin-bookings-table-full th:nth-child(2), .admin-bookings-table-full td:nth-child(2) { width: 185px; }
+.admin-bookings-table-full th:nth-child(3), .admin-bookings-table-full td:nth-child(3) { width: 200px; }
+.admin-bookings-table-full th:nth-child(4), .admin-bookings-table-full td:nth-child(4) { width: 135px; }
+.admin-bookings-table-full th:nth-child(5), .admin-bookings-table-full td:nth-child(5) { width: 155px; }
+.admin-bookings-table-full th:nth-child(6), .admin-bookings-table-full td:nth-child(6) { width: 150px; }
+.admin-bookings-table th:last-child, .admin-bookings-table td:last-child { width: 230px; }
+
+.admin-bookings-table th:last-child,
+.admin-bookings-table td:last-child,
+.admin-clients-table th:last-child,
+.admin-clients-table td:last-child {
+  overflow: visible;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.admin-bookings-table th:last-child,
+.admin-bookings-table td:last-child {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+.admin-bookings-table th:last-child,
+.admin-clients-table th:last-child {
+  text-align: center;
+}
+
+.table-date,
+.table-time,
+.table-phone,
+.table-status,
+.booking-id {
+  white-space: nowrap;
+}
+
+.table-facility {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.table-facility > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-email {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-clients-table {
+  min-width: 760px;
+}
+
+.admin-clients-table th:nth-child(1), .admin-clients-table td:nth-child(1) { width: 42%; }
+.admin-clients-table th:nth-child(2), .admin-clients-table td:nth-child(2) { width: 24%; }
+.admin-clients-table th:nth-child(3), .admin-clients-table td:nth-child(3) { width: 22%; }
+.admin-clients-table th:last-child, .admin-clients-table td:last-child { width: 92px; }
+
+.admin-client-bookings-table {
+  min-width: 720px;
+}
+
+.admin-client-bookings-table th:nth-child(1), .admin-client-bookings-table td:nth-child(1) { width: 20%; }
+.admin-client-bookings-table th:nth-child(2), .admin-client-bookings-table td:nth-child(2) { width: 26%; }
+.admin-client-bookings-table th:nth-child(3), .admin-client-bookings-table td:nth-child(3) { width: 18%; }
+.admin-client-bookings-table th:nth-child(4), .admin-client-bookings-table td:nth-child(4) { width: 20%; }
+.admin-client-bookings-table th:nth-child(5), .admin-client-bookings-table td:nth-child(5) { width: 16%; }
 
 .booking-id { font-family: var(--display-font); font-size: 12px; font-weight: 900; color: var(--gold); }
 .tenant-name { font-weight: 700; font-size: 14px; color: var(--text-main); }
-.tenant-org { font-size: 11px; color: var(--grey-4); margin-top: 2px; }
-.table-actions { display: flex; gap: 8px; }
+.tenant-org { overflow: hidden; margin-top: 3px; color: var(--grey-4); font-size: 11px; font-weight: 500; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.table-actions .btn-sm {
+  height: 38px;
+  min-height: 38px;
+  justify-content: center;
+  padding: 0 12px;
+}
+
+.table-actions .table-icon-btn {
+  width: 38px;
+  padding: 0;
+}
+
+.table-actions .btn-danger.btn-sm {
+  width: 78px;
+}
+
+.admin-bookings-table .table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 38px;
+  gap: 6px;
+}
+
+.admin-bookings-table .table-actions .admin-decision-btn {
+  width: 76px;
+  padding: 0 8px;
+  gap: 6px;
+}
+
+.admin-clients-table .table-actions { justify-content: center; }
 
 /* ===== MODAL ===== */
 .modal-overlay {
@@ -132,8 +272,8 @@
 .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; color: var(--grey-3); }
 .empty-state-title { font-family: var(--display-font); font-size: 18px; font-weight: 900; color: var(--grey-5); margin-bottom: 8px; }
 
-.filter-tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: var(--radius); border: 1px solid var(--border); }
-.filter-tab { padding: 7px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--grey-4); transition: var(--transition); font-family: 'DM Sans', sans-serif; }
+.filter-tabs { display: flex; max-width: 100%; gap: 4px; overflow-x: auto; background: var(--surface-2); padding: 4px; border-radius: var(--radius); border: 1px solid var(--border); }
+.filter-tab { flex: 0 0 auto; padding: 7px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--grey-4); transition: var(--transition); font-family: 'DM Sans', sans-serif; }
 .filter-tab:hover { color: var(--text-main); }
 .filter-tab.active { background: var(--surface); color: var(--text-main); box-shadow: var(--shadow-sm); }
 
@@ -160,6 +300,7 @@
   .admin-menu-item {
     width: auto;
     flex: 0 0 auto;
+    grid-template-columns: 24px auto auto;
     border-left: 0;
     border-bottom: 3px solid transparent;
     border-radius: var(--radius);
@@ -170,15 +311,12 @@
   }
 
   .admin-content {
+    margin-left: 0;
     padding: 24px 18px;
   }
 
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .data-table {
-    min-width: 760px;
   }
 
   .modal-footer {

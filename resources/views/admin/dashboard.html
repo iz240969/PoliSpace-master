@@ -6,14 +6,15 @@
   <title>PoliSpace - Admin Portal</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260801-responsive">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260802-profile-editor">
 </head>
 <body>
   <nav id="main-nav">
     <div class="nav-logo nav-logo-static">
-      <div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div></div>
+      <div class="nav-logo-mark"></div>
+      <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
     </div>
-    <div class="nav-links"><span style="color:var(--gold);font-size:12px;text-transform:uppercase;">Admin Mode</span></div>
+    <div class="nav-links"><span class="nav-mode-label">Admin Mode</span></div>
     <div class="nav-actions"></div>
   </nav>
   <div class="toast-container" id="toastContainer"></div>
@@ -40,25 +41,25 @@
               <div class="admin-card-title">Tempahan Terbaru</div>
               <button class="btn btn-ghost btn-sm" onclick="showAdminPanel('bookings', document.querySelectorAll('.admin-menu-item')[1])">Lihat Semua <i class="bi bi-arrow-right"></i></button>
             </div>
-            <div class="data-table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="recentBookingsTbody"></tbody></table></div>
+            <div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-recent"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="recentBookingsTbody"></tbody></table></div>
           </div>
         </div>
 
         <div class="admin-panel" id="panel-bookings">
-          <div style="display:flex;justify-content:space-between;margin-bottom:32px;">
+          <div class="admin-panel-toolbar">
             <h2>Pengurusan Tempahan</h2>
             <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('unpaid', this)">Belum Bayar</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
           </div>
-          <div class="admin-card"><div class="data-table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div></div>
+          <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-full"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div></div>
         </div>
 
         <div class="admin-panel" id="panel-clients">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;gap:16px;flex-wrap:wrap;">
+          <div class="admin-panel-toolbar">
             <h2>Pengurusan Pelanggan</h2>
             <button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
           </div>
           <div class="admin-card">
-            <div class="data-table-wrap"><table class="data-table">
+            <div class="data-table-wrap"><table class="data-table admin-clients-table">
               <thead><tr><th>E-mel</th><th>No Telefon</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
               <tbody id="clientsTbody"></tbody>
             </table></div>
@@ -86,7 +87,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260801-session-nav"></script>
+  <script src="/resources/js/script.js?v=20260802-profile-editor"></script>
 </body>
 </html>
 

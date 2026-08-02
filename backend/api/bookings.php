@@ -570,7 +570,16 @@ function bookingEndToMinutes(string $startTime, ?string $endTime, string $durati
         return null;
     }
 
-    $durationMap = ['1' => 60, '2' => 120, '3' => 180, '4' => 240, 'halfday' => 240, 'fullday' => 480];
-    return $start + ($durationMap[$duration] ?? 60);
+    $durationMap = ['halfday' => 240, 'fullday' => 480];
+    if (isset($durationMap[$duration])) {
+        return $start + $durationMap[$duration];
+    }
+
+    $hours = (float)str_replace(',', '.', $duration);
+    if ($hours <= 0) {
+        $hours = 1;
+    }
+
+    return $start + (int)round($hours * 60);
 }
 ?>

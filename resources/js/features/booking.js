@@ -8,97 +8,232 @@ function updateEndTime() {
   const start = document.getElementById('f-start')?.value;
   const duration = document.getElementById('f-duration')?.value || '1';
   if (!start) return;
-  const durationMap = { '1': 60, '2': 120, '3': 180, '4': 240, halfday: 240, fullday: 480 };
   const [hours, mins] = start.split(':').map(Number);
-  const total = hours * 60 + mins + (durationMap[duration] || 60);
+  const total = hours * 60 + mins + durationToMinutes(duration);
   document.getElementById('f-end').value = `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-  renderStartTimePicker();
 }
 
-function selectStartTime(time) {
-  const input = document.getElementById('f-start');
+function durationToMinutes(duration = '1') {
+  const durationMap = { halfday: 240, fullday: 480 };
+  if (durationMap[duration]) return durationMap[duration];
+
+  const hours = Number.parseFloat(String(duration).replace(',', '.'));
+  if (!Number.isFinite(hours) || hours <= 0) return 60;
+  return Math.round(hours * 60);
+}
+
+function durationInputValue(duration = '1') {
+  const minutes = durationToMinutes(duration);
+  return String(Math.max(1, Math.ceil(minutes / 60)));
+}
+
+function formatDurationValue(value) {
+  return String(Math.max(1, Math.ceil(value)));
+}
+
+function setDurationValue(value, inputId = 'f-duration') {
+  const input = document.getElementById(inputId);
   if (!input) return;
-  input.value = time;
-  input.dispatchEvent(new Event('change', { bubbles: true }));
+
+  const min = Number(input.min || 1);
+  const next = Math.max(min, Number(value) || min);
+  input.value = formatDurationValue(next);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function renderStartTimePicker() {
-  const picker = document.getElementById('startTimePicker');
-  if (!picker) return;
+function adjustDuration(delta, inputId = 'f-duration') {
+  const input = document.getElementById(inputId);
+  if (!input) return;
 
-  const selected = document.getElementById('f-start')?.value || '';
-  const selectedHour = selected ? Number(selected.split(':')[0]) : 8;
-  const hour12 = selectedHour % 12 || 12;
-  const angle = hour12 * 30;
-  picker.innerHTML = `
-    <div class="time-clock-period" role="group" aria-label="Pilihan pagi atau petang">
-      <button type="button" class="${selectedHour < 12 ? 'is-selected' : ''}" onclick="setClockPeriod('AM')">AM</button>
-      <button type="button" class="${selectedHour >= 12 ? 'is-selected' : ''}" onclick="setClockPeriod('PM')">PM</button>
-    </div>
-    <div class="time-clock-face" id="timeClockFace" aria-label="Pilih masa mula" onpointerdown="startClockDrag(event)">
-      ${Array.from({ length: 12 }, (_, index) => {
-        const hour = index + 1;
-        return `<span class="time-clock-number" style="--angle:${hour * 30}deg">${hour}</span>`;
-      }).join('')}
-      <div class="time-clock-hand" id="timeClockHand" style="--angle:${angle}deg"></div>
-      <div class="time-clock-center"><i class="bi bi-clock-history"></i><span>${selected ? formatTimeLabel(selected) : 'Masa'}</span></div>
+  const min = Number(input.min || 1);
+  const current = Number.parseFloat(String(input.value).replace(',', '.'));
+  if (!Number.isFinite(current) || current <= 0) {
+    setDurationValue(min, inputId);
+    return;
+  }
+
+  const next = Number.isInteger(current)
+    ? current + delta
+    : delta > 0 ? Math.ceil(current) : Math.floor(current);
+  setDurationValue(next, inputId);
+}
+
+function normalizeDurationInput(inputId = 'f-duration') {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  const min = Number(input.min || 1);
+  const current = Number.parseFloat(String(input.value).replace(',', '.'));
+  input.value = formatDurationValue(Number.isFinite(current) ? Math.max(min, current) : min);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+const BOOKING_EQUIPMENT_OPTIONS = [
+  { name: 'Mikrofon', max: null },
+  { name: 'Projektor', max: null },
+  { name: 'PA System', max: null },
+  { name: 'Kerusi Tambahan', max: null },
+  { name: 'Meja Tambahan', max: null },
+];
+
+function equipmentOptions() {
+  return '<option value="">Pilih Peralatan</option>' + BOOKING_EQUIPMENT_OPTIONS
+    .map((item) => `<option value="${escapeAttr(item.name)}">${escapeHtml(item.name)}</option>`)
+    .join('');
+}
+
+function findEquipmentOption(name) {
+  const normalized = String(name || '').trim().toLowerCase();
+  return BOOKING_EQUIPMENT_OPTIONS.find((item) => item.name.toLowerCase() === normalized) || null;
+}
+
+function normalizeEquipmentQuantity(name, value) {
+  const option = findEquipmentOption(name);
+  const max = Number(option?.max || 999);
+  const qty = Math.max(1, Math.floor(Number(value) || 1));
+  return max > 0 ? Math.min(qty, max) : qty;
+}
+
+function parseEquipmentItems(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+
+  return raw.split(',').reduce((items, part) => {
+    const text = part.trim();
+    if (!text) return items;
+
+    const match = text.match(/^(.+?)\s+x\s*(\d+)$/i);
+    const name = match ? match[1].trim() : text;
+    const option = findEquipmentOption(name);
+    if (!option) return items;
+
+    const qty = normalizeEquipmentQuantity(option.name, match ? match[2] : 1);
+    const existing = items.find((item) => item.name === option.name);
+    if (existing) {
+      existing.quantity = normalizeEquipmentQuantity(option.name, existing.quantity + qty);
+    } else {
+      items.push({ name: option.name, quantity: qty });
+    }
+    return items;
+  }, []);
+}
+
+function formatEquipmentItems(items = []) {
+  return items
+    .map((item) => {
+      const option = findEquipmentOption(item.name);
+      if (!option) return null;
+      return `${option.name} x ${normalizeEquipmentQuantity(option.name, item.quantity)}`;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+function renderEquipmentList(inputId = 'f-equipment', listId = 'equipmentList') {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if (!input || !list) return;
+
+  const items = parseEquipmentItems(input.value);
+  if (!items.length) {
+    list.innerHTML = '<div class="equipment-empty">Tiada peralatan dipilih</div>';
+    return;
+  }
+
+  list.innerHTML = items.map((item) => {
+    const max = Number(findEquipmentOption(item.name)?.max || 999);
+    return `
+    <div class="equipment-item">
+      <div class="equipment-name"><i class="bi bi-tools"></i><span>${escapeHtml(item.name)}</span></div>
+      <div class="equipment-qty-control">
+        <button type="button" onclick="adjustEquipmentQuantity('${escapeAttr(item.name)}', -1, '${escapeAttr(inputId)}', '${escapeAttr(listId)}')" aria-label="Kurangkan ${escapeAttr(item.name)}"><i class="bi bi-dash-lg"></i></button>
+        <input type="number" min="1" max="${escapeAttr(String(max))}" step="1" value="${escapeAttr(String(item.quantity))}" onchange="setEquipmentQuantity('${escapeAttr(item.name)}', this.value, '${escapeAttr(inputId)}', '${escapeAttr(listId)}')" aria-label="Jumlah ${escapeAttr(item.name)}">
+        <button type="button" onclick="adjustEquipmentQuantity('${escapeAttr(item.name)}', 1, '${escapeAttr(inputId)}', '${escapeAttr(listId)}')" aria-label="Tambah ${escapeAttr(item.name)}"><i class="bi bi-plus-lg"></i></button>
+      </div>
+      <button type="button" class="equipment-remove-button" onclick="removeEquipmentItem('${escapeAttr(item.name)}', '${escapeAttr(inputId)}', '${escapeAttr(listId)}')" aria-label="Buang ${escapeAttr(item.name)}"><i class="bi bi-x-lg"></i></button>
     </div>
   `;
+  }).join('');
 }
 
-function formatTimeLabel(time) {
-  const [hour, minute] = time.split(':').map(Number);
-  const period = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
+function syncEquipmentItems(items, inputId = 'f-equipment', listId = 'equipmentList') {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  input.value = formatEquipmentItems(items);
+  renderEquipmentList(inputId, listId);
+}
+
+function addEquipmentItem(inputId = 'f-equipment', selectId = 'equipmentAddSelect', listId = 'equipmentList') {
+  const select = document.getElementById(selectId);
+  const option = findEquipmentOption(select?.value || '');
+  if (!option) return;
+
+  const input = document.getElementById(inputId);
+  const items = parseEquipmentItems(input?.value || '');
+  const existing = items.find((item) => item.name === option.name);
+  if (existing) {
+    existing.quantity = normalizeEquipmentQuantity(option.name, existing.quantity + 1);
+  } else {
+    items.push({ name: option.name, quantity: 1 });
+  }
+
+  if (select) select.value = '';
+  syncEquipmentItems(items, inputId, listId);
+}
+
+function removeEquipmentItem(name, inputId = 'f-equipment', listId = 'equipmentList') {
+  const input = document.getElementById(inputId);
+  const items = parseEquipmentItems(input?.value || '').filter((item) => item.name !== name);
+  syncEquipmentItems(items, inputId, listId);
+}
+
+function setEquipmentQuantity(name, value, inputId = 'f-equipment', listId = 'equipmentList') {
+  const input = document.getElementById(inputId);
+  const items = parseEquipmentItems(input?.value || '');
+  const item = items.find((entry) => entry.name === name);
+  if (!item) return;
+
+  item.quantity = normalizeEquipmentQuantity(name, value);
+  syncEquipmentItems(items, inputId, listId);
+}
+
+function adjustEquipmentQuantity(name, delta, inputId = 'f-equipment', listId = 'equipmentList') {
+  const input = document.getElementById(inputId);
+  const items = parseEquipmentItems(input?.value || '');
+  const item = items.find((entry) => entry.name === name);
+  if (!item) return;
+
+  item.quantity = normalizeEquipmentQuantity(name, item.quantity + delta);
+  syncEquipmentItems(items, inputId, listId);
+}
+
+function initializeEquipmentField(initialValue = '', inputId = 'f-equipment', selectId = 'equipmentAddSelect', listId = 'equipmentList') {
+  const input = document.getElementById(inputId);
+  const select = document.getElementById(selectId);
+  if (!input) return;
+
+  if (select) select.innerHTML = equipmentOptions();
+  input.value = formatEquipmentItems(parseEquipmentItems(initialValue || input.value));
+  renderEquipmentList(inputId, listId);
+}
+
+function normalizeEquipmentField(inputId = 'f-equipment', listId = 'equipmentList') {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  input.value = formatEquipmentItems(parseEquipmentItems(input.value));
+  renderEquipmentList(inputId, listId);
 }
 
 function toggleStartTimePicker() {
-  const picker = document.getElementById('startTimePicker');
-  const toggle = document.querySelector('.time-picker-toggle');
-  if (!picker) return;
-
-  const isOpen = picker.classList.toggle('is-open');
-  toggle?.classList.toggle('is-active', isOpen);
-  toggle?.setAttribute('aria-expanded', String(isOpen));
-  if (isOpen) renderStartTimePicker();
-}
-
-function setClockPeriod(period) {
   const input = document.getElementById('f-start');
-  const current = input?.value || '08:00';
-  let hour = Number(current.split(':')[0]);
-  if (period === 'AM' && hour >= 12) hour -= 12;
-  if (period === 'PM' && hour < 12) hour += 12;
-  selectStartTime(`${String(hour).padStart(2, '0')}:00`);
-}
-
-function startClockDrag(event) {
-  event.preventDefault();
-  updateClockFromPointer(event);
-  document.addEventListener('pointermove', updateClockFromPointer);
-  document.addEventListener('pointerup', stopClockDrag, { once: true });
-}
-
-function stopClockDrag() {
-  document.removeEventListener('pointermove', updateClockFromPointer);
-}
-
-function updateClockFromPointer(event) {
-  const face = document.getElementById('timeClockFace');
-  if (!face) return;
-
-  const rect = face.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  const angle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180 / Math.PI;
-  const normalized = (angle + 90 + 360) % 360;
-  const hour12 = Math.max(1, Math.round(normalized / 30) || 12);
-  const current = document.getElementById('f-start')?.value || '08:00';
-  const currentHour = Number(current.split(':')[0]);
-  const isPm = currentHour >= 12;
-  const hour24 = isPm ? (hour12 === 12 ? 12 : hour12 + 12) : (hour12 === 12 ? 0 : hour12);
-  selectStartTime(`${String(hour24).padStart(2, '0')}:00`);
+  if (!input) return;
+  if (typeof input.showPicker === 'function') {
+    input.showPicker();
+    return;
+  }
+  input.focus();
 }
 
 async function submitBooking() {
@@ -108,6 +243,8 @@ async function submitBooking() {
     return;
   }
 
+  normalizeDurationInput();
+  normalizeEquipmentField();
   const receiptInput = document.getElementById('f-receipt');
   const receiptFile = receiptInput?.files?.[0] || null;
   const accountEmail = psAuthState.role === 'user'
@@ -129,9 +266,14 @@ async function submitBooking() {
     setup_required: 'full',
     estimated_cost: calculateCost().total,
   };
+  const durationHours = Number.parseFloat(String(data.duration).replace(',', '.'));
 
   if (!data.full_name || !data.email || !data.phone || !data.facility_id || !data.booking_date || !data.start_time || !data.purpose) {
     showToast('Sila lengkapkan semua maklumat yang diperlukan.', 'error');
+    return;
+  }
+  if (!Number.isInteger(durationHours) || durationHours <= 0) {
+    showToast('Sila masukkan tempoh penggunaan dalam jam penuh.', 'error');
     return;
   }
   if (!Number.isInteger(data.participant_count) || data.participant_count < 1) {
@@ -217,6 +359,8 @@ async function initBookingPage() {
   } catch (error) {
     if (emailEl && storedEmail) emailEl.value = storedEmail;
   }
+
+  initializeEquipmentField();
 }
 
 function isValidReceiptFile(file) {
@@ -262,19 +406,6 @@ function adjustParticipantCount(inputId, delta) {
   const current = Number(input.value || min);
   input.value = String(Math.max(min, current + delta));
   input.dispatchEvent(new Event('change', { bubbles: true }));
-}
-
-function equipmentOptions(currentEquipment = '') {
-  const options = [
-    ['', 'Tiada Peralatan'],
-    ['Mikrofon', 'Mikrofon'],
-    ['Projektor', 'Projektor'],
-    ['PA System', 'PA System'],
-    ['Kerusi Tambahan', 'Kerusi Tambahan'],
-    ['Meja Tambahan', 'Meja Tambahan'],
-  ];
-
-  return options.map(([value, label]) => `<option value="${escapeAttr(value)}" ${String(currentEquipment || '') === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
 }
 
 async function doSignup() {
@@ -331,26 +462,7 @@ function resetBookingForm() {
   if (durationEl) durationEl.value = '1';
   const participantsEl = document.getElementById('f-participants');
   if (participantsEl) participantsEl.value = '1';
+  initializeEquipmentField();
   updateReceiptPreview();
   updatePricing();
-  renderStartTimePicker();
 }
-
-document.addEventListener('click', (event) => {
-  const picker = document.getElementById('startTimePicker');
-  const toggle = document.querySelector('.time-picker-toggle');
-  if (!picker?.classList.contains('is-open')) return;
-  if (picker.contains(event.target) || toggle?.contains(event.target)) return;
-
-  picker.classList.remove('is-open');
-  toggle?.classList.remove('is-active');
-  toggle?.setAttribute('aria-expanded', 'false');
-});
-
-document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape') return;
-
-  document.getElementById('startTimePicker')?.classList.remove('is-open');
-  document.querySelector('.time-picker-toggle')?.classList.remove('is-active');
-  document.querySelector('.time-picker-toggle')?.setAttribute('aria-expanded', 'false');
-});

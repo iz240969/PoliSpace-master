@@ -155,20 +155,10 @@
     padding: 28px 18px;
   }
 
-  .booking-date-picker,
-  .time-picker-popover {
+  .booking-date-picker {
     left: 0;
     right: 0;
     width: 100%;
-  }
-
-  .time-clock-face {
-    width: 220px;
-    height: 220px;
-  }
-
-  .time-clock-number {
-    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-84px) rotate(calc(-1 * var(--angle)));
   }
 
   .dash-hero,
@@ -275,6 +265,27 @@
     padding: 28px 14px;
   }
 
+  .equipment-add-row,
+  .equipment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .equipment-add-button {
+    width: 100%;
+  }
+
+  .equipment-name {
+    min-height: 44px;
+  }
+
+  .equipment-qty-control {
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+  }
+
+  .equipment-remove-button {
+    min-height: 38px;
+  }
+
   .sidebar-card,
   .dash-hero,
   .dash-section,
@@ -308,12 +319,12 @@
   }
 
   .booking-row-actions {
-    justify-content: stretch;
+    grid-template-columns: repeat(3, 38px) 76px;
+    justify-content: end;
   }
 
   .booking-row-actions .btn,
   .booking-row-actions .btn-cancel {
-    flex: 1;
     justify-content: center;
   }
 
@@ -360,12 +371,4 @@
     padding-right: 12px;
   }
 
-  .time-clock-face {
-    width: 196px;
-    height: 196px;
-  }
-
-  .time-clock-number {
-    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-74px) rotate(calc(-1 * var(--angle)));
-  }
 }

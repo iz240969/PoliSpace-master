@@ -6,7 +6,7 @@
   <title>PoliSpace - Tempahan</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260801-responsive">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260802-profile-editor">
 </head>
 <body>
   <nav id="main-nav">
@@ -40,7 +40,13 @@
           <div class="form-section">
             <div class="form-section-title">02 - Butiran Tempahan</div>
             <div class="form-grid">
-              <div class="form-group span-2"><label>Nama Fasiliti *</label><select id="f-facility"></select></div>
+              <div class="form-group span-2">
+                <label>Nama Fasiliti *</label>
+                <div class="form-select-wrap">
+                  <select id="f-facility"></select>
+                  <i class="bi bi-chevron-down"></i>
+                </div>
+              </div>
               <div class="form-group span-2">
                 <label>Tarikh Tempahan *</label>
                 <div class="booking-date-input-wrap">
@@ -51,21 +57,49 @@
                 </div>
                 <div class="booking-date-picker" id="bookingDatePicker"></div>
               </div>
-              <div class="form-group"><label>Tempoh Penggunaan</label><select id="f-duration"><option value="1">1 Jam</option><option value="2">2 Jam</option><option value="3">3 Jam</option><option value="4">4 Jam</option><option value="halfday">Setengah Hari</option><option value="fullday">Sehari Penuh</option></select></div>
               <div class="form-group span-2">
                 <label>Masa Mula *</label>
                 <div class="time-input-wrap">
                   <input type="time" id="f-start">
                   <button type="button" class="time-picker-toggle" onclick="toggleStartTimePicker()" aria-label="Buka pilihan masa">
-                    <i class="bi bi-clock-history"></i>
+                    <i class="bi bi-clock"></i>
                   </button>
                 </div>
-                <div class="time-picker-popover" id="startTimePicker" onclick="event.stopPropagation()"></div>
                 <input type="hidden" id="f-end">
               </div>
+              <div class="form-group span-2">
+                <label>Tempoh Penggunaan</label>
+                <div class="duration-field">
+                  <div class="duration-input-wrap" role="group" aria-label="Tempoh penggunaan dalam jam">
+                    <button type="button" class="duration-step-button" onclick="adjustDuration(-1)" aria-label="Kurangkan tempoh penggunaan">
+                      <i class="bi bi-dash-lg"></i>
+                    </button>
+                    <input type="number" id="f-duration" min="1" step="1" value="1" inputmode="numeric" aria-label="Tempoh penggunaan dalam jam">
+                    <span class="duration-unit">Jam</span>
+                    <button type="button" class="duration-step-button" onclick="adjustDuration(1)" aria-label="Tambah tempoh penggunaan">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
               <div class="form-group span-2"><label>Tujuan Penggunaan *</label><textarea id="f-purpose"></textarea></div>
-              <div class="form-group"><label>Peralatan Diperlukan</label><select id="f-equipment"><option value="">Tiada Peralatan</option><option value="Mikrofon">Mikrofon</option><option value="Projektor">Projektor</option><option value="PA System">PA System</option><option value="Kerusi Tambahan">Kerusi Tambahan</option><option value="Meja Tambahan">Meja Tambahan</option></select></div>
-              <div class="form-group"><label>Jumlah Pengguna *</label><div class="quantity-control"><button type="button" onclick="adjustParticipantCount('f-participants', -1)" aria-label="Kurangkan jumlah pengguna"><i class="bi bi-dash-lg"></i></button><input type="number" id="f-participants" min="1" step="1" value="1"><button type="button" onclick="adjustParticipantCount('f-participants', 1)" aria-label="Tambah jumlah pengguna"><i class="bi bi-plus-lg"></i></button></div></div>
+              <div class="form-group span-2">
+                <label>Peralatan Diperlukan</label>
+                <div class="equipment-field">
+                  <input type="hidden" id="f-equipment">
+                  <div class="equipment-add-row">
+                    <div class="equipment-select-wrap">
+                      <select id="equipmentAddSelect" aria-label="Pilih peralatan"></select>
+                      <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <button type="button" class="equipment-add-button" onclick="addEquipmentItem()" aria-label="Tambah peralatan">
+                      <i class="bi bi-plus-lg"></i> Tambah
+                    </button>
+                  </div>
+                  <div class="equipment-list" id="equipmentList"></div>
+                </div>
+              </div>
+              <div class="form-group span-2"><label>Jumlah Pengguna *</label><div class="quantity-control"><button type="button" onclick="adjustParticipantCount('f-participants', -1)" aria-label="Kurangkan jumlah pengguna"><i class="bi bi-dash-lg"></i></button><input type="number" id="f-participants" min="1" step="1" value="1"><button type="button" onclick="adjustParticipantCount('f-participants', 1)" aria-label="Tambah jumlah pengguna"><i class="bi bi-plus-lg"></i></button></div></div>
             </div>
           </div>
           <div class="form-section">
@@ -105,7 +139,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260801-session-nav"></script>
+  <script src="/resources/js/script.js?v=20260802-profile-editor"></script>
 </body>
 </html>
 

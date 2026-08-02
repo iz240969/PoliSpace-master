@@ -214,7 +214,7 @@
 
 .dashboard-booking-table {
   width: 100%;
-  min-width: 920px;
+  min-width: 1050px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -272,7 +272,9 @@
 
 .dashboard-booking-table th:nth-child(6),
 .dashboard-booking-table td:nth-child(6) {
-  width: 15%;
+  width: 240px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 .dashboard-booking-table .booking-id {
@@ -323,14 +325,18 @@
 .booking-row-actions {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
+}
+
+.booking-row-actions > * {
+  flex: 0 0 auto;
 }
 
 .booking-row-actions .btn-sm {
-  width: 42px;
+  width: 38px;
   height: 38px;
+  min-height: 38px;
   justify-content: center;
   padding: 0;
 }
@@ -428,7 +434,12 @@
 }
 
 .btn-cancel {
+  width: 76px;
   min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   padding: 0 14px;
   background: var(--red);
   border: 0;

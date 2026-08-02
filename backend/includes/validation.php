@@ -61,7 +61,41 @@ function validateBookingData(array $data): array
 
 function isAllowedBookingEquipment(string $equipment): bool
 {
-    return in_array($equipment, ['', 'Mikrofon', 'Projektor', 'PA System', 'Kerusi Tambahan', 'Meja Tambahan'], true);
+    $equipment = trim($equipment);
+    if ($equipment === '') {
+        return true;
+    }
+
+    if (strlen($equipment) > 500) {
+        return false;
+    }
+
+    $allowed = ['Mikrofon', 'Projektor', 'PA System', 'Kerusi Tambahan', 'Meja Tambahan'];
+    $seen = [];
+    foreach (explode(',', $equipment) as $part) {
+        $item = trim($part);
+        if ($item === '') {
+            return false;
+        }
+
+        if (in_array($item, $allowed, true)) {
+            $name = $item;
+        } elseif (preg_match('/^(.+?)\s+x\s+([1-9]\d{0,2})$/u', $item, $matches)) {
+            $name = trim($matches[1]);
+            if (!in_array($name, $allowed, true)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        if (isset($seen[$name])) {
+            return false;
+        }
+        $seen[$name] = true;
+    }
+
+    return true;
 }
 
 function validateContactMessage(array $data): array

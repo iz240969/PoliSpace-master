@@ -64,6 +64,7 @@ function setupNavigationAccess() {
 
   updateProtectedNavLinks(loggedIn);
   updateNavActions(navActions, loggedIn);
+  if (isClientLoggedIn()) ensureProfileModal();
   bindAccountMenu();
 }
 
@@ -120,29 +121,122 @@ function updateNavActions(navActions, loggedIn) {
   }
 
   const logoutHandler = isAdminLoggedIn() ? 'doLogout()' : 'logoutUser()';
-  const dashboardRoute = isAdminLoggedIn() ? ROUTES.adminDashboard : ROUTES.dashboard;
   const dashboardActive = document.getElementById('admin') || document.getElementById('dashboard');
+  const menuItems = isAdminLoggedIn()
+    ? `
+        <button class="account-dropdown-item" type="button" onclick="${logoutHandler}">
+          <i class="bi bi-box-arrow-right"></i>
+          <span>Log Keluar</span>
+        </button>
+      `
+    : `
+        <button class="account-dropdown-item" type="button" onclick="openProfileModal()">
+          <i class="bi bi-person-gear"></i>
+          <span>Edit Profil</span>
+        </button>
+        <button class="account-dropdown-item" type="button" onclick="${logoutHandler}">
+          <i class="bi bi-box-arrow-right"></i>
+          <span>Log Keluar</span>
+        </button>
+      `;
+
   navActions.innerHTML = `
     <div class="account-menu">
       <button class="btn-nav-icon account-menu-trigger ${dashboardActive ? 'active' : ''}" type="button" aria-label="Menu akaun" aria-expanded="false">
         <i class="bi bi-person-circle"></i>
       </button>
       <div class="account-dropdown" role="menu">
-        <button class="account-dropdown-item" type="button" onclick="window.location.href='${ROUTES.home}'">
-          <i class="bi bi-house-door"></i>
-          <span>Laman Utama</span>
-        </button>
-        <button class="account-dropdown-item" type="button" onclick="window.location.href='${dashboardRoute}'">
-          <i class="bi bi-speedometer2"></i>
-          <span>Dashboard</span>
-        </button>
-        <button class="account-dropdown-item" type="button" onclick="${logoutHandler}">
-          <i class="bi bi-box-arrow-right"></i>
-          <span>Log Keluar</span>
-        </button>
+        ${menuItems}
       </div>
     </div>
   `;
+}
+
+function ensureProfileModal() {
+  if (document.getElementById('profileModal')) return;
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay" id="profileModal">
+      <div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+        <div class="modal-header">
+          <div class="modal-title" id="profileModalTitle"><i class="bi bi-person-gear modal-title-icon"></i> Edit Profil</div>
+          <button class="modal-close" type="button" onclick="closeModal('profileModal')" aria-label="Tutup"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <form onsubmit="saveUserProfile(event)">
+          <div class="modal-body profile-form">
+            <div class="form-group">
+              <label for="profileName">Nama Penuh *</label>
+              <input type="text" id="profileName" maxlength="100" autocomplete="name" required>
+            </div>
+            <div class="form-group">
+              <label for="profileEmail">Alamat E-mel</label>
+              <input class="profile-readonly" type="email" id="profileEmail" autocomplete="email" readonly>
+            </div>
+            <div class="form-group">
+              <label for="profilePhone">No Telefon</label>
+              <input type="tel" id="profilePhone" maxlength="20" autocomplete="tel" placeholder="Contoh: 012-3456789">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" type="button" onclick="closeModal('profileModal')">Batal</button>
+            <button class="btn btn-primary" id="saveProfileButton" type="submit"><i class="bi bi-check-lg"></i> Simpan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `);
+}
+
+function openProfileModal() {
+  ensureProfileModal();
+  const user = psAuthState.user || {};
+  document.getElementById('profileName').value = user.name || '';
+  document.getElementById('profileEmail').value = user.email || localStorage.getItem('ps_user_email') || '';
+  document.getElementById('profilePhone').value = user.phone || '';
+  document.querySelector('.account-menu')?.classList.remove('is-open');
+  document.querySelector('.account-menu-trigger')?.setAttribute('aria-expanded', 'false');
+  document.getElementById('profileModal')?.classList.add('active');
+  document.getElementById('profileName')?.focus();
+}
+
+async function saveUserProfile(event) {
+  event.preventDefault();
+  const name = document.getElementById('profileName')?.value.trim() || '';
+  const phone = document.getElementById('profilePhone')?.value.trim() || '';
+  const saveButton = document.getElementById('saveProfileButton');
+
+  if (name.length < 2) {
+    showToast('Nama penuh mesti mengandungi sekurang-kurangnya 2 aksara.', 'error');
+    return;
+  }
+
+  if (phone && !/^[0-9+()\-\s]{7,20}$/.test(phone)) {
+    showToast('Sila masukkan nombor telefon yang sah.', 'error');
+    return;
+  }
+
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menyimpan';
+  }
+
+  try {
+    const result = await apiRequest('auth.php?action=profile', 'PUT', { full_name: name, phone });
+    psAuthState.user = result.user;
+    const bookingName = document.getElementById('f-name');
+    const bookingPhone = document.getElementById('f-phone');
+    if (bookingName) bookingName.value = result.user.name || '';
+    if (bookingPhone) bookingPhone.value = result.user.phone || '';
+    closeModal('profileModal');
+    showToast('Profil berjaya dikemas kini.', 'success');
+  } catch (error) {
+    showToast(error.message || 'Profil tidak dapat dikemas kini.', 'error');
+  } finally {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.innerHTML = '<i class="bi bi-check-lg"></i> Simpan';
+    }
+  }
 }
 
 function bindAccountMenu() {
