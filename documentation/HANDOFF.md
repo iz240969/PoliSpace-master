@@ -52,7 +52,7 @@ Root files such as `index.html`, `booking.html`, `login.html`, and `dashboard.ht
 ```text
 backend/config.php          Loads .env and session/config values
 backend/db.php              PDO connection helper
-backend/api/auth.php        Admin login, auto login, client signup/login
+backend/api/auth.php        Login/signup/session plus current-user profile update
 backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar endpoints
 backend/api/facilities.php  Facility list/admin availability update endpoint
 backend/api/messages.php    Contact message endpoint
@@ -94,8 +94,11 @@ All main pages load:
 7. User can view their bookings in the client dashboard.
 8. User can upload a receipt while the booking is `unpaid`.
 9. User can edit or cancel a booking while it is `unpaid` or `pending`.
+10. User can open `Edit Profil` from the account menu and update their name or phone number.
 
 Payment proof upload is optional on the booking form. If no receipt is uploaded, the booking starts as `unpaid`; uploading a receipt changes it to `pending` for admin review.
+
+The booking form accepts a whole-number duration in hours and supports multiple equipment requests with per-item quantities. Equipment is serialized into `bookings.equipment_required`, for example `Mikrofon x 2, Projektor x 1`.
 
 ## Booking Status Rules
 
@@ -167,6 +170,12 @@ For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the setup
 - Client dashboard filtering is by search text plus status chips.
 - Admin dashboard logo is static and does not navigate to the public site when clicked.
 - Navigation access is session-aware. Protected tabs are disabled until the session check completes and confirms login.
+- The signed-in customer account menu contains only `Edit Profil` and `Log Keluar`; the admin menu contains only `Log Keluar`.
+- Customer profile email is read-only. Name and phone updates use `PUT auth.php?action=profile` and are restricted to the active user session.
+- The admin sidebar is fixed below the navbar and remains visible while content scrolls.
+- Booking/customer tables use table-specific widths and horizontal scrolling instead of compressing action buttons.
+- Client actions are ordered `Muat Naik Resit`, `Batal`, `Edit`, `Lihat` when all actions are available.
+- Admin pending-booking actions are ordered `Terima`, `Tolak`, `Lihat` with no reserved empty slots.
 
 ## Verification Commands
 
@@ -195,6 +204,7 @@ POST backend/api/auth.php?action=login         Admin login
 POST backend/api/auth.php?action=signup        Client signup
 POST backend/api/auth.php?action=user          Client login
 GET  backend/api/auth.php?action=me            Current session
+PUT  backend/api/auth.php?action=profile       Update current customer's name/phone
 POST backend/api/auth.php?action=logout        Logout
 
 GET  backend/api/bookings.php                  Admin booking list
@@ -222,6 +232,17 @@ POST backend/api/messages.php
 ```
 
 Admin-only endpoints call `requireAdmin()`. Client booking actions rely on the PHP session and ownership checks in `bookings.php`. Booking creation ignores any submitted email and uses the registered account email from the session.
+
+## Database Compatibility
+
+No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use the existing `bookings.equipment_required` `TEXT` column, and whole-hour durations remain compatible with `bookings.duration VARCHAR(20)`.
+
+For an older database, check `equipment_required` with `information_schema.COLUMNS`. Add it only when missing:
+
+```sql
+ALTER TABLE bookings
+  ADD COLUMN equipment_required TEXT NULL AFTER setup_required;
+```
 
 ## Git Notes
 

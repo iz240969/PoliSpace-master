@@ -18,14 +18,14 @@ Root files such as `index.html`, `booking.html`, `dashboard.html`, `login.html`,
 
 ## Frontend Entry Points
 
-Every main page loads:
+Every main page loads the shared entry files:
 
 ```html
-<link rel="stylesheet" href="/resources/css/style.css?v=20260801-responsive">
-<script src="/resources/js/script.js?v=20260801-session-nav"></script>
+<link rel="stylesheet" href="/resources/css/style.css?v=...">
+<script src="/resources/js/script.js?v=..."></script>
 ```
 
-`resources/js/script.js` loads the plain browser-global JavaScript modules in order. `resources/css/style.css` imports the base, component, and page CSS files.
+The query value is a cache-busting version and may differ by page after a UI update. `resources/js/script.js` loads the plain browser-global JavaScript modules in order. `resources/css/style.css` imports the base, component, and page CSS files.
 
 ## Authentication
 
@@ -37,10 +37,13 @@ POST auth.php?action=signup   User signup
 POST auth.php?action=user     User login
 POST auth.php?action=login    Admin-only login
 GET  auth.php?action=me       Current session
+PUT  auth.php?action=profile  Update the current user's name and phone
 POST auth.php?action=logout   Logout
 ```
 
 Navigation uses `resources/js/core/navigation.js` to check the session before enabling protected tabs. The first-load navigation state should come from `auth.php?action=me`, not only from localStorage.
+
+For a signed-in customer, the account menu contains only `Edit Profil` and `Log Keluar`. `Edit Profil` updates the current customer's full name and phone number. The account email is read-only so login identity and historical booking ownership remain stable. Admin accounts see only `Log Keluar`.
 
 ## Booking Statuses
 
@@ -89,6 +92,14 @@ The email field is read-only and is filled from the logged-in user session. The 
 
 Required booking fields include name, email, phone, facility, date, start time, purpose, and participant count. Participant count must be at least 1.
 
+Additional form behavior:
+
+- Start time uses the browser's native time picker with a right-side icon.
+- Duration is entered as a whole number of hours with minus/plus controls. The minimum is 1 hour.
+- Duration is placed below start time and participant count uses the full available width.
+- Users can add multiple equipment requests and set a quantity for each item.
+- Equipment is stored in `equipment_required` as readable text, for example `Mikrofon x 2, Projektor x 1`.
+
 Receipt uploads accept JPG, PNG, GIF, or PDF up to 5MB.
 
 ## Dashboard
@@ -108,6 +119,14 @@ GET backend/api/bookings.php?action=user
 ```
 
 The list is shown as a table, sorted by most recent. Users can search and filter by status chips. Users can view details, upload receipts for `unpaid` bookings, edit `unpaid` or `pending` bookings, and cancel `unpaid` or `pending` bookings.
+
+When all actions are available, the user action order from left to right is:
+
+```text
+Muat Naik Resit, Batal, Edit, Lihat
+```
+
+Unavailable actions are removed without leaving empty layout slots.
 
 ## Admin
 
@@ -129,6 +148,8 @@ Admin can:
 - Reset/set customer passwords.
 - Toggle facility availability.
 - View the booking calendar.
+
+The admin sidebar remains pinned while the main content scrolls. Admin booking tables use fixed, readable column widths and horizontally scroll on smaller viewports. Visible actions are grouped without empty slots; pending rows display `Terima`, `Tolak`, then `Lihat`, with `Lihat` on the right.
 
 The admin navbar logo is static and does not navigate to the public site.
 
@@ -182,6 +203,25 @@ updated_at
 ```
 
 Do not add a unique index on facility/date/time because unpaid bookings are allowed to overlap. Slot blocking is enforced by checking only `pending` and `approved` bookings.
+
+The current UI and profile editor require no additional columns beyond `database/polspace.sql` or the current `database/update_polspace.sql`. For an older installation, verify that `equipment_required` exists before using multi-equipment requests:
+
+```sql
+USE polspace;
+
+SELECT COUNT(*) AS equipment_column_exists
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME = 'bookings'
+  AND COLUMN_NAME = 'equipment_required';
+```
+
+If the result is `0`, run:
+
+```sql
+ALTER TABLE bookings
+  ADD COLUMN equipment_required TEXT NULL AFTER setup_required;
+```
 
 ## Verification
 
