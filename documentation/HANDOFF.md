@@ -125,7 +125,8 @@ unpaid, rejected, cancelled
 Important behavior:
 
 - `unpaid` bookings are history records only until payment is made. They do not reserve the facility.
-- Uploading a receipt changes `unpaid` to `pending`. This is the point where the slot becomes reserved, unless another `pending` or `approved` booking already overlaps it.
+- Uploading a receipt changes `unpaid` to `pending`. This reserves that facility for the entire selected date, unless another `pending` or `approved` booking already reserves the same facility/date pair.
+- A reservation never disables a different facility on the same date.
 - `approved` bookings remain reserved.
 - Admin can reject `unpaid`, `pending`, or `approved` bookings. Rejection requires an admin note and releases the slot.
 - User cancellation changes `unpaid` or `pending` bookings to `cancelled` and releases the slot.
@@ -139,6 +140,7 @@ Important behavior:
 4. Admin can approve pending bookings and reject unpaid, pending, or approved bookings.
 5. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
 6. Admin can set or reset a client password from the customer management flow.
+7. Admin can read customer messages and open an email reply from the message table.
 
 Default admin credentials:
 
@@ -171,7 +173,7 @@ For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the setup
 - Admin dashboard logo is static and does not navigate to the public site when clicked.
 - Navigation access is session-aware. Protected tabs are disabled until the session check completes and confirms login.
 - The signed-in customer account menu contains only `Edit Profil` and `Log Keluar`; the admin menu contains only `Log Keluar`.
-- Customer profile email is read-only. Name and phone updates use `PUT auth.php?action=profile` and are restricted to the active user session.
+- Booking form name, phone, and email are read-only and always come from the active user profile. Name and phone updates use `PUT auth.php?action=profile`.
 - The admin sidebar is fixed below the navbar and remains visible while content scrolls.
 - Booking/customer tables use table-specific widths and horizontal scrolling instead of compressing action buttons.
 - Client actions are ordered `Muat Naik Resit`, `Batal`, `Edit`, `Lihat` when all actions are available.
@@ -235,7 +237,7 @@ Admin-only endpoints call `requireAdmin()`. Client booking actions rely on the P
 
 ## Database Compatibility
 
-No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use the existing `bookings.equipment_required` `TEXT` column, and whole-hour durations remain compatible with `bookings.duration VARCHAR(20)`.
+No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. The update script is idempotent and preserves existing admin passwords, custom facilities, and facility availability settings. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use the existing `bookings.equipment_required` `TEXT` column, and whole-hour durations remain compatible with `bookings.duration VARCHAR(20)`.
 
 For an older database, check `equipment_required` with `information_schema.COLUMNS`. Add it only when missing:
 
@@ -270,10 +272,10 @@ root redirect HTML files
 
 ## Known Caveats
 
-- `resources/js/core/fallback.js` still has localStorage fallback logic for preview mode.
+- `resources/js/core/fallback.js` reads legacy local booking data only for public calendar fallbacks. Mutating and authenticated workflows never report local-only data as successfully saved.
 - `APP_ROOT` is hardcoded to ''.
 - There is no `.env.example` in this checkout; keep local database settings in `.env`.
-- Production hardening is still needed: CSRF protection, restricted CORS, HTTPS-only cookies, and changing default admin credentials.
-- Race-condition hardening for simultaneous receipt uploads would need database-level locking or transactions; current conflict checks enforce the rules for normal request flow.
+- Production hardening is still needed: CSRF protection, HTTPS-only cookies, and changing default admin credentials.
+- MySQL named locks plus the `uniq_blocking_facility_date` database index protect simultaneous paid bookings for the same facility/date pair.
 
 

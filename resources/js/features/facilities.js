@@ -1,5 +1,6 @@
 // ==================== FACILITIES ====================
 let unavailableBookingDates = new Set();
+let bookingDatePickerRequestId = 0;
 
 function normalizeFacilities(facilities) {
   return facilities.map((f) => ({
@@ -35,31 +36,11 @@ function bookingTimeToMinutes(time) {
   return parts[0] * 60 + parts[1];
 }
 
-function bookingEndToMinutes(start, end, duration = '1') {
-  const endMinutes = bookingTimeToMinutes(end);
-  if (endMinutes !== null) return endMinutes;
-
-  const startMinutes = bookingTimeToMinutes(start);
-  if (startMinutes === null) return null;
-
-  return startMinutes + durationToMinutes(duration);
-}
-
 function getMinimumBookingDateValue() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   date.setDate(date.getDate() + 3);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function hasLocalBlockingConflict(data, excludeId = '') {
-  return getBookings().some((booking) => {
-    const bookingId = booking.id || booking.booking_ref || '';
-    if (excludeId && String(bookingId) === String(excludeId)) return false;
-    if (!isBlockingBookingStatus(booking.status)) return false;
-    if (String(booking.facilityId || booking.facility_id) !== String(data.facility_id || data.facilityId)) return false;
-    return String(booking.date || booking.booking_date) === String(data.booking_date || data.date);
-  });
 }
 
 async function renderFacilities() {
@@ -77,7 +58,7 @@ async function renderFacilities() {
       <div class="facility-meta">
         <div class="facility-cap">Kapasiti: <span>${escapeHtml(facilityCapacityLabel(f))}</span></div>
         <div class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}">
-          ${f.is_available ? '<i class="bi bi-check-circle"></i> Tersedia' : '<i class="bi bi-x-circle"></i> Ditempah'}
+          ${f.is_available ? '<i class="bi bi-check-circle"></i> Tersedia' : '<i class="bi bi-x-circle"></i> Tidak Tersedia'}
         </div>
       </div>
     </div>
@@ -88,8 +69,8 @@ async function renderFacilities() {
     const stats = await tryApi('bookings.php?action=public-stats');
     setText('stat-bookings', stats.data.today);
   } catch (error) {
-    const today = new Date().toISOString().split('T')[0];
-    setText('stat-bookings', getBookings().filter((b) => b.date === today).length);
+    const today = formatLocalDateValue();
+    setText('stat-bookings', getBookings().filter((b) => b.date === today && isBlockingBookingStatus(b.status)).length);
   }
 }
 
@@ -103,15 +84,17 @@ function selectFacilityAndBook(fid) {
   window.location.href = ROUTES.booking;
 }
 
-async function loadPublicCalendarBookings(year, month) {
+async function loadPublicCalendarBookings(year, month, facilityId = '') {
   try {
-    const result = await apiRequest(`bookings.php?action=calendar&year=${year}&month=${month}`);
+    const facilityQuery = facilityId ? `&facility_id=${encodeURIComponent(facilityId)}` : '';
+    const result = await apiRequest(`bookings.php?action=calendar&year=${year}&month=${month}${facilityQuery}`);
     return result.data || [];
   } catch (error) {
     const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
     return getBookings()
       .filter((b) => (b.date || '').startsWith(monthPrefix))
       .filter((b) => isBlockingBookingStatus(b.status))
+      .filter((b) => !facilityId || String(b.facilityId || b.facility_id) === String(facilityId))
       .map((b) => ({
         id: b.id || b.booking_ref,
         facilityId: b.facilityId || b.facility_id || '',
@@ -156,9 +139,12 @@ async function renderLandingCalendar() {
   for (let day = 1; day <= days; day += 1) {
     const date = `${year}-${String(displayMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dayBookings = bookingsByDate[date] || [];
-    const bookedFacilityCount = new Set(dayBookings.map((booking) => String(booking.facilityId || '')).filter(Boolean)).size;
-    const availableFacilityCount = facilitiesCache.filter((facility) => facility.is_available).length || facilitiesCache.length || 4;
-    const isFullyBooked = bookedFacilityCount >= availableFacilityCount;
+    const availableFacilityIds = new Set(facilitiesCache.filter((facility) => facility.is_available).map((facility) => String(facility.id)));
+    const bookedFacilityCount = new Set(dayBookings
+      .map((booking) => String(booking.facilityId || ''))
+      .filter((facilityId) => availableFacilityIds.has(facilityId))).size;
+    const availableFacilityCount = availableFacilityIds.size;
+    const isFullyBooked = availableFacilityCount > 0 && bookedFacilityCount >= availableFacilityCount;
     const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
     const markers = dayBookings.slice(0, 4).map((booking) =>
       `<span class="landing-calendar-marker ${escapeAttr(booking.status)}"></span>`
@@ -327,6 +313,8 @@ async function renderBookingDatePicker() {
   const picker = document.getElementById('bookingDatePicker');
   if (!picker) return;
 
+  const requestId = ++bookingDatePickerRequestId;
+
   const year = bookingDatePickerDate.getFullYear();
   const month = bookingDatePickerDate.getMonth();
   const displayMonth = month + 1;
@@ -334,10 +322,12 @@ async function renderBookingDatePicker() {
   const dateInput = document.getElementById('f-date');
   let selectedDate = dateInput?.value || '';
   const selectedFacilityId = document.getElementById('f-facility')?.value || '';
-  const bookings = await loadPublicCalendarBookings(year, displayMonth);
+  const bookings = selectedFacilityId
+    ? await loadPublicCalendarBookings(year, displayMonth, selectedFacilityId)
+    : [];
+  if (requestId !== bookingDatePickerRequestId) return;
   const bookedDates = new Set(
     bookings
-      .filter((booking) => selectedFacilityId && String(booking.facilityId) === String(selectedFacilityId))
       .map((booking) => booking.date)
   );
   unavailableBookingDates = bookedDates;

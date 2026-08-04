@@ -21,7 +21,7 @@ async function tryApi(endpoint, method = 'GET', data = null) {
   try {
     return await apiRequest(endpoint, method, data);
   } catch (error) {
-    if (!error.status || error.status >= 500) {
+    if (!error.status) {
       apiOnline = false;
     }
     throw error;
@@ -29,7 +29,7 @@ async function tryApi(endpoint, method = 'GET', data = null) {
 }
 
 function canUseLocalFallback(error) {
-  return !error.status || error.status >= 500 || !apiOnline;
+  return !error.status || !apiOnline;
 }
 
 async function loadFacilities() {

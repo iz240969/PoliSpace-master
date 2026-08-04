@@ -1,6 +1,7 @@
 // ==================== BOOKING FORM ====================
 const BOOKING_CART_STORAGE_PREFIX = 'ps_booking_cart:';
 let bookingCartEditingId = null;
+let bookingSubmissionInProgress = false;
 
 function setMinDate() {
   const el = document.getElementById('f-date');
@@ -244,6 +245,8 @@ function toggleStartTimePicker() {
 }
 
 async function submitBooking() {
+  if (bookingSubmissionInProgress) return;
+
   if (!isClientLoggedIn()) {
     showToast('Sila log masuk sebagai pelanggan sebelum membuat tempahan.', 'error');
     window.location.href = ROUTES.login;
@@ -262,12 +265,25 @@ async function submitBooking() {
     return;
   }
 
+  const submitButton = document.getElementById('submitBookingButton');
+  bookingSubmissionInProgress = true;
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
+  }
+
   try {
     const ref = await createBookingRecord(data, receiptFile);
     if (bookingCartEditingId) removeBookingCartItem(bookingCartEditingId, false);
     showBookingSuccess(ref);
   } catch (error) {
     showToast(error.message || 'Tempahan gagal dihantar.', 'error');
+  } finally {
+    bookingSubmissionInProgress = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = 'Hantar Permohonan <i class="bi bi-arrow-right ms-2"></i>';
+    }
   }
 }
 
@@ -334,62 +350,15 @@ async function createBookingRecord(data, receiptFile = null) {
   const payload = { ...data };
   if (receiptFile) payload.payment_file = receiptFile;
 
-  if (apiOnline) {
-    try {
-      const result = await createBookingApi(payload);
-      return result?.booking_ref || '';
-    } catch (error) {
-      if (!canUseLocalFallback(error)) throw error;
-
-      apiOnline = false;
-      if (receiptFile) {
-        throw new Error('Ketersediaan tidak dapat disahkan. Resit belum dihantar; sila cuba lagi apabila sambungan server pulih.');
-      }
+  try {
+    const result = await createBookingApi(payload);
+    return result?.booking_ref || '';
+  } catch (error) {
+    if (!error.status) {
+      throw new Error('Tempahan tidak dapat dihantar kerana sambungan server terputus. Sila cuba lagi.');
     }
+    throw error;
   }
-
-  if (receiptFile) {
-    throw new Error('Ketersediaan tidak dapat disahkan. Resit belum dihantar; sila cuba lagi apabila sambungan server pulih.');
-  }
-
-  const facility = facilitiesCache.find((item) => String(item.id) === String(data.facility_id));
-  if (!facility?.is_available) {
-    throw new Error('Fasiliti ini tidak tersedia untuk tempahan.');
-  }
-  if (facility.capacity > 0 && data.participant_count > facility.capacity) {
-    throw new Error(`Jumlah pengguna melebihi kapasiti ${facility.capacity} orang.`);
-  }
-  if (hasLocalBlockingConflict(data)) {
-    throw new Error('Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.');
-  }
-  const id = generateId();
-  const booking = {
-    id,
-    booking_ref: id,
-    name: data.full_name,
-    org: data.organization,
-    email: data.email,
-    phone: data.phone,
-    facilityId: data.facility_id,
-    facilityName: facility?.name || '',
-    facilityIcon: facility ? facilityIconHtml(facility) : '',
-    date: data.booking_date,
-    start: data.start_time,
-    end: data.end_time,
-    duration: data.duration,
-    purpose: data.purpose,
-    equipment: data.equipment_required,
-    setup: data.setup_required,
-    pax: data.participant_count || '-',
-    paymentFile: '',
-    status: 'unpaid',
-    createdAt: new Date().toISOString(),
-    adminNote: '',
-  };
-  const bookings = getBookings();
-  bookings.push(booking);
-  saveBookings(bookings);
-  return id;
 }
 
 async function initBookingPage() {
@@ -472,10 +441,9 @@ function addBookingToCart() {
   const items = getBookingCartItems();
   const duplicate = items.find((item) => item.id !== bookingCartEditingId
     && String(item.facility_id) === String(data.facility_id)
-    && item.booking_date === data.booking_date
-    && item.start_time === data.start_time);
+    && item.booking_date === data.booking_date);
   if (duplicate) {
-    showToast('Fasiliti dan slot masa ini sudah berada dalam troli.', 'error');
+    showToast('Fasiliti dan tarikh ini sudah berada dalam troli.', 'error');
     return;
   }
 

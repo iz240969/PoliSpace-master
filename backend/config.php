@@ -62,9 +62,10 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 if (!empty($_SERVER['HTTP_ORIGIN'])) {
     $origin = (string)$_SERVER['HTTP_ORIGIN'];
-    $host = $_SERVER['HTTP_HOST'] ?? '';
-    $originHost = parse_url($origin, PHP_URL_HOST);
-    if ($originHost !== false && strcasecmp((string)$originHost, (string)$host) === 0) {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $requestOrigin = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '');
+    $allowedOrigins = array_filter([$requestOrigin, rtrim(APP_URL, '/')]);
+    if (in_array(rtrim($origin, '/'), $allowedOrigins, true)) {
         header('Access-Control-Allow-Origin: ' . $origin);
         header('Access-Control-Allow-Credentials: true');
         header('Vary: Origin');

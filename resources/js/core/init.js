@@ -1,6 +1,5 @@
 // ==================== INIT ====================
 async function init() {
-  ensureFallbackSeed();
   setupNavigationAccess();
   await refreshAuthState();
   setupNavigationAccess();

@@ -37,6 +37,7 @@ try {
     if ($method === 'PUT' && $action === 'status' && isset($_GET['id'])) {
         $input = jsonInput();
         if (!empty($_SESSION['admin_id'])) {
+            requireAdmin();
             updateBookingStatus($db, (string)$_GET['id'], $input);
         } else {
             cancelOwnBooking($db, (string)$_GET['id'], $input);
@@ -99,7 +100,7 @@ function getUserBookings(Database $db, string $email = ''): void
 {
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     $sessionEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($sessionEmail, FILTER_VALIDATE_EMAIL)) {
+    if ($userId <= 0 || !filter_var($sessionEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
@@ -121,7 +122,9 @@ function getUserBookings(Database $db, string $email = ''): void
 
 function getBookingByRef(Database $db, string $ref): void
 {
-    if (empty($_SESSION['admin_id']) && empty($_SESSION['user_email'])) {
+    $isAdmin = !empty($_SESSION['admin_id']) && empty($_SESSION['user_id']);
+    $isUser = !empty($_SESSION['user_id']) && empty($_SESSION['admin_id']) && !empty($_SESSION['user_email']);
+    if (!$isAdmin && !$isUser) {
         jsonResponse(['success' => false, 'error' => 'Login required'], 401);
     }
 
@@ -137,7 +140,7 @@ function getBookingByRef(Database $db, string $ref): void
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
 
-    if (empty($_SESSION['admin_id'])
+    if (!$isAdmin
         && strtolower((string)$booking['email']) !== strtolower((string)$_SESSION['user_email'])) {
         jsonResponse(['success' => false, 'error' => 'You can only view your own booking'], 403);
     }
@@ -149,7 +152,7 @@ function createBooking(Database $db): void
 {
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
@@ -159,9 +162,9 @@ function createBooking(Database $db): void
         jsonResponse(['success' => false, 'error' => 'Valid user account required'], 401);
     }
 
-    $data['email'] = $user['email'];
-    $data['full_name'] = trim((string)($data['full_name'] ?? '')) ?: (string)($user['full_name'] ?? '');
-    $data['phone'] = trim((string)($data['phone'] ?? '')) ?: (string)($user['phone'] ?? '');
+    $data['email'] = (string)$user['email'];
+    $data['full_name'] = trim((string)($user['full_name'] ?? ''));
+    $data['phone'] = trim((string)($user['phone'] ?? ''));
     $errors = validateBookingData($data);
 
     if ($errors) {
@@ -169,7 +172,7 @@ function createBooking(Database $db): void
     }
 
     $ref = generateBookingRef();
-    $facility = $db->fetchOne('SELECT name, capacity, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+    $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
     if (!$facility) {
         jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
     }
@@ -201,7 +204,7 @@ function createBooking(Database $db): void
         $bookingStatus,
         &$paymentFile
     ): void {
-        $latestFacility = $db->fetchOne('SELECT capacity, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+        $latestFacility = $db->fetchOne('SELECT capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
         if (!$latestFacility || !(bool)$latestFacility['is_available']) {
             throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
         }
@@ -218,11 +221,6 @@ function createBooking(Database $db): void
             }
             $paymentFile = $upload['filename'];
         }
-
-        $db->update(
-            "UPDATE users SET full_name = ?, phone = ? WHERE id = ? AND role = 'user'",
-            [$data['full_name'], $data['phone'], $userId]
-        );
 
         try {
             $db->insert(
@@ -249,7 +247,7 @@ function createBooking(Database $db): void
                     $data['equipment_required'] ?? '',
                     $paymentFile,
                     $bookingStatus,
-                    $data['estimated_cost'] ?? 0,
+                    $latestFacility['price_per_hour'],
                 ]
             );
         } catch (Throwable $e) {
@@ -269,7 +267,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
     $status = $data['status'] ?? '';
     $adminNote = trim((string)($data['admin_note'] ?? ''));
 
-    if (!in_array($status, ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'], true)) {
+    if (!in_array($status, ['approved', 'rejected'], true)) {
         jsonResponse(['success' => false, 'error' => 'Invalid status'], 400);
     }
 
@@ -301,6 +299,9 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         if ($status === 'approved' && $current['status'] !== 'pending') {
             throw new BookingAvailabilityException('Hanya tempahan menunggu dengan resit boleh diluluskan.');
         }
+        if ($status === 'rejected' && !in_array($current['status'], ['unpaid', 'pending', 'approved'], true)) {
+            throw new BookingAvailabilityException('Tempahan ini tidak boleh ditolak dalam status semasa.');
+        }
         if (in_array($status, BLOCKING_BOOKING_STATUSES, true)) {
             if (empty($current['payment_file'])) {
                 throw new BookingAvailabilityException('Resit bayaran diperlukan sebelum tarikh boleh dikunci.');
@@ -327,7 +328,7 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
 
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
@@ -369,7 +370,7 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
 {
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
@@ -487,7 +488,7 @@ function uploadOwnReceipt(Database $db, string $id): void
 {
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
@@ -608,7 +609,7 @@ function getDashboardStats(Database $db): void
 
 function getPublicStats(Database $db): void
 {
-    $today = $db->fetchOne('SELECT COUNT(*) AS count FROM bookings WHERE booking_date = CURDATE()');
+    $today = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE booking_date = CURDATE() AND status IN ('pending', 'approved')");
     jsonResponse(['success' => true, 'data' => ['today' => (int)$today['count']]]);
 }
 
@@ -616,13 +617,24 @@ function getPublicCalendarBookings(Database $db): void
 {
     $year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
     $month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('n');
+    $facilityId = $_GET['facility_id'] ?? null;
 
     if ($year < 2000 || $year > 2100 || $month < 1 || $month > 12) {
         jsonResponse(['success' => false, 'error' => 'Invalid calendar month'], 400);
     }
+    if ($facilityId !== null && (!ctype_digit((string)$facilityId) || (int)$facilityId < 1)) {
+        jsonResponse(['success' => false, 'error' => 'Invalid facility'], 400);
+    }
 
     $start = sprintf('%04d-%02d-01', $year, $month);
     $end = date('Y-m-t', strtotime($start));
+    $params = [$start, $end];
+    $facilityFilter = '';
+    if ($facilityId !== null) {
+        $facilityFilter = ' AND b.facility_id = ?';
+        $params[] = (int)$facilityId;
+    }
+
     $rows = $db->fetchAll(
         "SELECT b.booking_ref, b.facility_id, b.booking_date, b.start_time, b.end_time, b.status,
                 f.name AS facility_name, f.icon
@@ -630,8 +642,9 @@ function getPublicCalendarBookings(Database $db): void
          LEFT JOIN facilities f ON b.facility_id = f.id
          WHERE b.booking_date BETWEEN ? AND ?
            AND b.status IN ('pending', 'approved')
+           {$facilityFilter}
          ORDER BY b.booking_date ASC, b.start_time ASC",
-        [$start, $end]
+        $params
     );
 
     $bookings = array_map(static function (array $booking): array {

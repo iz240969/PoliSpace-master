@@ -23,7 +23,14 @@ try {
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+        $sessionEmail = trim((string)($_SESSION['user_email'] ?? ''));
+        if ($userId <= 0 || !filter_var($sessionEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
+            jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+        }
+
         $input = jsonInput();
+        $input['email'] = $sessionEmail;
         $errors = validateContactMessage($input);
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Validation failed', 'details' => $errors], 400);

@@ -3,7 +3,7 @@
 // Feature files are loaded in order because this app uses plain browser globals.
 (() => {
   const baseUrl = new URL('.', document.currentScript.src).href;
-  const version = '20260804-availability-lock-3';
+  const version = '20260804-consistency-audit-1';
   const files = [
     'core/config.js',
     'core/navigation.js',

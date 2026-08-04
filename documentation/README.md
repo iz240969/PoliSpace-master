@@ -25,7 +25,7 @@ Every main page loads the shared entry files:
 <script src="/resources/js/script.js?v=..."></script>
 ```
 
-The query value is a cache-busting version and may differ by page after a UI update. `resources/js/script.js` loads the plain browser-global JavaScript modules in order. `resources/css/style.css` imports the base, component, and page CSS files.
+The query value is a cache-busting version and should stay consistent across pages after a UI update. `resources/js/script.js` loads the plain browser-global JavaScript modules in order. `resources/css/style.css` imports the base, component, and page CSS files.
 
 ## Authentication
 
@@ -69,8 +69,9 @@ unpaid, rejected, cancelled
 
 Business behavior:
 
-- A new booking without a receipt starts as `unpaid` and does not reserve the slot.
-- A booking with a receipt starts as `pending`, unless another `pending` or `approved` booking already overlaps the same facility/date/time.
+- A new booking without a receipt starts as `unpaid` and does not reserve the date.
+- A booking with a receipt starts as `pending`, unless another `pending` or `approved` booking already reserves the same facility and date.
+- A reserved date applies only to that facility. Every other available facility can still be booked on the same date.
 - Uploading a receipt from the dashboard changes an `unpaid` booking to `pending` and performs the same conflict check.
 - `approved` bookings remain reserved.
 - Admin can reject `unpaid`, `pending`, or `approved` bookings. A rejection note is required.
@@ -88,7 +89,7 @@ resources/js/features/booking.js
 resources/css/pages/booking.css
 ```
 
-The email field is read-only and is filled from the logged-in user session. The backend also ignores submitted email for booking creation and uses the registered account email from the session.
+Name, phone, and email are read-only in the booking form and are filled from the logged-in user profile. The backend ignores submitted identity fields and uses the registered profile values from the session.
 
 Required booking fields include name, email, phone, facility, date, start time, purpose, and participant count. Participant count must be at least 1.
 
@@ -146,6 +147,7 @@ Admin can:
 - Reject `unpaid`, `pending`, and `approved` bookings.
 - View customers and customer booking history.
 - Reset/set customer passwords.
+- Read customer messages and reply through their email client.
 - Toggle facility availability.
 - View the booking calendar.
 
@@ -202,7 +204,9 @@ created_at
 updated_at
 ```
 
-Do not add a unique index on facility/date/time because unpaid bookings are allowed to overlap. Slot blocking is enforced by checking only `pending` and `approved` bookings.
+Generated columns expose the facility/date pair only for `pending` and `approved` rows. The `uniq_blocking_facility_date` index prevents two paid bookings from reserving the same facility and date, while any number of `unpaid`, `rejected`, or `cancelled` history rows remain allowed.
+
+Running `database/update_polspace.sql` preserves existing admin passwords, custom facilities, and each facility's current availability setting.
 
 The current UI and profile editor require no additional columns beyond `database/polspace.sql` or the current `database/update_polspace.sql`. For an older installation, verify that `equipment_required` exists before using multi-equipment requests:
 
@@ -246,6 +250,4 @@ Before production use:
 
 - Change the default admin password.
 - Add CSRF protection.
-- Restrict CORS to trusted origins.
 - Use HTTPS-only cookies.
-- Consider transaction or lock-based protection for truly simultaneous receipt uploads.

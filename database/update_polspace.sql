@@ -146,9 +146,7 @@ DEALLOCATE PREPARE blocking_date_index_stmt;
 INSERT INTO users (email, password, full_name, role)
 VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb7rm40SpJI56', 'Administrator', 'admin')
 ON DUPLICATE KEY UPDATE
-    password = VALUES(password),
-    full_name = VALUES(full_name),
-    role = VALUES(role);
+    email = VALUES(email);
 
 INSERT INTO facilities (id, name, icon, capacity, price_per_hour, description, is_available) VALUES
 (1, 'Dewan Utama', 'bi-bank', 800, 450.00, 'Kemudahan: Econ, PA system, projector.', TRUE),
@@ -162,5 +160,4 @@ ON DUPLICATE KEY UPDATE
     icon = VALUES(icon),
     capacity = VALUES(capacity),
     price_per_hour = VALUES(price_per_hour),
-    description = VALUES(description),
-    is_available = VALUES(is_available);
+    description = VALUES(description);

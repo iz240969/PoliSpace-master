@@ -281,7 +281,12 @@ function protectLoggedInPages() {
     || document.getElementById('status')
     || document.getElementById('dashboard');
 
-  if (needsClientLogin && !isLoggedIn()) {
+  if (needsClientLogin && isAdminLoggedIn()) {
+    window.location.href = ROUTES.adminDashboard;
+    return;
+  }
+
+  if (needsClientLogin && !isClientLoggedIn()) {
     window.location.href = ROUTES.login;
   }
 }

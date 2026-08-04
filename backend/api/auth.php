@@ -12,6 +12,31 @@ $db = Database::getInstance();
 $input = $_POST ?: jsonInput();
 $action = $_GET['action'] ?? '';
 
+function establishAdminSession(array $user): void
+{
+    session_regenerate_id(true);
+    unset($_SESSION['user_id'], $_SESSION['user_email']);
+    $_SESSION['admin_id'] = $user['id'];
+    $_SESSION['admin_email'] = $user['email'];
+    $_SESSION['admin_name'] = $user['full_name'];
+}
+
+function establishUserSession(int $userId, string $email): void
+{
+    session_regenerate_id(true);
+    unset($_SESSION['admin_id'], $_SESSION['admin_email'], $_SESSION['admin_name']);
+    $_SESSION['user_id'] = $userId;
+    $_SESSION['user_email'] = $email;
+}
+
+set_exception_handler(static function (Throwable $error): void {
+    if ($error instanceof PDOException && $error->getCode() === '23000') {
+        jsonResponse(['success' => false, 'error' => 'Account already exists. Please login.'], 409);
+    }
+    $message = APP_DEBUG ? $error->getMessage() : 'Authentication request failed';
+    jsonResponse(['success' => false, 'error' => $message], 500);
+});
+
 if ($action === 'auto') {
     $email = trim((string)($input['email'] ?? ''));
     $password = (string)($input['password'] ?? '');
@@ -29,9 +54,7 @@ if ($action === 'auto') {
     }
 
     if ($user['role'] === 'admin') {
-        $_SESSION['admin_id'] = $user['id'];
-        $_SESSION['admin_email'] = $user['email'];
-        $_SESSION['admin_name'] = $user['full_name'];
+        establishAdminSession($user);
 
         jsonResponse([
             'success' => true,
@@ -47,8 +70,7 @@ if ($action === 'auto') {
     }
 
     if ($user['role'] === 'user') {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_email'] = $user['email'];
+        establishUserSession((int)$user['id'], (string)$user['email']);
 
         jsonResponse([
             'success' => true,
@@ -69,8 +91,16 @@ if ($action === 'signup') {
     $fullName = trim((string)($input['full_name'] ?? ''));
     $phone = trim((string)($input['phone'] ?? ''));
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100) {
         jsonResponse(['success' => false, 'error' => 'Valid email required'], 400);
+    }
+
+    if (strlen($fullName) < 2 || strlen($fullName) > 100) {
+        jsonResponse(['success' => false, 'error' => 'Full name must contain between 2 and 100 characters'], 400);
+    }
+
+    if (strlen($phone) < 7 || strlen($phone) > 20 || !preg_match('/^[0-9+()\-\s]+$/', $phone)) {
+        jsonResponse(['success' => false, 'error' => 'Valid phone number required'], 400);
     }
 
     if (strlen($password) < 6) {
@@ -104,8 +134,7 @@ if ($action === 'signup') {
         );
     }
 
-    $_SESSION['user_id'] = $userId;
-    $_SESSION['user_email'] = $email;
+    establishUserSession($userId, $email);
 
     jsonResponse([
         'success' => true,
@@ -117,6 +146,12 @@ if ($action === 'signup') {
 }
 
 if ($action === 'me') {
+    if (!empty($_SESSION['user_id']) && !empty($_SESSION['admin_id'])) {
+        $_SESSION = [];
+        session_regenerate_id(true);
+        jsonResponse(['success' => false, 'error' => 'Session role conflict. Please login again.'], 401);
+    }
+
     if (!empty($_SESSION['user_id'])) {
         $user = $db->fetchOne("SELECT id, email, full_name, phone, role FROM users WHERE id = ? AND role = 'user'", [$_SESSION['user_id']]);
         if ($user) {
@@ -146,7 +181,7 @@ if ($action === 'profile') {
     }
 
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-    if ($userId <= 0) {
+    if ($userId <= 0 || !empty($_SESSION['admin_id'])) {
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
@@ -157,13 +192,13 @@ if ($action === 'profile') {
         jsonResponse(['success' => false, 'error' => 'Full name must contain between 2 and 100 characters'], 400);
     }
 
-    if ($phone !== '' && (strlen($phone) < 7 || strlen($phone) > 20 || !preg_match('/^[0-9+()\-\s]+$/', $phone))) {
+    if (strlen($phone) < 7 || strlen($phone) > 20 || !preg_match('/^[0-9+()\-\s]+$/', $phone)) {
         jsonResponse(['success' => false, 'error' => 'Valid phone number required'], 400);
     }
 
     $db->update(
         "UPDATE users SET full_name = ?, phone = ? WHERE id = ? AND role = 'user'",
-        [$fullName, $phone !== '' ? $phone : null, $userId]
+        [$fullName, $phone, $userId]
     );
 
     $user = $db->fetchOne(
@@ -201,9 +236,7 @@ if ($action === 'login') {
     $validPassword = $user && password_verify($password, (string)$user['password']);
 
     if ($user && $validPassword) {
-        $_SESSION['admin_id'] = $user['id'];
-        $_SESSION['admin_email'] = $user['email'];
-        $_SESSION['admin_name'] = $user['full_name'];
+        establishAdminSession($user);
 
         jsonResponse([
             'success' => true,
@@ -240,12 +273,16 @@ if ($action === 'user') {
         jsonResponse(['success' => false, 'error' => 'Invalid credentials'], 401);
     }
 
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['user_email'] = $email;
+    establishUserSession((int)$user['id'], (string)$user['email']);
     jsonResponse(['success' => true, 'message' => 'Login successful', 'email' => $email]);
 }
 
 if ($action === 'logout') {
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    }
     session_destroy();
     jsonResponse(['success' => true, 'message' => 'Logged out']);
 }

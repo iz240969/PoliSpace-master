@@ -88,7 +88,7 @@ function handlePaymentUpload(array $file): array
 
 function requireAdmin(): void
 {
-    if (empty($_SESSION['admin_id'])) {
+    if (empty($_SESSION['admin_id']) || !empty($_SESSION['user_id'])) {
         jsonResponse(['success' => false, 'error' => 'Admin login required'], 401);
     }
 }

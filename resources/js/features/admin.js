@@ -1,4 +1,11 @@
 ﻿// ==================== ADMIN ====================
+function handleAdminAuthorizationError(error) {
+  if (![401, 403].includes(error?.status)) return false;
+  clearStoredAuthState();
+  window.location.href = ROUTES.login;
+  return true;
+}
+
 async function renderAdminDashboard() {
   const dashDate = document.getElementById('dashDate');
   if (!dashDate) return;
@@ -13,15 +20,16 @@ async function renderAdminDashboard() {
     stats = statsResult.data;
     bookings = bookingsResult.data || [];
   } catch (error) {
-    bookings = getBookings();
-    const today = new Date().toISOString().split('T')[0];
+    if (handleAdminAuthorizationError(error)) return;
+    bookings = [];
     stats = {
-      total: bookings.length,
-      unpaid: bookings.filter((b) => b.status === 'unpaid').length,
-      pending: bookings.filter((b) => b.status === 'pending').length,
-      approved: bookings.filter((b) => b.status === 'approved').length,
-      today: bookings.filter((b) => b.date === today).length,
+      total: 0,
+      unpaid: 0,
+      pending: 0,
+      approved: 0,
+      today: 0,
     };
+    showToast(error.message || 'Data dashboard tidak dapat dimuatkan.', 'error');
   }
 
   setText('pendingBadge', Number(stats.unpaid || 0) + Number(stats.pending || 0));
@@ -32,6 +40,7 @@ async function renderAdminDashboard() {
   renderFacilityManagement(facilities);
   renderCalendar(bookings, bookingCalendarDate);
   loadClients();
+  loadMessages();
 }
 
 function buildStatsHTML(stats) {
@@ -78,8 +87,9 @@ async function filterBookings(filter, btn) {
     const result = await tryApi(`bookings.php${suffix}`);
     bookings = result.data || [];
   } catch (error) {
-    bookings = getBookings();
-    if (filter !== 'all') bookings = bookings.filter((b) => b.status === filter);
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Senarai tempahan tidak dapat dimuatkan.', 'error');
+    return;
   }
   renderBookingsTable('allBookingsTbody', bookings, false);
 }
@@ -89,7 +99,7 @@ function renderFacilityManagement(facilities) {
   if (!grid) return;
   grid.innerHTML = facilities.map((f) => `
     <div class="facility-manage-card">
-      <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'booked')}</div>
+      <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
       <div class="fmc-cap">Kapasiti: ${f.capacity} orang - RM${f.price_per_hour}</div>
       <div class="fmc-footer"><span style="font-size:12px;color:var(--grey-4)">${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
@@ -104,6 +114,7 @@ async function toggleFacility(fid) {
   try {
     await tryApi(`facilities.php?id=${encodeURIComponent(fid)}`, 'PUT', { is_available: nextAvailability });
   } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Sambungan server diperlukan untuk mengubah ketersediaan fasiliti.', 'error');
     return;
   }
@@ -120,6 +131,7 @@ async function loadClients() {
     const result = await tryApi('users.php');
     renderClientsTable(result.data || []);
   } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
     tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
   }
 }
@@ -159,6 +171,13 @@ async function viewClientDetail(id) {
       <div class="detail-row"><span class="detail-label">No Telefon</span><span class="detail-value">${escapeHtml(user.phone || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Akaun</span><span class="detail-value">${user.has_password ? 'Sudah daftar' : 'Belum daftar'}</span></div>
       <div class="detail-row"><span class="detail-label">Tarikh Daftar</span><span class="detail-value">${escapeHtml(user.created_at || '-')}</span></div>
+      <div class="admin-password-reset">
+        <label for="clientPasswordReset">Tetapkan Kata Laluan Baharu</label>
+        <div class="admin-password-reset-row">
+          <input type="password" id="clientPasswordReset" minlength="6" autocomplete="new-password" placeholder="Minimum 6 aksara">
+          <button class="btn btn-primary btn-sm" id="clientPasswordResetButton" type="button" onclick="updateClientPassword(${Number(user.id)})"><i class="bi bi-key"></i> Simpan</button>
+        </div>
+      </div>
       <div style="margin-top:24px">
         <div class="admin-card-title" style="margin-bottom:12px">Tempahan Pelanggan</div>
         ${bookings.length ? `
@@ -182,8 +201,67 @@ async function viewClientDetail(id) {
     document.getElementById('modalFooter').innerHTML = `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
     document.getElementById('bookingModal')?.classList.add('active');
   } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Butiran pelanggan gagal dimuatkan.', 'error');
   }
+}
+
+async function updateClientPassword(id) {
+  const input = document.getElementById('clientPasswordReset');
+  const button = document.getElementById('clientPasswordResetButton');
+  const password = input?.value || '';
+  if (password.length < 6) {
+    showToast('Kata laluan mesti mengandungi sekurang-kurangnya 6 aksara.', 'error');
+    input?.focus();
+    return;
+  }
+
+  if (button) button.disabled = true;
+  try {
+    await tryApi(`users.php?id=${encodeURIComponent(id)}`, 'PUT', { password });
+    if (input) input.value = '';
+    showToast('Kata laluan pelanggan berjaya dikemas kini.', 'success');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Kata laluan pelanggan gagal dikemas kini.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function loadMessages() {
+  const tbody = document.getElementById('messagesTbody');
+  if (!tbody) return;
+
+  try {
+    const result = await tryApi('messages.php');
+    renderMessagesTable(result.data || []);
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-chat-square-x"></i></div><div class="empty-state-title">Mesej tidak dapat dimuatkan</div></div></td></tr>';
+  }
+}
+
+function renderMessagesTable(messages) {
+  const tbody = document.getElementById('messagesTbody');
+  if (!tbody) return;
+  if (!messages.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-chat-dots"></i></div><div class="empty-state-title">Tiada Mesej</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = messages.map((message) => {
+    const replySubject = encodeURIComponent(`Re: ${message.subject || 'Mesej PoliSpace'}`);
+    return `
+      <tr>
+        <td><span class="table-email" title="${escapeAttr(message.email)}">${escapeHtml(message.email)}</span></td>
+        <td>${escapeHtml(message.subject || '-')}</td>
+        <td class="admin-message-content">${escapeHtml(message.message || '-')}</td>
+        <td class="table-date">${escapeHtml(formatDateTime(message.created_at))}</td>
+        <td><a class="btn btn-secondary btn-sm table-icon-btn" href="mailto:${escapeAttr(message.email)}?subject=${replySubject}" title="Balas melalui e-mel" aria-label="Balas mesej ${escapeAttr(message.email)}"><i class="bi bi-reply"></i></a></td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function renderCalendar(bookings = [], viewDate = bookingCalendarDate) {
@@ -258,25 +336,21 @@ function showAdminPanel(name, btn) {
   document.getElementById(`panel-${name}`)?.classList.add('active');
   btn?.classList.add('active');
   if (name === 'bookings') filterBookings('all', document.querySelector('#bookingFilterTabs .filter-tab'));
+  if (name === 'messages') loadMessages();
   if (name === 'clients') loadClients();
   if (name === 'calendar') renderAdminDashboard();
 }
 
-function findBooking(id) {
-  return getBookings().find((b) => b.id === id || b.booking_ref === id);
-}
-
 async function viewBookingDetail(id) {
-  let booking = findBooking(id);
-  if (apiOnline) {
-    try {
-      const result = await tryApi(`bookings.php?action=ref&ref=${encodeURIComponent(id)}`);
-      booking = result.data;
-    } catch (error) {
-      apiOnline = false;
-    }
+  let booking;
+  try {
+    const result = await apiRequest(`bookings.php?action=ref&ref=${encodeURIComponent(id)}`);
+    booking = result.data;
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Butiran tempahan gagal dimuatkan.', 'error');
+    return;
   }
-  if (!booking) return;
 
   setText('modalTitle', `Butiran Tempahan - ${booking.id}`);
   document.getElementById('modalBody').innerHTML = `
@@ -287,7 +361,7 @@ async function viewBookingDetail(id) {
     </div>
     <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
     <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
-    <div class="detail-row"><span class="detail-label">Angka</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+    <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
     <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
@@ -320,10 +394,8 @@ async function updateStatus(id, status, note = '') {
   try {
     await tryApi(`bookings.php?action=status&id=${encodeURIComponent(id)}`, 'PUT', { status, admin_note: note });
   } catch (error) {
-    const message = canUseLocalFallback(error)
-      ? 'Sambungan server diperlukan untuk mengubah status tempahan.'
-      : error.message || 'Status tempahan gagal dikemas kini.';
-    showToast(message, 'error');
+    if (handleAdminAuthorizationError(error)) return false;
+    showToast(error.message || 'Status tempahan gagal dikemas kini.', 'error');
     return false;
   }
   await renderAdminDashboard();

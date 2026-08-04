@@ -157,6 +157,14 @@
 .admin-client-bookings-table th:nth-child(4), .admin-client-bookings-table td:nth-child(4) { width: 20%; }
 .admin-client-bookings-table th:nth-child(5), .admin-client-bookings-table td:nth-child(5) { width: 16%; }
 
+.admin-messages-table { min-width: 1080px; }
+.admin-messages-table th:nth-child(1), .admin-messages-table td:nth-child(1) { width: 22%; }
+.admin-messages-table th:nth-child(2), .admin-messages-table td:nth-child(2) { width: 20%; }
+.admin-messages-table th:nth-child(3), .admin-messages-table td:nth-child(3) { width: 36%; }
+.admin-messages-table th:nth-child(4), .admin-messages-table td:nth-child(4) { width: 16%; }
+.admin-messages-table th:last-child, .admin-messages-table td:last-child { width: 72px; overflow: visible; text-align: center; }
+.admin-message-content { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+
 .booking-id { font-family: var(--display-font); font-size: 12px; font-weight: 900; color: var(--gold); }
 .tenant-name { font-weight: 700; font-size: 14px; color: var(--text-main); }
 .tenant-org { overflow: hidden; margin-top: 3px; color: var(--grey-4); font-size: 11px; font-weight: 500; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
@@ -245,6 +253,26 @@
   line-height: 1.5;
 }
 
+.admin-password-reset {
+  margin-top: 22px;
+}
+
+.admin-password-reset label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.admin-password-reset-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.admin-password-reset-row input {
+  width: 100%;
+  min-width: 0;
+}
+
 /* Toast */
 .toast-container { position: fixed; bottom: 28px; right: 28px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
 .toast {
@@ -321,6 +349,10 @@
 
   .modal-footer {
     flex-wrap: wrap;
+  }
+
+  .admin-password-reset-row {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -37,7 +37,9 @@ async function loadUserBookings() {
       window.location.href = ROUTES.login;
       return;
     }
-    bookings = getBookings().filter((b) => b.email && b.email.toLowerCase() === psCurrentUserEmail.toLowerCase());
+    setText('bookingCountLabel', '0 tempahan');
+    container.innerHTML = '<div class="dash-empty"><div class="empty-icon"><i class="bi bi-cloud-slash"></i></div><div class="empty-title">Tempahan Tidak Dapat Dimuatkan</div><div class="empty-sub">Sila semak sambungan server dan cuba semula.</div></div>';
+    return;
   }
   psDashboardBookings = bookings;
   applyBookingFilters();
@@ -145,29 +147,12 @@ async function cancelUserBooking(id) {
 async function confirmCancelUserBooking() {
   const id = pendingCancelBookingId;
   if (!id) return;
-  const dashboardBooking = psDashboardBookings.find((booking) => booking.id === id || booking.booking_ref === id);
-
   closeModal('cancelBookingModal');
   try {
     await tryApi(`bookings.php?action=status&id=${encodeURIComponent(id)}`, 'PUT', { status: 'cancelled', admin_note: 'Dibatalkan oleh pengguna.' });
   } catch (error) {
-    if (!canUseLocalFallback(error)) {
-      showToast(error.message || 'Tempahan tidak dapat dibatalkan.', 'error');
-      return;
-    }
-    if (dashboardBooking?.status === 'pending') {
-      showToast('Sambungan server diperlukan untuk membatalkan tempahan yang telah dibayar.', 'error');
-      return;
-    }
-    const bookings = getBookings();
-    const booking = bookings.find((b) => b.id === id);
-    if (!booking) {
-      showToast('Sambungan server diperlukan untuk membatalkan tempahan ini.', 'error');
-      return;
-    }
-    booking.status = 'cancelled';
-    booking.adminNote = 'Dibatalkan oleh pengguna.';
-    saveBookings(bookings);
+    showToast(error.message || 'Tempahan tidak dapat dibatalkan.', 'error');
+    return;
   }
   pendingCancelBookingId = '';
   loadUserBookings();
@@ -175,16 +160,8 @@ async function confirmCancelUserBooking() {
 }
 
 async function getUserBookingForDashboard(id) {
-  if (apiOnline) {
-    try {
-      const result = await tryApi(`bookings.php?action=ref&ref=${encodeURIComponent(id)}`);
-      return result.data;
-    } catch (error) {
-      if (!canUseLocalFallback(error)) throw error;
-    }
-  }
-
-  return getBookings().find((booking) => booking.id === id || booking.booking_ref === id);
+  const result = await apiRequest(`bookings.php?action=ref&ref=${encodeURIComponent(id)}`);
+  return result.data;
 }
 
 async function viewUserBookingDetail(id) {
@@ -207,7 +184,7 @@ async function viewUserBookingDetail(id) {
       </div>
       <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
       <div class="detail-row"><span class="detail-label">Masa</span><span class="detail-value">${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</span></div>
-      <div class="detail-row"><span class="detail-label">Angka</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+      <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
       ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value">${escapeHtml(booking.adminNote)}</span></div>` : ''}
@@ -324,7 +301,8 @@ async function validateDashboardBookingDateAvailability(booking) {
   }
 
   const [year, month] = selectedDate.split('-').map(Number);
-  const bookings = await loadPublicCalendarBookings(year, month);
+  const facilityId = booking.facilityId || booking.facility_id || '';
+  const bookings = await loadPublicCalendarBookings(year, month, facilityId);
   const bookingId = String(booking.id || booking.booking_ref || '');
   const isBlocked = bookings.some((item) => String(item.facilityId) === String(booking.facilityId)
     && item.date === selectedDate
@@ -392,35 +370,8 @@ async function submitUserBookingEdit(id) {
   try {
     await tryApi(`bookings.php?action=user-update&id=${encodeURIComponent(id)}`, 'PUT', data);
   } catch (error) {
-    if (!canUseLocalFallback(error)) {
-      showToast(error.message || 'Tempahan gagal dikemas kini.', 'error');
-      return;
-    }
-
-    const bookings = getBookings();
-    const booking = bookings.find((item) => item.id === id || item.booking_ref === id);
-    if (currentBooking?.status === 'pending') {
-      showToast('Sambungan server diperlukan untuk mengubah tempahan yang telah dibayar.', 'error');
-      return;
-    }
-    if (!booking) {
-      showToast('Sambungan server diperlukan untuk mengubah tempahan ini.', 'error');
-      return;
-    }
-    if (booking && ['unpaid', 'pending'].includes(booking.status)) {
-      if (hasLocalBlockingConflict({ ...data, facility_id: booking.facilityId || booking.facility_id }, booking.id || booking.booking_ref)) {
-        showToast('Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.', 'error');
-        return;
-      }
-      booking.date = data.booking_date;
-      booking.duration = data.duration;
-      booking.start = data.start_time;
-      booking.end = data.end_time;
-      booking.purpose = data.purpose;
-      booking.equipment = data.equipment_required;
-      booking.pax = data.participant_count || '-';
-      saveBookings(bookings);
-    }
+    showToast(error.message || 'Tempahan gagal dikemas kini.', 'error');
+    return;
   }
 
   closeModal('userBookingModal');
@@ -487,12 +438,22 @@ async function sendContactMessage() {
     return;
   }
 
+  const submitButton = document.getElementById('contactSubmitButton');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
+  }
+
   try {
     await tryApi('messages.php', 'POST', { email, subject, message });
   } catch (error) {
-    const contacts = JSON.parse(localStorage.getItem('ps_contact_messages') || '[]');
-    contacts.push({ id: `MSG-${String(contacts.length + 1).padStart(4, '0')}`, email, subject, message, createdAt: new Date().toISOString(), read: false });
-    localStorage.setItem('ps_contact_messages', JSON.stringify(contacts));
+    showToast(error.message || 'Mesej tidak dapat dihantar. Sila cuba lagi.', 'error');
+    return;
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = '<i class="bi bi-send"></i> Hantar Mesej';
+    }
   }
 
   closeModal('contactModal');
@@ -500,5 +461,5 @@ async function sendContactMessage() {
   const messageEl = document.getElementById('contactMessage');
   if (subjectEl) subjectEl.value = '';
   if (messageEl) messageEl.value = '';
-  showToast('Mesej anda telah dihantar. Admin akan respon segera.', 'success');
+  showToast('Mesej anda telah dihantar kepada admin.', 'success');
 }

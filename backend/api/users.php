@@ -10,6 +10,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $db = Database::getInstance();
 
+set_exception_handler(static function (Throwable $error): void {
+    $message = APP_DEBUG ? $error->getMessage() : 'Client request failed';
+    jsonResponse(['success' => false, 'error' => $message], 500);
+});
+
 requireAdmin();
 $action = $_GET['action'] ?? '';
 
@@ -72,6 +77,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
     if (strlen($password) < 6) {
         jsonResponse(['success' => false, 'error' => 'Password must be at least 6 characters'], 400);
+    }
+
+    $user = $db->fetchOne("SELECT id FROM users WHERE id = ? AND role = 'user'", [$id]);
+    if (!$user) {
+        jsonResponse(['success' => false, 'error' => 'Client not found'], 404);
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);

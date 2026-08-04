@@ -21,6 +21,7 @@ function statusBadgeHtml(status) {
     rejected: '<div class="status-badge status-booked">Ditolak</div>',
     cancelled: '<div class="status-badge status-booked">Dibatalkan</div>',
     available: '<div class="status-badge status-available">Tersedia</div>',
+    unavailable: '<div class="status-badge status-booked">Tidak Tersedia</div>',
     booked: '<div class="status-badge status-booked">Ditempah</div>',
   };
   return labels[status] || '';
@@ -35,8 +36,13 @@ function formatDate(dateString) {
 
 function formatDateTime(iso) {
   if (!iso) return '-';
-  const date = new Date(iso);
-  return `${formatDate(date.toISOString().split('T')[0])} ${date.toTimeString().slice(0, 5)}`;
+  const date = new Date(String(iso).replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return String(iso);
+  return `${formatDate(formatLocalDateValue(date))} ${date.toTimeString().slice(0, 5)}`;
+}
+
+function formatLocalDateValue(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function isValidEmail(email) {

@@ -61,7 +61,7 @@ backend/db.php              Creates the PDO database connection
 ## Booking Rules
 
 ```text
-Only pending and approved bookings block facility/date/time availability.
+Only pending and approved bookings block availability, and they block only their own facility for the selected date.
 Unpaid, rejected, and cancelled bookings remain as history but do not block availability.
 Admin can reject unpaid, pending, and approved bookings.
 Users can cancel unpaid and pending bookings.
