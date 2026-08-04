@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS bookings (
     equipment_required TEXT,
     payment_file VARCHAR(255),
     status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid',
+    blocking_facility_id INT GENERATED ALWAYS AS (
+        CASE WHEN status IN ('pending', 'approved') THEN facility_id ELSE NULL END
+    ) STORED,
+    blocking_booking_date DATE GENERATED ALWAYS AS (
+        CASE WHEN status IN ('pending', 'approved') THEN booking_date ELSE NULL END
+    ) STORED,
     admin_note TEXT,
     estimated_cost DECIMAL(10,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -53,7 +59,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     INDEX idx_booking_ref (booking_ref),
     INDEX idx_email (email),
     INDEX idx_status (status),
-    INDEX idx_booking_date (booking_date)
+    INDEX idx_booking_date (booking_date),
+    UNIQUE INDEX uniq_blocking_facility_date (blocking_facility_id, blocking_booking_date)
 );
 
 CREATE TABLE IF NOT EXISTS contact_messages (

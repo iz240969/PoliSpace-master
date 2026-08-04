@@ -96,6 +96,33 @@ nav {
   color: #fff;
 }
 
+.booking-cart-nav {
+  position: relative;
+}
+
+.booking-cart-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 19px;
+  height: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  background: var(--red);
+  border: 2px solid var(--surface);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.booking-cart-count.is-empty {
+  display: none;
+}
+
 .account-dropdown {
   position: absolute;
   top: calc(100% + 12px);
@@ -188,7 +215,8 @@ nav {
   margin: 0;
 }
 
-.profile-readonly {
+.profile-readonly,
+.booking-readonly {
   background: var(--surface-2);
   color: var(--grey-4);
   cursor: not-allowed;

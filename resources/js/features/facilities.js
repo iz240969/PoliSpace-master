@@ -1,4 +1,6 @@
 // ==================== FACILITIES ====================
+let unavailableBookingDates = new Set();
+
 function normalizeFacilities(facilities) {
   return facilities.map((f) => ({
     id: String(f.id),
@@ -27,8 +29,9 @@ function isBlockingBookingStatus(status) {
 }
 
 function bookingTimeToMinutes(time) {
-  const parts = String(time || '').split(':').map(Number);
-  if (parts.length < 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return null;
+  const value = String(time || '');
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) return null;
+  const parts = value.split(':').map(Number);
   return parts[0] * 60 + parts[1];
 }
 
@@ -42,27 +45,20 @@ function bookingEndToMinutes(start, end, duration = '1') {
   return startMinutes + durationToMinutes(duration);
 }
 
-function bookingsOverlap(aStart, aEnd, bStart, bEnd) {
-  return aStart < bEnd && aEnd > bStart;
+function getMinimumBookingDateValue() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function hasLocalBlockingConflict(data, excludeId = '') {
-  const requestedStart = bookingTimeToMinutes(data.start_time || data.start);
-  const requestedEnd = bookingEndToMinutes(data.start_time || data.start, data.end_time || data.end, data.duration);
-  if (requestedStart === null || requestedEnd === null || requestedEnd <= requestedStart) return false;
-
   return getBookings().some((booking) => {
     const bookingId = booking.id || booking.booking_ref || '';
     if (excludeId && String(bookingId) === String(excludeId)) return false;
     if (!isBlockingBookingStatus(booking.status)) return false;
     if (String(booking.facilityId || booking.facility_id) !== String(data.facility_id || data.facilityId)) return false;
-    if (String(booking.date || booking.booking_date) !== String(data.booking_date || data.date)) return false;
-
-    const existingStart = bookingTimeToMinutes(booking.start || booking.start_time);
-    const existingEnd = bookingEndToMinutes(booking.start || booking.start_time, booking.end || booking.end_time, booking.duration);
-    if (existingStart === null || existingEnd === null || existingEnd <= existingStart) return false;
-
-    return bookingsOverlap(requestedStart, requestedEnd, existingStart, existingEnd);
+    return String(booking.date || booking.booking_date) === String(data.booking_date || data.date);
   });
 }
 
@@ -98,6 +94,11 @@ async function renderFacilities() {
 }
 
 function selectFacilityAndBook(fid) {
+  const facility = facilitiesCache.find((item) => String(item.id) === String(fid));
+  if (facility && !facility.is_available) {
+    showToast('Fasiliti ini tidak tersedia untuk tempahan.', 'error');
+    return;
+  }
   localStorage.setItem('ps_selected_facility', fid);
   window.location.href = ROUTES.booking;
 }
@@ -257,7 +258,7 @@ async function populateBookingFacilities() {
   const list = document.getElementById('facilitySelectorList');
   if (list) {
     list.innerHTML = facilities.map((f) => `
-      <div class="facility-select-item" data-fid="${escapeAttr(f.id)}" onclick="sidebarSelectFacility('${escapeAttr(f.id)}')">
+      <div class="facility-select-item ${!f.is_available ? 'is-disabled' : ''}" data-fid="${escapeAttr(f.id)}" ${f.is_available ? `onclick="sidebarSelectFacility('${escapeAttr(f.id)}')"` : 'aria-disabled="true"'}>
         <div>
           <div class="fsi-name">${facilityIconHtml(f)} ${escapeHtml(f.name)}</div>
           <div class="fsi-cap">Maks. ${f.capacity} orang - RM${f.price_per_hour}</div>
@@ -271,7 +272,8 @@ async function populateBookingFacilities() {
 
   const selected = localStorage.getItem('ps_selected_facility');
   if (selected) {
-    select.value = selected;
+    const selectedFacility = facilities.find((facility) => String(facility.id) === String(selected));
+    if (selectedFacility?.is_available) select.value = selected;
     localStorage.removeItem('ps_selected_facility');
   }
   updateFacilityInfo();
@@ -329,17 +331,24 @@ async function renderBookingDatePicker() {
   const month = bookingDatePickerDate.getMonth();
   const displayMonth = month + 1;
   const monthNames = ['Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun', 'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'];
-  const selectedDate = document.getElementById('f-date')?.value || '';
+  const dateInput = document.getElementById('f-date');
+  let selectedDate = dateInput?.value || '';
   const selectedFacilityId = document.getElementById('f-facility')?.value || '';
   const bookings = await loadPublicCalendarBookings(year, displayMonth);
-    const bookedDates = new Set(
+  const bookedDates = new Set(
     bookings
       .filter((booking) => selectedFacilityId && String(booking.facilityId) === String(selectedFacilityId))
       .map((booking) => booking.date)
   );
+  unavailableBookingDates = bookedDates;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  if (selectedDate && bookedDates.has(selectedDate)) {
+    if (dateInput) dateInput.value = '';
+    selectedDate = '';
+    showToast('Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.', 'error');
+  }
+
+  const minimumDate = getMinimumBookingDateValue();
   const firstDay = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
   let html = `
@@ -360,18 +369,18 @@ async function renderBookingDatePicker() {
 
   for (let day = 1; day <= days; day += 1) {
     const date = `${year}-${String(displayMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dateObj = new Date(year, month, day);
-    const isPast = dateObj < today;
+    const isTooSoon = date < minimumDate;
     const isBooked = bookedDates.has(date);
     const isSelected = selectedDate === date;
     const classes = [
       'booking-date-picker-day',
-      isPast ? 'is-disabled' : '',
+      isTooSoon ? 'is-disabled' : '',
       isBooked ? 'is-booked' : 'is-available',
       isSelected ? 'is-selected' : '',
     ].filter(Boolean).join(' ');
-    const disabled = isPast;
-    html += `<button type="button" class="${classes}" ${disabled ? 'disabled' : ''} onclick="selectBookingDate('${date}')">${day}</button>`;
+    const disabled = isTooSoon || isBooked;
+    const unavailableLabel = isBooked ? 'Telah ditempah' : isTooSoon ? 'Perlu ditempah 3 hari lebih awal' : 'Tersedia';
+    html += `<button type="button" class="${classes}" ${disabled ? 'disabled' : ''} title="${unavailableLabel}" aria-label="${day} ${monthNames[month]} - ${unavailableLabel}" onclick="selectBookingDate('${date}')">${day}</button>`;
   }
 
   picker.innerHTML = `${html}</div><div class="booking-date-picker-legend"><span><i class="available"></i> Tersedia</span><span><i class="booked"></i> Telah ditempah</span></div>`;
@@ -396,6 +405,14 @@ function changeBookingDatePickerMonth(delta) {
 function selectBookingDate(date) {
   const input = document.getElementById('f-date');
   if (!input) return;
+  if (unavailableBookingDates.has(date)) {
+    showToast('Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.', 'error');
+    return;
+  }
+  if (date < getMinimumBookingDateValue()) {
+    showToast('Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.', 'error');
+    return;
+  }
   input.value = date;
   input.dispatchEvent(new Event('change', { bubbles: true }));
   document.getElementById('bookingDatePicker')?.classList.remove('is-open');

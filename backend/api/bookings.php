@@ -4,8 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/validation.php';
-
-const BLOCKING_BOOKING_STATUSES = ['pending', 'approved'];
+require_once __DIR__ . '/../includes/booking_availability.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
@@ -63,6 +62,17 @@ try {
     }
 
     jsonResponse(['success' => false, 'error' => 'Invalid booking request'], 400);
+} catch (BookingAvailabilityException $e) {
+    jsonResponse(['success' => false, 'error' => $e->getMessage()], $e->httpStatus());
+} catch (PDOException $e) {
+    if ($e->getCode() === '23000' && str_contains($e->getMessage(), 'uniq_blocking_facility_date')) {
+        jsonResponse([
+            'success' => false,
+            'error' => 'Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.',
+        ], 409);
+    }
+    $message = defined('APP_DEBUG') && APP_DEBUG ? $e->getMessage() : 'Booking request failed';
+    jsonResponse(['success' => false, 'error' => $message], 500);
 } catch (Throwable $e) {
     $message = defined('APP_DEBUG') && APP_DEBUG ? $e->getMessage() : 'Booking request failed';
     jsonResponse(['success' => false, 'error' => $message], 500);
@@ -155,13 +165,19 @@ function createBooking(Database $db): void
     $errors = validateBookingData($data);
 
     if ($errors) {
-        jsonResponse(['success' => false, 'error' => 'Validation failed', 'details' => $errors], 400);
+        jsonResponse(['success' => false, 'error' => array_values($errors)[0], 'details' => $errors], 400);
     }
 
     $ref = generateBookingRef();
-    $facility = $db->fetchOne('SELECT name FROM facilities WHERE id = ?', [$data['facility_id']]);
+    $facility = $db->fetchOne('SELECT name, capacity, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
     if (!$facility) {
         jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
+    }
+    if (!(bool)$facility['is_available']) {
+        jsonResponse(['success' => false, 'error' => 'Fasiliti ini tidak tersedia untuk tempahan.'], 409);
+    }
+    if ((int)$data['participant_count'] > (int)$facility['capacity']) {
+        jsonResponse(['success' => false, 'error' => 'Jumlah pengguna melebihi kapasiti fasiliti.'], 400);
     }
     $packageOnlyFacilities = ['dewan utama', 'dewan syarahan', 'bilik persidangan', 'bilik seminar'];
     if ($facility && in_array(strtolower((string)$facility['name']), $packageOnlyFacilities, true)) {
@@ -171,55 +187,79 @@ function createBooking(Database $db): void
     $paymentFile = null;
     $bookingStatus = 'unpaid';
     $hasPaymentFile = !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
-    if ($hasPaymentFile && hasBlockingBookingConflict($db, (int)$data['facility_id'], $data['booking_date'], $data['start_time'], $data['end_time'] ?? null, $data['duration'] ?? '1')) {
-        jsonResponse(['success' => false, 'error' => 'Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.'], 409);
+    if ($hasPaymentFile && $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
     }
+    if ($hasPaymentFile) $bookingStatus = 'pending';
 
-    if ($hasPaymentFile) {
-        if ($_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
-            jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
+    withFacilityBookingDateLocks($db, (int)$data['facility_id'], [(string)$data['booking_date']], function () use (
+        $db,
+        $data,
+        $userId,
+        $ref,
+        $hasPaymentFile,
+        $bookingStatus,
+        &$paymentFile
+    ): void {
+        $latestFacility = $db->fetchOne('SELECT capacity, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+        if (!$latestFacility || !(bool)$latestFacility['is_available']) {
+            throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
+        }
+        if ((int)$data['participant_count'] > (int)$latestFacility['capacity']) {
+            throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
         }
 
-        $upload = handlePaymentUpload($_FILES['payment_file']);
-        if (!empty($upload['error'])) {
-            jsonResponse(['success' => false, 'error' => $upload['error']], 400);
+        assertBookingDateAvailable($db, (int)$data['facility_id'], (string)$data['booking_date']);
+
+        if ($hasPaymentFile) {
+            $upload = handlePaymentUpload($_FILES['payment_file']);
+            if (!empty($upload['error'])) {
+                throw new BookingAvailabilityException((string)$upload['error'], 400);
+            }
+            $paymentFile = $upload['filename'];
         }
-        $paymentFile = $upload['filename'];
-        $bookingStatus = 'pending';
-    }
 
-    $db->update(
-        "UPDATE users SET full_name = ?, phone = ? WHERE id = ? AND role = 'user'",
-        [$data['full_name'], $data['phone'], $userId]
-    );
+        $db->update(
+            "UPDATE users SET full_name = ?, phone = ? WHERE id = ? AND role = 'user'",
+            [$data['full_name'], $data['phone'], $userId]
+        );
 
-    $db->insert(
-        "INSERT INTO bookings (
-            booking_ref, user_id, facility_id, full_name, organization, email, phone,
-            booking_date, start_time, end_time, duration, purpose, participant_count,
-            setup_required, equipment_required, payment_file, status, estimated_cost
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-            $ref,
-            $userId,
-            $data['facility_id'],
-            $data['full_name'],
-            $data['organization'] ?? '',
-            $data['email'],
-            $data['phone'],
-            $data['booking_date'],
-            $data['start_time'],
-            $data['end_time'] ?? null,
-            $data['duration'] ?? '1',
-            $data['purpose'],
-            $data['participant_count'] ?? 0,
-            $data['setup_required'] ?? 'none',
-            $data['equipment_required'] ?? '',
-            $paymentFile,
-            $bookingStatus,
-            $data['estimated_cost'] ?? 0,
-        ]
-    );
+        try {
+            $db->insert(
+                "INSERT INTO bookings (
+                    booking_ref, user_id, facility_id, full_name, organization, email, phone,
+                    booking_date, start_time, end_time, duration, purpose, participant_count,
+                    setup_required, equipment_required, payment_file, status, estimated_cost
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    $ref,
+                    $userId,
+                    $data['facility_id'],
+                    $data['full_name'],
+                    $data['organization'] ?? '',
+                    $data['email'],
+                    $data['phone'],
+                    $data['booking_date'],
+                    $data['start_time'],
+                    $data['end_time'] ?? null,
+                    $data['duration'] ?? '1',
+                    $data['purpose'],
+                    $data['participant_count'] ?? 0,
+                    $data['setup_required'] ?? 'none',
+                    $data['equipment_required'] ?? '',
+                    $paymentFile,
+                    $bookingStatus,
+                    $data['estimated_cost'] ?? 0,
+                ]
+            );
+        } catch (Throwable $e) {
+            if ($paymentFile) {
+                $uploadedPath = UPLOAD_DIR . basename($paymentFile);
+                if (is_file($uploadedPath)) unlink($uploadedPath);
+            }
+            throw $e;
+        }
+    });
 
     jsonResponse(['success' => true, 'message' => 'Booking created successfully', 'booking_ref' => $ref]);
 }
@@ -234,7 +274,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, start_time, end_time, duration FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -243,20 +283,38 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'Rejection reason required'], 400);
     }
 
-    if (in_array($status, BLOCKING_BOOKING_STATUSES, true)
-        && hasBlockingBookingConflict(
-            $db,
-            (int)$booking['facility_id'],
-            (string)$booking['booking_date'],
-            (string)$booking['start_time'],
-            $booking['end_time'] ? (string)$booking['end_time'] : null,
-            (string)($booking['duration'] ?? '1'),
-            (int)$booking['id']
-        )) {
-        jsonResponse(['success' => false, 'error' => 'Slot ini sudah ditempah oleh tempahan berbayar/lulus yang lain.'], 409);
-    }
+    withBookingMutationLocks($db, (int)$booking['id'], (int)$booking['facility_id'], [(string)$booking['booking_date']], false, function () use (
+        $db,
+        $field,
+        $id,
+        $status,
+        $adminNote
+    ): void {
+        $current = $db->fetchOne(
+            "SELECT id, status, payment_file, facility_id, booking_date FROM bookings WHERE {$field} = ?",
+            [$id]
+        );
+        if (!$current) {
+            throw new BookingAvailabilityException('Booking not found', 404);
+        }
 
-    $db->update("UPDATE bookings SET status = ?, admin_note = ? WHERE {$field} = ?", [$status, $adminNote, $id]);
+        if ($status === 'approved' && $current['status'] !== 'pending') {
+            throw new BookingAvailabilityException('Hanya tempahan menunggu dengan resit boleh diluluskan.');
+        }
+        if (in_array($status, BLOCKING_BOOKING_STATUSES, true)) {
+            if (empty($current['payment_file'])) {
+                throw new BookingAvailabilityException('Resit bayaran diperlukan sebelum tarikh boleh dikunci.');
+            }
+            assertBookingDateAvailable(
+                $db,
+                (int)$current['facility_id'],
+                (string)$current['booking_date'],
+                (int)$current['id']
+            );
+        }
+
+        $db->update('UPDATE bookings SET status = ?, admin_note = ? WHERE id = ?', [$status, $adminNote, $current['id']]);
+    });
     jsonResponse(['success' => true, 'message' => 'Booking status updated']);
 }
 
@@ -274,24 +332,36 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, user_id, email, status, facility_id FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
 
-    $ownsBooking = (int)$booking['user_id'] === $userId || strtolower((string)$booking['email']) === strtolower($userEmail);
-    if (!$ownsBooking) {
-        jsonResponse(['success' => false, 'error' => 'You can only cancel your own booking'], 403);
-    }
+    withBookingMutationLocks($db, (int)$booking['id'], (int)$booking['facility_id'], [(string)$booking['booking_date']], false, function () use (
+        $db,
+        $field,
+        $id,
+        $userId,
+        $userEmail
+    ): void {
+        $current = $db->fetchOne("SELECT id, user_id, email, status FROM bookings WHERE {$field} = ?", [$id]);
+        if (!$current) {
+            throw new BookingAvailabilityException('Booking not found', 404);
+        }
+        $ownsBooking = (int)$current['user_id'] === $userId
+            || strtolower((string)$current['email']) === strtolower($userEmail);
+        if (!$ownsBooking) {
+            throw new BookingAvailabilityException('You can only cancel your own booking', 403);
+        }
+        if (!in_array($current['status'], ['unpaid', 'pending'], true)) {
+            throw new BookingAvailabilityException('Only unpaid or pending bookings can be cancelled');
+        }
 
-    if (!in_array($booking['status'], ['unpaid', 'pending'], true)) {
-        jsonResponse(['success' => false, 'error' => 'Only unpaid or pending bookings can be cancelled'], 409);
-    }
-
-    $db->update(
-        "UPDATE bookings SET status = 'cancelled', admin_note = ? WHERE id = ?",
-        ['Dibatalkan oleh pengguna.', $booking['id']]
-    );
+        $db->update(
+            "UPDATE bookings SET status = 'cancelled', admin_note = ? WHERE id = ?",
+            ['Dibatalkan oleh pengguna.', $current['id']]
+        );
+    });
     jsonResponse(['success' => true, 'message' => 'Booking cancelled']);
 }
 
@@ -304,18 +374,9 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, user_id, email, status, facility_id FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
-    }
-
-    $ownsBooking = (int)$booking['user_id'] === $userId || strtolower((string)$booking['email']) === strtolower($userEmail);
-    if (!$ownsBooking) {
-        jsonResponse(['success' => false, 'error' => 'You can only edit your own booking'], 403);
-    }
-
-    if (!in_array($booking['status'], ['unpaid', 'pending'], true)) {
-        jsonResponse(['success' => false, 'error' => 'Only unpaid or pending bookings can be edited'], 409);
     }
 
     $bookingDate = trim((string)($data['booking_date'] ?? ''));
@@ -326,34 +387,84 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
     $equipment = trim((string)($data['equipment_required'] ?? ''));
     $participantCount = (int)($data['participant_count'] ?? 0);
 
-    if ($bookingDate === '' || $bookingDate < date('Y-m-d')) {
-        jsonResponse(['success' => false, 'error' => 'Valid future booking date required'], 400);
+    $scheduleErrors = validateBookingScheduleData([
+        'booking_date' => $bookingDate,
+        'start_time' => $startTime,
+        'end_time' => $endTime,
+        'duration' => $duration,
+        'participant_count' => $participantCount,
+    ]);
+    if ($scheduleErrors) {
+        jsonResponse(['success' => false, 'error' => array_values($scheduleErrors)[0], 'details' => $scheduleErrors], 400);
     }
 
-    if (!preg_match('/^\d{2}:\d{2}$/', $startTime)) {
-        jsonResponse(['success' => false, 'error' => 'Valid start time required'], 400);
-    }
-
-    if ($purpose === '') {
+    if ($purpose === '' || strlen($purpose) > 1000) {
         jsonResponse(['success' => false, 'error' => 'Purpose is required'], 400);
-    }
-
-    if ($participantCount < 1) {
-        jsonResponse(['success' => false, 'error' => 'Participant count must be at least 1'], 400);
     }
 
     if (!isAllowedBookingEquipment($equipment)) {
         jsonResponse(['success' => false, 'error' => 'Invalid equipment option'], 400);
     }
 
-    if (in_array($booking['status'], BLOCKING_BOOKING_STATUSES, true)
-        && hasBlockingBookingConflict($db, (int)$booking['facility_id'], $bookingDate, $startTime, $endTime ?: null, $duration, (int)$booking['id'])) {
-        jsonResponse(['success' => false, 'error' => 'Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.'], 409);
-    }
+    withBookingMutationLocks(
+        $db,
+        (int)$booking['id'],
+        (int)$booking['facility_id'],
+        [
+            (string)$booking['booking_date'],
+            $bookingDate,
+        ],
+        true,
+        function () use (
+            $db,
+            $field,
+            $id,
+            $userId,
+            $userEmail,
+            $bookingDate,
+            $startTime,
+            $endTime,
+            $duration,
+            $purpose,
+            $equipment,
+            $participantCount
+        ): void {
+            $current = $db->fetchOne(
+                "SELECT b.id, b.user_id, b.email, b.status, b.facility_id, f.capacity, f.is_available
+                 FROM bookings b
+                 JOIN facilities f ON f.id = b.facility_id
+                 WHERE b.{$field} = ?",
+                [$id]
+            );
+            if (!$current) {
+                throw new BookingAvailabilityException('Booking not found', 404);
+            }
+            $ownsBooking = (int)$current['user_id'] === $userId
+                || strtolower((string)$current['email']) === strtolower($userEmail);
+            if (!$ownsBooking) {
+                throw new BookingAvailabilityException('You can only edit your own booking', 403);
+            }
+            if (!in_array($current['status'], ['unpaid', 'pending'], true)) {
+                throw new BookingAvailabilityException('Only unpaid or pending bookings can be edited');
+            }
+            if (!(bool)$current['is_available']) {
+                throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
+            }
+            if ($participantCount > (int)$current['capacity']) {
+                throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
+            }
 
-    $db->update(
-        'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, purpose = ?, equipment_required = ?, participant_count = ? WHERE id = ?',
-        [$bookingDate, $startTime, $endTime ?: null, $duration, $purpose, $equipment, $participantCount, $booking['id']]
+            assertBookingDateAvailable(
+                $db,
+                (int)$current['facility_id'],
+                $bookingDate,
+                (int)$current['id']
+            );
+            $db->update(
+                'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, purpose = ?, equipment_required = ?, participant_count = ? WHERE id = ?',
+                [$bookingDate, $startTime, $endTime ?: null, $duration, $purpose, $equipment, $participantCount, $current['id']]
+            );
+        }
     );
 
     jsonResponse(['success' => true, 'message' => 'Booking updated']);
@@ -381,54 +492,90 @@ function uploadOwnReceipt(Database $db, string $id): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, user_id, email, status, payment_file, facility_id, booking_date, start_time, end_time, duration FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
-    }
-
-    $ownsBooking = (int)$booking['user_id'] === $userId || strtolower((string)$booking['email']) === strtolower($userEmail);
-    if (!$ownsBooking) {
-        jsonResponse(['success' => false, 'error' => 'You can only update your own booking'], 403);
-    }
-
-    if ($booking['status'] !== 'unpaid') {
-        jsonResponse(['success' => false, 'error' => 'Receipt can only be uploaded for unpaid bookings'], 409);
-    }
-
-    if (hasBlockingBookingConflict(
-        $db,
-        (int)$booking['facility_id'],
-        (string)$booking['booking_date'],
-        (string)$booking['start_time'],
-        $booking['end_time'] ? (string)$booking['end_time'] : null,
-        (string)($booking['duration'] ?? '1'),
-        (int)$booking['id']
-    )) {
-        jsonResponse(['success' => false, 'error' => 'Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.'], 409);
     }
 
     if (empty($_FILES['payment_file']) || $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
         jsonResponse(['success' => false, 'error' => 'Receipt upload is required'], 400);
     }
 
-    $upload = handlePaymentUpload($_FILES['payment_file']);
-    if (!empty($upload['error'])) {
-        jsonResponse(['success' => false, 'error' => $upload['error']], 400);
-    }
+    $paymentFile = withBookingMutationLocks(
+        $db,
+        (int)$booking['id'],
+        (int)$booking['facility_id'],
+        [(string)$booking['booking_date']],
+        true,
+        function () use ($db, $field, $id, $userId, $userEmail): string {
+            $current = $db->fetchOne(
+                "SELECT b.id, b.user_id, b.email, b.status, b.payment_file, b.facility_id,
+                        b.booking_date, b.start_time, b.end_time, b.duration, b.participant_count,
+                        f.is_available
+                 FROM bookings b
+                 JOIN facilities f ON f.id = b.facility_id
+                 WHERE b.{$field} = ?",
+                [$id]
+            );
+            if (!$current) {
+                throw new BookingAvailabilityException('Booking not found', 404);
+            }
+            $ownsBooking = (int)$current['user_id'] === $userId
+                || strtolower((string)$current['email']) === strtolower($userEmail);
+            if (!$ownsBooking) {
+                throw new BookingAvailabilityException('You can only update your own booking', 403);
+            }
+            if ($current['status'] !== 'unpaid') {
+                throw new BookingAvailabilityException('Receipt can only be uploaded for unpaid bookings');
+            }
+            if (!(bool)$current['is_available']) {
+                throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
+            }
 
-    if (!empty($booking['payment_file'])) {
-        $oldPath = UPLOAD_DIR . basename((string)$booking['payment_file']);
-        if (is_file($oldPath)) {
-            unlink($oldPath);
+            $scheduleErrors = validateBookingScheduleData([
+                'booking_date' => $current['booking_date'],
+                'start_time' => substr((string)$current['start_time'], 0, 5),
+                'end_time' => $current['end_time'] ? substr((string)$current['end_time'], 0, 5) : '',
+                'duration' => $current['duration'] ?? '1',
+                'participant_count' => $current['participant_count'],
+            ]);
+            if ($scheduleErrors) {
+                throw new BookingAvailabilityException(array_values($scheduleErrors)[0], 400);
+            }
+
+            assertBookingDateAvailable(
+                $db,
+                (int)$current['facility_id'],
+                (string)$current['booking_date'],
+                (int)$current['id']
+            );
+
+            $upload = handlePaymentUpload($_FILES['payment_file']);
+            if (!empty($upload['error'])) {
+                throw new BookingAvailabilityException((string)$upload['error'], 400);
+            }
+
+            try {
+                $db->update(
+                    "UPDATE bookings SET payment_file = ?, status = 'pending', admin_note = '' WHERE id = ?",
+                    [$upload['filename'], $current['id']]
+                );
+            } catch (Throwable $e) {
+                $uploadedPath = UPLOAD_DIR . basename((string)$upload['filename']);
+                if (is_file($uploadedPath)) unlink($uploadedPath);
+                throw $e;
+            }
+
+            if (!empty($current['payment_file'])) {
+                $oldPath = UPLOAD_DIR . basename((string)$current['payment_file']);
+                if (is_file($oldPath)) unlink($oldPath);
+            }
+
+            return (string)$upload['filename'];
         }
-    }
-
-    $db->update(
-        "UPDATE bookings SET payment_file = ?, status = 'pending', admin_note = '' WHERE id = ?",
-        [$upload['filename'], $booking['id']]
     );
 
-    jsonResponse(['success' => true, 'message' => 'Receipt uploaded', 'payment_file' => $upload['filename'], 'status' => 'pending']);
+    jsonResponse(['success' => true, 'message' => 'Receipt uploaded', 'payment_file' => $paymentFile, 'status' => 'pending']);
 }
 
 function deleteBooking(Database $db, string $id): void
@@ -503,83 +650,4 @@ function getPublicCalendarBookings(Database $db): void
     jsonResponse(['success' => true, 'data' => $bookings]);
 }
 
-function hasBlockingBookingConflict(
-    Database $db,
-    int $facilityId,
-    string $bookingDate,
-    string $startTime,
-    ?string $endTime,
-    string $duration = '1',
-    ?int $excludeBookingId = null
-): bool {
-    $sql = "SELECT id, start_time, end_time, duration
-            FROM bookings
-            WHERE facility_id = ?
-              AND booking_date = ?
-              AND status IN ('pending', 'approved')";
-    $params = [$facilityId, $bookingDate];
-
-    if ($excludeBookingId !== null) {
-        $sql .= ' AND id <> ?';
-        $params[] = $excludeBookingId;
-    }
-
-    $requestedStart = bookingTimeToMinutes($startTime);
-    $requestedEnd = bookingEndToMinutes($startTime, $endTime, $duration);
-    if ($requestedStart === null || $requestedEnd === null || $requestedEnd <= $requestedStart) {
-        return false;
-    }
-
-    foreach ($db->fetchAll($sql, $params) as $booking) {
-        $existingStart = bookingTimeToMinutes((string)$booking['start_time']);
-        $existingEnd = bookingEndToMinutes(
-            (string)$booking['start_time'],
-            $booking['end_time'] ? (string)$booking['end_time'] : null,
-            (string)($booking['duration'] ?? '1')
-        );
-
-        if ($existingStart === null || $existingEnd === null || $existingEnd <= $existingStart) {
-            continue;
-        }
-
-        if ($requestedStart < $existingEnd && $requestedEnd > $existingStart) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function bookingTimeToMinutes(string $time): ?int
-{
-    if (!preg_match('/^(\d{2}):(\d{2})/', $time, $matches)) {
-        return null;
-    }
-    return ((int)$matches[1] * 60) + (int)$matches[2];
-}
-
-function bookingEndToMinutes(string $startTime, ?string $endTime, string $duration): ?int
-{
-    $end = $endTime ? bookingTimeToMinutes($endTime) : null;
-    if ($end !== null) {
-        return $end;
-    }
-
-    $start = bookingTimeToMinutes($startTime);
-    if ($start === null) {
-        return null;
-    }
-
-    $durationMap = ['halfday' => 240, 'fullday' => 480];
-    if (isset($durationMap[$duration])) {
-        return $start + $durationMap[$duration];
-    }
-
-    $hours = (float)str_replace(',', '.', $duration);
-    if ($hours <= 0) {
-        $hours = 1;
-    }
-
-    return $start + (int)round($hours * 60);
-}
 ?>

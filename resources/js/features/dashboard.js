@@ -145,6 +145,7 @@ async function cancelUserBooking(id) {
 async function confirmCancelUserBooking() {
   const id = pendingCancelBookingId;
   if (!id) return;
+  const dashboardBooking = psDashboardBookings.find((booking) => booking.id === id || booking.booking_ref === id);
 
   closeModal('cancelBookingModal');
   try {
@@ -154,13 +155,19 @@ async function confirmCancelUserBooking() {
       showToast(error.message || 'Tempahan tidak dapat dibatalkan.', 'error');
       return;
     }
+    if (dashboardBooking?.status === 'pending') {
+      showToast('Sambungan server diperlukan untuk membatalkan tempahan yang telah dibayar.', 'error');
+      return;
+    }
     const bookings = getBookings();
     const booking = bookings.find((b) => b.id === id);
-    if (booking) {
-      booking.status = 'cancelled';
-      booking.adminNote = 'Dibatalkan oleh pengguna.';
-      saveBookings(bookings);
+    if (!booking) {
+      showToast('Sambungan server diperlukan untuk membatalkan tempahan ini.', 'error');
+      return;
     }
+    booking.status = 'cancelled';
+    booking.adminNote = 'Dibatalkan oleh pengguna.';
+    saveBookings(bookings);
   }
   pendingCancelBookingId = '';
   loadUserBookings();
@@ -241,7 +248,7 @@ async function openEditBookingModal(id) {
           <div class="duration-field">
             <div class="duration-input-wrap" role="group" aria-label="Tempoh penggunaan dalam jam">
               <button type="button" class="duration-step-button" onclick="adjustDuration(-1, 'edit-booking-duration')" aria-label="Kurangkan tempoh penggunaan"><i class="bi bi-dash-lg"></i></button>
-              <input type="number" id="edit-booking-duration" min="1" step="1" value="${escapeAttr(durationInputValue(booking.duration || '1'))}" inputmode="numeric" aria-label="Tempoh penggunaan dalam jam">
+              <input type="number" id="edit-booking-duration" min="1" max="24" step="1" value="${escapeAttr(durationInputValue(booking.duration || '1'))}" inputmode="numeric" aria-label="Tempoh penggunaan dalam jam">
               <span class="duration-unit">Jam</span>
               <button type="button" class="duration-step-button" onclick="adjustDuration(1, 'edit-booking-duration')" aria-label="Tambah tempoh penggunaan"><i class="bi bi-plus-lg"></i></button>
             </div>
@@ -291,9 +298,12 @@ async function openEditBookingModal(id) {
     `;
     document.getElementById('userBookingModal')?.classList.add('active');
 
-    const minDate = new Date().toISOString().split('T')[0];
+    const minDate = getMinimumBookingDateValue();
     const dateEl = document.getElementById('edit-booking-date');
-    if (dateEl) dateEl.min = minDate;
+    if (dateEl) {
+      dateEl.min = minDate;
+      dateEl.addEventListener('change', () => validateDashboardBookingDateAvailability(booking));
+    }
     document.getElementById('edit-booking-start')?.addEventListener('change', updateEditEndTime);
     document.getElementById('edit-booking-duration')?.addEventListener('input', updateEditEndTime);
     document.getElementById('edit-booking-duration')?.addEventListener('blur', () => normalizeDurationInput('edit-booking-duration'));
@@ -301,6 +311,30 @@ async function openEditBookingModal(id) {
   } catch (error) {
     showToast(error.message || 'Borang edit gagal dimuatkan.', 'error');
   }
+}
+
+async function validateDashboardBookingDateAvailability(booking) {
+  const dateInput = document.getElementById('edit-booking-date');
+  const selectedDate = dateInput?.value || '';
+  if (!dateInput || !selectedDate) return true;
+  if (selectedDate < getMinimumBookingDateValue()) {
+    dateInput.value = '';
+    showToast('Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.', 'error');
+    return false;
+  }
+
+  const [year, month] = selectedDate.split('-').map(Number);
+  const bookings = await loadPublicCalendarBookings(year, month);
+  const bookingId = String(booking.id || booking.booking_ref || '');
+  const isBlocked = bookings.some((item) => String(item.facilityId) === String(booking.facilityId)
+    && item.date === selectedDate
+    && String(item.id || '') !== bookingId);
+  if (isBlocked) {
+    dateInput.value = '';
+    showToast('Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.', 'error');
+    return false;
+  }
+  return true;
 }
 
 function updateEditEndTime() {
@@ -311,7 +345,9 @@ function updateEditEndTime() {
 
   const [hours, mins] = start.split(':').map(Number);
   const total = hours * 60 + mins + durationToMinutes(duration);
-  endEl.value = `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  endEl.value = total >= 24 * 60
+    ? ''
+    : `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 async function submitUserBookingEdit(id) {
@@ -332,8 +368,24 @@ async function submitUserBookingEdit(id) {
     showToast('Sila lengkapkan tarikh, masa mula, tujuan dan angka pengguna.', 'error');
     return;
   }
-  if (!Number.isInteger(durationHours) || durationHours <= 0) {
-    showToast('Sila masukkan tempoh penggunaan dalam jam penuh.', 'error');
+  const currentBooking = psDashboardBookings.find((booking) => booking.id === id || booking.booking_ref === id);
+  const facility = facilitiesCache.find((item) => String(item.id) === String(currentBooking?.facilityId || currentBooking?.facility_id));
+  if (facility?.capacity > 0 && data.participant_count > facility.capacity) {
+    showToast(`Jumlah pengguna melebihi kapasiti ${facility.capacity} orang.`, 'error');
+    return;
+  }
+  if (data.booking_date < getMinimumBookingDateValue()) {
+    showToast('Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.', 'error');
+    return;
+  }
+  if (!Number.isInteger(durationHours) || durationHours <= 0 || durationHours > 24) {
+    showToast('Sila masukkan tempoh penggunaan antara 1 hingga 24 jam penuh.', 'error');
+    return;
+  }
+  const startMinutes = bookingTimeToMinutes(data.start_time);
+  const endMinutes = bookingTimeToMinutes(data.end_time);
+  if (startMinutes === null || endMinutes === null || startMinutes + (durationHours * 60) !== endMinutes) {
+    showToast('Tempahan mesti tamat pada hari yang sama dan sepadan dengan tempoh penggunaan.', 'error');
     return;
   }
 
@@ -347,7 +399,19 @@ async function submitUserBookingEdit(id) {
 
     const bookings = getBookings();
     const booking = bookings.find((item) => item.id === id || item.booking_ref === id);
+    if (currentBooking?.status === 'pending') {
+      showToast('Sambungan server diperlukan untuk mengubah tempahan yang telah dibayar.', 'error');
+      return;
+    }
+    if (!booking) {
+      showToast('Sambungan server diperlukan untuk mengubah tempahan ini.', 'error');
+      return;
+    }
     if (booking && ['unpaid', 'pending'].includes(booking.status)) {
+      if (hasLocalBlockingConflict({ ...data, facility_id: booking.facilityId || booking.facility_id }, booking.id || booking.booking_ref)) {
+        showToast('Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.', 'error');
+        return;
+      }
       booking.date = data.booking_date;
       booking.duration = data.duration;
       booking.start = data.start_time;
@@ -394,27 +458,11 @@ async function submitDashboardReceipt() {
   try {
     await uploadBookingReceiptApi(id, file);
   } catch (error) {
-    if (!canUseLocalFallback(error)) {
-      showToast(error.message || 'Resit gagal dimuat naik.', 'error');
-      return;
-    }
-    const bookings = getBookings();
-    const booking = bookings.find((item) => item.id === id || item.booking_ref === id);
-    if (booking && booking.status === 'unpaid') {
-      if (hasLocalBlockingConflict({
-        facility_id: booking.facilityId || booking.facility_id,
-        booking_date: booking.date || booking.booking_date,
-        start_time: booking.start || booking.start_time,
-        end_time: booking.end || booking.end_time,
-        duration: booking.duration,
-      }, booking.id || booking.booking_ref)) {
-        showToast('Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.', 'error');
-        return;
-      }
-      booking.paymentFile = file.name;
-      booking.status = 'pending';
-      saveBookings(bookings);
-    }
+    const message = canUseLocalFallback(error)
+      ? 'Ketersediaan tidak dapat disahkan. Resit belum dihantar; sila cuba lagi apabila sambungan server pulih.'
+      : error.message || 'Resit gagal dimuat naik.';
+    showToast(message, 'error');
+    return;
   }
 
   closeModal('receiptUploadModal');

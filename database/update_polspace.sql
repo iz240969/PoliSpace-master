@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS bookings (
     equipment_required TEXT,
     payment_file VARCHAR(255),
     status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid',
+    blocking_facility_id INT GENERATED ALWAYS AS (
+        CASE WHEN status IN ('pending', 'approved') THEN facility_id ELSE NULL END
+    ) STORED,
+    blocking_booking_date DATE GENERATED ALWAYS AS (
+        CASE WHEN status IN ('pending', 'approved') THEN booking_date ELSE NULL END
+    ) STORED,
     admin_note TEXT,
     estimated_cost DECIMAL(10,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -53,7 +59,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     INDEX idx_booking_ref (booking_ref),
     INDEX idx_email (email),
     INDEX idx_status (status),
-    INDEX idx_booking_date (booking_date)
+    INDEX idx_booking_date (booking_date),
+    UNIQUE INDEX uniq_blocking_facility_date (blocking_facility_id, blocking_booking_date)
 );
 
 CREATE TABLE IF NOT EXISTS contact_messages (
@@ -87,6 +94,54 @@ DEALLOCATE PREPARE equipment_column_stmt;
 
 ALTER TABLE bookings
     MODIFY status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid';
+
+SET @blocking_facility_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'blocking_facility_id'
+);
+SET @blocking_facility_column_sql := IF(
+    @blocking_facility_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN blocking_facility_id INT GENERATED ALWAYS AS (CASE WHEN status IN ('pending', 'approved') THEN facility_id ELSE NULL END) STORED AFTER status",
+    'SELECT 1'
+);
+PREPARE blocking_facility_column_stmt FROM @blocking_facility_column_sql;
+EXECUTE blocking_facility_column_stmt;
+DEALLOCATE PREPARE blocking_facility_column_stmt;
+
+SET @blocking_date_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'blocking_booking_date'
+);
+SET @blocking_date_column_sql := IF(
+    @blocking_date_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN blocking_booking_date DATE GENERATED ALWAYS AS (CASE WHEN status IN ('pending', 'approved') THEN booking_date ELSE NULL END) STORED AFTER blocking_facility_id",
+    'SELECT 1'
+);
+PREPARE blocking_date_column_stmt FROM @blocking_date_column_sql;
+EXECUTE blocking_date_column_stmt;
+DEALLOCATE PREPARE blocking_date_column_stmt;
+
+SET @blocking_date_index_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND INDEX_NAME = 'uniq_blocking_facility_date'
+);
+SET @blocking_date_index_sql := IF(
+    @blocking_date_index_exists = 0,
+    'ALTER TABLE bookings ADD UNIQUE INDEX uniq_blocking_facility_date (blocking_facility_id, blocking_booking_date)',
+    'SELECT 1'
+);
+PREPARE blocking_date_index_stmt FROM @blocking_date_index_sql;
+EXECUTE blocking_date_index_stmt;
+DEALLOCATE PREPARE blocking_date_index_stmt;
 
 INSERT INTO users (email, password, full_name, role)
 VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb7rm40SpJI56', 'Administrator', 'admin')

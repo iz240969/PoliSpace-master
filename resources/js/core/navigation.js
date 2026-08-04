@@ -122,6 +122,14 @@ function updateNavActions(navActions, loggedIn) {
 
   const logoutHandler = isAdminLoggedIn() ? 'doLogout()' : 'logoutUser()';
   const dashboardActive = document.getElementById('admin') || document.getElementById('dashboard');
+  const bookingCartButton = isClientLoggedIn() && document.getElementById('booking')
+    ? `
+        <button class="btn-nav-icon booking-cart-nav" type="button" onclick="openBookingCart()" title="Lihat troli tempahan" aria-label="Lihat troli tempahan">
+          <i class="bi bi-cart3"></i>
+          <span class="booking-cart-count" id="bookingCartCount" aria-label="0 item dalam troli">0</span>
+        </button>
+      `
+    : '';
   const menuItems = isAdminLoggedIn()
     ? `
         <button class="account-dropdown-item" type="button" onclick="${logoutHandler}">
@@ -141,6 +149,7 @@ function updateNavActions(navActions, loggedIn) {
       `;
 
   navActions.innerHTML = `
+    ${bookingCartButton}
     <div class="account-menu">
       <button class="btn-nav-icon account-menu-trigger ${dashboardActive ? 'active' : ''}" type="button" aria-label="Menu akaun" aria-expanded="false">
         <i class="bi bi-person-circle"></i>
@@ -264,6 +273,7 @@ document.addEventListener('keydown', (event) => {
 
   document.querySelector('.account-menu')?.classList.remove('is-open');
   document.querySelector('.account-menu-trigger')?.setAttribute('aria-expanded', 'false');
+  if (typeof closeBookingCart === 'function') closeBookingCart();
 });
 
 function protectLoggedInPages() {

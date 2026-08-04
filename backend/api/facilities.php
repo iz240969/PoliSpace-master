@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/booking_availability.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
@@ -39,11 +40,15 @@ try {
             jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
         }
 
-        $db->update('UPDATE facilities SET is_available = ? WHERE id = ?', [$isAvailable, $id]);
+        withFacilityAvailabilityLock($db, $id, function () use ($db, $isAvailable, $id): void {
+            $db->update('UPDATE facilities SET is_available = ? WHERE id = ?', [$isAvailable, $id]);
+        });
         jsonResponse(['success' => true, 'message' => 'Facility updated']);
     }
 
     jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);
+} catch (BookingAvailabilityException $e) {
+    jsonResponse(['success' => false, 'error' => $e->getMessage()], $e->httpStatus());
 } catch (Throwable $e) {
     jsonResponse(['success' => false, 'error' => 'Facility request failed'], 500);
 }

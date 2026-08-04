@@ -6,7 +6,7 @@
   <title>PoliSpace - Tempahan</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260802-profile-editor">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260804-availability-lock-3">
 </head>
 <body>
   <nav id="main-nav">
@@ -32,9 +32,9 @@
           <div class="form-section">
             <div class="form-section-title">01 - Maklumat Pengguna</div>
             <div class="form-grid">
-              <div class="form-group"><label>Nama *</label><input type="text" id="f-name" placeholder="cth: Ahmad bin Ali"></div>
-              <div class="form-group"><label>No Telefon *</label><input type="tel" id="f-phone" placeholder="012-345 6789"></div>
-              <div class="form-group"><label>Alamat E-mel *</label><input type="email" id="f-email" placeholder="contoh@email.com" readonly></div>
+              <div class="form-group"><label>Nama *</label><input class="booking-readonly" type="text" id="f-name" placeholder="cth: Ahmad bin Ali" readonly></div>
+              <div class="form-group"><label>No Telefon *</label><input class="booking-readonly" type="tel" id="f-phone" placeholder="012-345 6789" readonly></div>
+              <div class="form-group"><label>Alamat E-mel *</label><input class="booking-readonly" type="email" id="f-email" placeholder="contoh@email.com" readonly></div>
             </div>
           </div>
           <div class="form-section">
@@ -74,7 +74,7 @@
                     <button type="button" class="duration-step-button" onclick="adjustDuration(-1)" aria-label="Kurangkan tempoh penggunaan">
                       <i class="bi bi-dash-lg"></i>
                     </button>
-                    <input type="number" id="f-duration" min="1" step="1" value="1" inputmode="numeric" aria-label="Tempoh penggunaan dalam jam">
+                    <input type="number" id="f-duration" min="1" max="24" step="1" value="1" inputmode="numeric" aria-label="Tempoh penggunaan dalam jam">
                     <span class="duration-unit">Jam</span>
                     <button type="button" class="duration-step-button" onclick="adjustDuration(1)" aria-label="Tambah tempoh penggunaan">
                       <i class="bi bi-plus-lg"></i>
@@ -121,7 +121,15 @@
               </div>
             </div>
           </div>
-          <button class="btn btn-primary" style="width:100%; justify-content:center; padding:16px;" onclick="submitBooking()">Hantar Permohonan <i class="bi bi-arrow-right ms-2"></i></button>
+          <div class="booking-submit-actions">
+            <button class="btn btn-secondary booking-cart-add-button" id="addToCartButton" type="button" onclick="addBookingToCart()">
+              <i class="bi bi-cart-plus"></i>
+              <span>Tambah ke Troli</span>
+            </button>
+            <button class="btn btn-primary booking-submit-button" type="button" onclick="submitBooking()">
+              Hantar Permohonan <i class="bi bi-arrow-right ms-2"></i>
+            </button>
+          </div>
         </div>
         <div class="success-screen" id="successScreen">
           <div class="success-icon" style="color: var(--gold);"><i class="bi bi-stars"></i></div>
@@ -139,7 +147,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260802-profile-editor"></script>
+  <script src="/resources/js/script.js?v=20260804-availability-lock-3"></script>
 </body>
 </html>
 

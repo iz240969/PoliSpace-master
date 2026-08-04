@@ -1,7 +1,10 @@
 // ==================== BOOKING FORM ====================
+const BOOKING_CART_STORAGE_PREFIX = 'ps_booking_cart:';
+let bookingCartEditingId = null;
+
 function setMinDate() {
   const el = document.getElementById('f-date');
-  if (el) el.min = new Date().toISOString().split('T')[0];
+  if (el) el.min = getMinimumBookingDateValue();
 }
 
 function updateEndTime() {
@@ -10,7 +13,11 @@ function updateEndTime() {
   if (!start) return;
   const [hours, mins] = start.split(':').map(Number);
   const total = hours * 60 + mins + durationToMinutes(duration);
-  document.getElementById('f-end').value = `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  const endInput = document.getElementById('f-end');
+  if (!endInput) return;
+  endInput.value = total >= 24 * 60
+    ? ''
+    : `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 function durationToMinutes(duration = '1') {
@@ -247,10 +254,28 @@ async function submitBooking() {
   normalizeEquipmentField();
   const receiptInput = document.getElementById('f-receipt');
   const receiptFile = receiptInput?.files?.[0] || null;
+  const data = getBookingFormData();
+  const validationMessage = validateBookingFormData(data, receiptFile);
+
+  if (validationMessage) {
+    showToast(validationMessage, 'error');
+    return;
+  }
+
+  try {
+    const ref = await createBookingRecord(data, receiptFile);
+    if (bookingCartEditingId) removeBookingCartItem(bookingCartEditingId, false);
+    showBookingSuccess(ref);
+  } catch (error) {
+    showToast(error.message || 'Tempahan gagal dihantar.', 'error');
+  }
+}
+
+function getBookingFormData() {
   const accountEmail = psAuthState.role === 'user'
     ? (psAuthState.user?.email || localStorage.getItem('ps_user_email') || '')
     : '';
-  const data = {
+  return {
     full_name: document.getElementById('f-name')?.value.trim() || '',
     organization: '',
     email: accountEmail || document.getElementById('f-email')?.value.trim() || '',
@@ -266,73 +291,105 @@ async function submitBooking() {
     setup_required: 'full',
     estimated_cost: calculateCost().total,
   };
+}
+
+function validateBookingFormData(data, receiptFile = null) {
   const durationHours = Number.parseFloat(String(data.duration).replace(',', '.'));
+  const facility = facilitiesCache.find((item) => String(item.id) === String(data.facility_id));
 
   if (!data.full_name || !data.email || !data.phone || !data.facility_id || !data.booking_date || !data.start_time || !data.purpose) {
-    showToast('Sila lengkapkan semua maklumat yang diperlukan.', 'error');
-    return;
+    return 'Sila lengkapkan semua maklumat yang diperlukan.';
   }
-  if (!Number.isInteger(durationHours) || durationHours <= 0) {
-    showToast('Sila masukkan tempoh penggunaan dalam jam penuh.', 'error');
-    return;
+  if (!facility || !facility.is_available) {
+    return 'Fasiliti ini tidak tersedia untuk tempahan.';
+  }
+  if (data.booking_date < getMinimumBookingDateValue()) {
+    return 'Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.';
+  }
+  if (!Number.isInteger(durationHours) || durationHours <= 0 || durationHours > 24) {
+    return 'Sila masukkan tempoh penggunaan antara 1 hingga 24 jam penuh.';
   }
   if (!Number.isInteger(data.participant_count) || data.participant_count < 1) {
-    showToast('Sila masukkan angka / jumlah pengguna yang sah.', 'error');
-    return;
+    return 'Sila masukkan angka / jumlah pengguna yang sah.';
+  }
+  if (facility.capacity > 0 && data.participant_count > facility.capacity) {
+    return `Jumlah pengguna melebihi kapasiti ${facility.capacity} orang.`;
+  }
+  const startMinutes = bookingTimeToMinutes(data.start_time);
+  const endMinutes = bookingTimeToMinutes(data.end_time);
+  const expectedEnd = startMinutes === null ? null : startMinutes + (durationHours * 60);
+  if (startMinutes === null || endMinutes === null || expectedEnd >= 24 * 60 || endMinutes !== expectedEnd) {
+    return 'Tempahan mesti tamat pada hari yang sama dan sepadan dengan tempoh penggunaan.';
   }
   if (!isValidEmail(data.email)) {
-    showToast('Format e-mel tidak sah.', 'error');
-    return;
+    return 'Format e-mel tidak sah.';
   }
   if (receiptFile && !isValidReceiptFile(receiptFile)) {
-    showToast('Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.', 'error');
-    return;
+    return 'Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.';
   }
-  if (receiptFile) data.payment_file = receiptFile;
-  try {
-    const result = apiOnline ? await createBookingApi(data) : null;
-    showBookingSuccess(result?.booking_ref);
-  } catch (error) {
-    if (!canUseLocalFallback(error)) {
-      showToast(error.message || 'Tempahan gagal dihantar.', 'error');
-      return;
-    }
+  return '';
+}
 
-    apiOnline = false;
-    if (receiptFile && hasLocalBlockingConflict(data)) {
-      showToast('Slot ini telah ditempah oleh pelanggan yang telah membuat bayaran. Sila pilih masa lain.', 'error');
-      return;
+async function createBookingRecord(data, receiptFile = null) {
+  const payload = { ...data };
+  if (receiptFile) payload.payment_file = receiptFile;
+
+  if (apiOnline) {
+    try {
+      const result = await createBookingApi(payload);
+      return result?.booking_ref || '';
+    } catch (error) {
+      if (!canUseLocalFallback(error)) throw error;
+
+      apiOnline = false;
+      if (receiptFile) {
+        throw new Error('Ketersediaan tidak dapat disahkan. Resit belum dihantar; sila cuba lagi apabila sambungan server pulih.');
+      }
     }
-    const facility = getSelectedFacility();
-    const id = generateId();
-    const booking = {
-      id,
-      booking_ref: id,
-      name: data.full_name,
-      org: data.organization,
-      email: data.email,
-      phone: data.phone,
-      facilityId: data.facility_id,
-      facilityName: facility?.name || '',
-      facilityIcon: facility ? facilityIconHtml(facility) : '',
-      date: data.booking_date,
-      start: data.start_time,
-      end: data.end_time,
-      duration: data.duration,
-      purpose: data.purpose,
-      equipment: data.equipment_required,
-      setup: data.setup_required,
-      pax: data.participant_count || '-',
-      paymentFile: receiptFile?.name || '',
-      status: receiptFile ? 'pending' : 'unpaid',
-      createdAt: new Date().toISOString(),
-      adminNote: '',
-    };
-    const bookings = getBookings();
-    bookings.push(booking);
-    saveBookings(bookings);
-    showBookingSuccess(id);
   }
+
+  if (receiptFile) {
+    throw new Error('Ketersediaan tidak dapat disahkan. Resit belum dihantar; sila cuba lagi apabila sambungan server pulih.');
+  }
+
+  const facility = facilitiesCache.find((item) => String(item.id) === String(data.facility_id));
+  if (!facility?.is_available) {
+    throw new Error('Fasiliti ini tidak tersedia untuk tempahan.');
+  }
+  if (facility.capacity > 0 && data.participant_count > facility.capacity) {
+    throw new Error(`Jumlah pengguna melebihi kapasiti ${facility.capacity} orang.`);
+  }
+  if (hasLocalBlockingConflict(data)) {
+    throw new Error('Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.');
+  }
+  const id = generateId();
+  const booking = {
+    id,
+    booking_ref: id,
+    name: data.full_name,
+    org: data.organization,
+    email: data.email,
+    phone: data.phone,
+    facilityId: data.facility_id,
+    facilityName: facility?.name || '',
+    facilityIcon: facility ? facilityIconHtml(facility) : '',
+    date: data.booking_date,
+    start: data.start_time,
+    end: data.end_time,
+    duration: data.duration,
+    purpose: data.purpose,
+    equipment: data.equipment_required,
+    setup: data.setup_required,
+    pax: data.participant_count || '-',
+    paymentFile: '',
+    status: 'unpaid',
+    createdAt: new Date().toISOString(),
+    adminNote: '',
+  };
+  const bookings = getBookings();
+  bookings.push(booking);
+  saveBookings(bookings);
+  return id;
 }
 
 async function initBookingPage() {
@@ -343,8 +400,14 @@ async function initBookingPage() {
   const phoneEl = document.getElementById('f-phone');
   const storedEmail = localStorage.getItem('ps_user_email') || '';
 
+  [nameEl, phoneEl, emailEl].forEach((el) => {
+    if (el) {
+      el.readOnly = true;
+      el.classList.add('booking-readonly');
+    }
+  });
+
   if (emailEl) {
-    emailEl.readOnly = true;
     emailEl.value = psAuthState.role === 'user'
       ? (psAuthState.user?.email || storedEmail)
       : storedEmail;
@@ -361,6 +424,330 @@ async function initBookingPage() {
   }
 
   initializeEquipmentField();
+  updateBookingCartCount();
+}
+
+function bookingCartStorageKey() {
+  const email = String(psAuthState.user?.email || localStorage.getItem('ps_user_email') || '').trim().toLowerCase();
+  return `${BOOKING_CART_STORAGE_PREFIX}${email || 'guest'}`;
+}
+
+function getBookingCartItems() {
+  try {
+    const items = JSON.parse(localStorage.getItem(bookingCartStorageKey()) || '[]');
+    return Array.isArray(items) ? items : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveBookingCartItems(items) {
+  localStorage.setItem(bookingCartStorageKey(), JSON.stringify(items));
+  updateBookingCartCount();
+}
+
+function createBookingCartId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `cart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function addBookingToCart() {
+  if (!isClientLoggedIn()) {
+    showToast('Sila log masuk sebagai pelanggan sebelum menggunakan troli.', 'error');
+    window.location.href = ROUTES.login;
+    return;
+  }
+
+  normalizeDurationInput();
+  normalizeEquipmentField();
+  const receiptFile = document.getElementById('f-receipt')?.files?.[0] || null;
+  const data = getBookingFormData();
+  const validationMessage = validateBookingFormData(data, receiptFile);
+  if (validationMessage) {
+    showToast(validationMessage, 'error');
+    return;
+  }
+
+  const facility = facilitiesCache.find((item) => String(item.id) === String(data.facility_id));
+  const items = getBookingCartItems();
+  const duplicate = items.find((item) => item.id !== bookingCartEditingId
+    && String(item.facility_id) === String(data.facility_id)
+    && item.booking_date === data.booking_date
+    && item.start_time === data.start_time);
+  if (duplicate) {
+    showToast('Fasiliti dan slot masa ini sudah berada dalam troli.', 'error');
+    return;
+  }
+
+  const cartItem = {
+    id: bookingCartEditingId || createBookingCartId(),
+    facility_id: data.facility_id,
+    facility_name: facility?.name || 'Fasiliti',
+    facility_icon: facility?.icon || 'bi-building',
+    booking_date: data.booking_date,
+    start_time: data.start_time,
+    end_time: data.end_time,
+    duration: data.duration,
+    purpose: data.purpose,
+    equipment_required: data.equipment_required,
+    participant_count: data.participant_count,
+    setup_required: data.setup_required,
+    estimated_cost: data.estimated_cost,
+  };
+  const existingIndex = items.findIndex((item) => item.id === cartItem.id);
+  if (existingIndex >= 0) items[existingIndex] = cartItem;
+  else items.push(cartItem);
+
+  saveBookingCartItems(items);
+  const wasEditing = Boolean(bookingCartEditingId);
+  bookingCartEditingId = null;
+  updateBookingCartFormState();
+  clearBookingDetailFields();
+  showToast(
+    receiptFile
+      ? 'Tempahan ditambah ke troli. Resit boleh dimuat naik melalui Dashboard selepas troli dihantar.'
+      : wasEditing ? 'Item troli berjaya dikemas kini.' : 'Tempahan berjaya ditambah ke troli.',
+    'success'
+  );
+}
+
+function updateBookingCartCount() {
+  const count = getBookingCartItems().length;
+  const badge = document.getElementById('bookingCartCount');
+  if (!badge) return;
+  badge.textContent = String(count);
+  badge.classList.toggle('is-empty', count === 0);
+  badge.setAttribute('aria-label', `${count} item dalam troli`);
+}
+
+function ensureBookingCartModal() {
+  if (document.getElementById('bookingCartModal')) return;
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay" id="bookingCartModal">
+      <div class="modal booking-cart-modal" role="dialog" aria-modal="true" aria-labelledby="bookingCartModalTitle">
+        <div class="modal-header">
+          <div class="modal-title" id="bookingCartModalTitle"><i class="bi bi-cart3 modal-title-icon"></i> Troli Tempahan</div>
+          <button class="modal-close" type="button" onclick="closeBookingCart()" aria-label="Tutup troli"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="modal-body booking-cart-body">
+          <div class="booking-cart-list" id="bookingCartList"></div>
+          <div class="booking-cart-summary" id="bookingCartSummary"></div>
+        </div>
+        <div class="modal-footer booking-cart-footer">
+          <button class="btn btn-secondary" type="button" onclick="closeBookingCart()">Tutup</button>
+          <button class="btn btn-primary" id="submitBookingCartButton" type="button" onclick="submitBookingCart()">
+            <i class="bi bi-send-check"></i> Hantar Semua
+          </button>
+        </div>
+      </div>
+    </div>
+  `);
+  document.getElementById('bookingCartModal')?.addEventListener('click', (event) => {
+    if (event.target.id === 'bookingCartModal') closeBookingCart();
+  });
+}
+
+function openBookingCart() {
+  ensureBookingCartModal();
+  renderBookingCart();
+  document.querySelector('.account-menu')?.classList.remove('is-open');
+  document.querySelector('.account-menu-trigger')?.setAttribute('aria-expanded', 'false');
+  document.getElementById('bookingCartModal')?.classList.add('active');
+  document.querySelector('.booking-cart-nav')?.classList.add('active');
+}
+
+function closeBookingCart() {
+  document.getElementById('bookingCartModal')?.classList.remove('active');
+  document.querySelector('.booking-cart-nav')?.classList.remove('active');
+}
+
+function renderBookingCart() {
+  const list = document.getElementById('bookingCartList');
+  const summary = document.getElementById('bookingCartSummary');
+  const submitButton = document.getElementById('submitBookingCartButton');
+  if (!list || !summary || !submitButton) return;
+
+  const items = getBookingCartItems();
+  if (!items.length) {
+    list.innerHTML = `
+      <div class="booking-cart-empty">
+        <i class="bi bi-cart-x"></i>
+        <strong>Troli masih kosong</strong>
+        <span>Lengkapkan butiran tempahan dan tambah fasiliti ke troli.</span>
+      </div>
+    `;
+    summary.innerHTML = '';
+    submitButton.disabled = true;
+    return;
+  }
+
+  list.innerHTML = items.map((item) => `
+    <div class="booking-cart-item">
+      <div class="booking-cart-item-icon"><i class="bi ${escapeAttr(item.facility_icon || 'bi-building')}"></i></div>
+      <div class="booking-cart-item-content">
+        <div class="booking-cart-item-head">
+          <strong>${escapeHtml(item.facility_name || 'Fasiliti')}</strong>
+          <span>RM${escapeHtml(String(item.estimated_cost || 0))}</span>
+        </div>
+        <div class="booking-cart-item-meta">
+          <span><i class="bi bi-calendar3"></i> ${escapeHtml(formatDate(item.booking_date))}</span>
+          <span><i class="bi bi-clock"></i> ${escapeHtml(item.start_time)} - ${escapeHtml(item.end_time || '-')}</span>
+          <span><i class="bi bi-people"></i> ${escapeHtml(String(item.participant_count || 1))} orang</span>
+        </div>
+      </div>
+      <div class="booking-cart-item-actions">
+        <button type="button" onclick="editBookingCartItem('${escapeAttr(item.id)}')" title="Edit tempahan" aria-label="Edit ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-pencil"></i></button>
+        <button class="is-danger" type="button" onclick="removeBookingCartItem('${escapeAttr(item.id)}')" title="Buang daripada troli" aria-label="Buang ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-trash3"></i></button>
+      </div>
+    </div>
+  `).join('');
+
+  const total = items.reduce((sum, item) => sum + Number(item.estimated_cost || 0), 0);
+  summary.innerHTML = `<span>${items.length} tempahan</span><strong>Jumlah Anggaran: RM${escapeHtml(String(total))}</strong>`;
+  submitButton.disabled = false;
+}
+
+function editBookingCartItem(id) {
+  const item = getBookingCartItems().find((entry) => entry.id === id);
+  if (!item) return;
+
+  const values = {
+    'f-facility': item.facility_id,
+    'f-date': item.booking_date,
+    'f-start': item.start_time,
+    'f-end': item.end_time,
+    'f-duration': item.duration,
+    'f-purpose': item.purpose,
+    'f-equipment': item.equipment_required,
+    'f-participants': item.participant_count,
+  };
+  Object.entries(values).forEach(([fieldId, value]) => {
+    const field = document.getElementById(fieldId);
+    if (field) field.value = value ?? '';
+  });
+
+  bookingCartEditingId = id;
+  initializeEquipmentField(item.equipment_required || '');
+  clearReceiptUpload();
+  updateBookingCartFormState();
+  updateFacilityInfo();
+  closeBookingCart();
+  document.getElementById('booking-form-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showToast('Item troli dimuatkan untuk dikemas kini.', 'success');
+}
+
+function removeBookingCartItem(id, notify = true) {
+  const items = getBookingCartItems();
+  const nextItems = items.filter((item) => item.id !== id);
+  if (nextItems.length === items.length) return;
+
+  saveBookingCartItems(nextItems);
+  if (bookingCartEditingId === id) {
+    bookingCartEditingId = null;
+    updateBookingCartFormState();
+  }
+  renderBookingCart();
+  if (notify) showToast('Item dibuang daripada troli.', 'success');
+}
+
+function updateBookingCartFormState() {
+  const button = document.getElementById('addToCartButton');
+  if (!button) return;
+  button.querySelector('i')?.classList.toggle('bi-cart-plus', !bookingCartEditingId);
+  button.querySelector('i')?.classList.toggle('bi-check-lg', Boolean(bookingCartEditingId));
+  const label = button.querySelector('span');
+  if (label) label.textContent = bookingCartEditingId ? 'Kemas Kini Troli' : 'Tambah ke Troli';
+}
+
+async function submitBookingCart() {
+  if (!isClientLoggedIn()) {
+    showToast('Sila log masuk sebagai pelanggan sebelum menghantar troli.', 'error');
+    return;
+  }
+
+  const items = getBookingCartItems();
+  if (!items.length) return;
+  const profile = getBookingFormData();
+  if (!profile.full_name || !profile.email || !profile.phone) {
+    showToast('Sila lengkapkan maklumat profil sebelum menghantar troli.', 'error');
+    return;
+  }
+
+  const submitButton = document.getElementById('submitBookingCartButton');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
+  }
+
+  const completedIds = [];
+  const references = [];
+  const failures = [];
+  for (const item of items) {
+    const data = {
+      full_name: profile.full_name,
+      organization: '',
+      email: profile.email,
+      phone: profile.phone,
+      facility_id: item.facility_id,
+      booking_date: item.booking_date,
+      start_time: item.start_time,
+      end_time: item.end_time,
+      duration: item.duration,
+      purpose: item.purpose,
+      equipment_required: item.equipment_required,
+      participant_count: Number(item.participant_count || 0),
+      setup_required: item.setup_required || 'full',
+      estimated_cost: Number(item.estimated_cost || 0),
+    };
+    const validationMessage = validateBookingFormData(data);
+    if (validationMessage) {
+      failures.push(item.facility_name || 'Fasiliti');
+      continue;
+    }
+
+    try {
+      references.push(await createBookingRecord(data));
+      completedIds.push(item.id);
+    } catch (error) {
+      failures.push(item.facility_name || 'Fasiliti');
+    }
+  }
+
+  const remainingItems = getBookingCartItems().filter((item) => !completedIds.includes(item.id));
+  saveBookingCartItems(remainingItems);
+  renderBookingCart();
+  if (submitButton) {
+    submitButton.disabled = remainingItems.length === 0;
+    submitButton.innerHTML = '<i class="bi bi-send-check"></i> Hantar Semua';
+  }
+
+  if (!failures.length) {
+    bookingCartEditingId = null;
+    updateBookingCartFormState();
+    closeBookingCart();
+    showBookingSuccess(references.join(', '));
+    return;
+  }
+
+  const resultMessage = completedIds.length
+    ? `${completedIds.length} tempahan dihantar. ${failures.length} tempahan masih berada dalam troli.`
+    : 'Troli tidak dapat dihantar. Sila cuba lagi.';
+  showToast(resultMessage, 'error');
+}
+
+function clearBookingDetailFields() {
+  ['f-facility', 'f-date', 'f-start', 'f-end', 'f-purpose', 'f-equipment', 'f-receipt'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const durationEl = document.getElementById('f-duration');
+  if (durationEl) durationEl.value = '1';
+  const participantsEl = document.getElementById('f-participants');
+  if (participantsEl) participantsEl.value = '1';
+  initializeEquipmentField();
+  updateReceiptPreview();
+  updateFacilityInfo();
 }
 
 function isValidReceiptFile(file) {
@@ -454,15 +841,7 @@ async function doSignup() {
 function resetBookingForm() {
   document.getElementById('booking-form-wrap').style.display = '';
   document.getElementById('successScreen').classList.remove('show');
-  ['f-facility', 'f-date', 'f-start', 'f-end', 'f-duration', 'f-purpose', 'f-equipment', 'f-receipt'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  const durationEl = document.getElementById('f-duration');
-  if (durationEl) durationEl.value = '1';
-  const participantsEl = document.getElementById('f-participants');
-  if (participantsEl) participantsEl.value = '1';
-  initializeEquipmentField();
-  updateReceiptPreview();
-  updatePricing();
+  bookingCartEditingId = null;
+  updateBookingCartFormState();
+  clearBookingDetailFields();
 }

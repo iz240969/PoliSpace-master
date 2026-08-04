@@ -46,6 +46,8 @@ define('APP_URL', envValue('APP_URL', 'http://localhost'));
 define('APP_DEBUG', filter_var(envValue('APP_DEBUG', 'false'), FILTER_VALIDATE_BOOLEAN));
 define('UPLOAD_DIR', dirname(__DIR__) . '/uploads/payments/');
 
+date_default_timezone_set(envValue('APP_TIMEZONE', 'Asia/Kuala_Lumpur'));
+
 ini_set('session.cookie_httponly', '1');
 ini_set('session.use_only_cookies', '1');
 ini_set('session.use_strict_mode', '1');
@@ -56,6 +58,8 @@ if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
 session_start();
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 if (!empty($_SERVER['HTTP_ORIGIN'])) {
     $origin = (string)$_SERVER['HTTP_ORIGIN'];
     $host = $_SERVER['HTTP_HOST'] ?? '';

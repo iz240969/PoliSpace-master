@@ -1,6 +1,69 @@
 <?php
 declare(strict_types=1);
 
+function minimumBookingDate(): string
+{
+    return (new DateTimeImmutable('today'))->modify('+3 days')->format('Y-m-d');
+}
+
+function bookingTimeValueToMinutes(string $time): ?int
+{
+    if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time)) {
+        return null;
+    }
+
+    [$hours, $minutes] = array_map('intval', explode(':', $time));
+    return ($hours * 60) + $minutes;
+}
+
+function validateBookingScheduleData(array $data): array
+{
+    $errors = [];
+    $bookingDate = trim((string)($data['booking_date'] ?? ''));
+    if ($bookingDate !== '') {
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $bookingDate);
+        if (!$date || $date->format('Y-m-d') !== $bookingDate) {
+            $errors['booking_date'] = 'Tarikh tempahan tidak sah.';
+        } elseif ($bookingDate < minimumBookingDate()) {
+            $errors['booking_date'] = 'Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.';
+        }
+    }
+
+    $startTime = trim((string)($data['start_time'] ?? ''));
+    $startMinutes = $startTime === '' ? null : bookingTimeValueToMinutes($startTime);
+    if ($startTime !== '' && $startMinutes === null) {
+        $errors['start_time'] = 'Masa mula tidak sah.';
+    }
+
+    $duration = trim((string)($data['duration'] ?? '1'));
+    if (!ctype_digit($duration) || (int)$duration < 1 || (int)$duration > 24) {
+        $errors['duration'] = 'Tempoh penggunaan mesti antara 1 hingga 24 jam penuh.';
+    }
+
+    $endTime = trim((string)($data['end_time'] ?? ''));
+    $endMinutes = $endTime === '' ? null : bookingTimeValueToMinutes($endTime);
+    if ($endTime !== '' && $endMinutes === null) {
+        $errors['end_time'] = 'Masa tamat tidak sah.';
+    }
+
+    if ($startMinutes !== null && ctype_digit($duration)) {
+        $expectedEnd = $startMinutes + ((int)$duration * 60);
+        if ($expectedEnd >= 24 * 60) {
+            $errors['end_time'] = 'Tempahan mesti tamat pada hari yang sama.';
+        } elseif ($endMinutes !== null && $endMinutes !== $expectedEnd) {
+            $errors['end_time'] = 'Masa tamat tidak sepadan dengan tempoh penggunaan.';
+        }
+    }
+
+    if (!isset($data['participant_count']) || (int)$data['participant_count'] < 1) {
+        $errors['participant_count'] = 'Jumlah pengguna mesti sekurang-kurangnya 1.';
+    } elseif ((int)$data['participant_count'] > 5000) {
+        $errors['participant_count'] = 'Jumlah pengguna terlalu besar.';
+    }
+
+    return $errors;
+}
+
 function validateBookingData(array $data): array
 {
     $errors = [];
@@ -28,28 +91,10 @@ function validateBookingData(array $data): array
         $errors['facility_id'] = 'Valid facility is required';
     }
 
-    if (!empty($data['booking_date']) && $data['booking_date'] < date('Y-m-d')) {
-        $errors['booking_date'] = 'Booking date cannot be in the past';
-    }
-
-    if (!empty($data['start_time']) && !preg_match('/^\d{2}:\d{2}$/', (string)$data['start_time'])) {
-        $errors['start_time'] = 'Invalid start time format';
-    }
-
-    if (!empty($data['end_time']) && !preg_match('/^\d{2}:\d{2}$/', (string)$data['end_time'])) {
-        $errors['end_time'] = 'Invalid end time format';
-    }
+    $errors = array_merge($errors, validateBookingScheduleData($data));
 
     if (!empty($data['purpose']) && strlen((string)$data['purpose']) > 1000) {
         $errors['purpose'] = 'Purpose must be 1000 characters or fewer';
-    }
-
-    if (!isset($data['participant_count']) || (int)$data['participant_count'] < 1) {
-        $errors['participant_count'] = 'Participant count must be at least 1';
-    }
-
-    if (isset($data['participant_count']) && (int)$data['participant_count'] > 5000) {
-        $errors['participant_count'] = 'Participant count is too large';
     }
 
     if (isset($data['equipment_required']) && !isAllowedBookingEquipment((string)$data['equipment_required'])) {

@@ -100,12 +100,14 @@ function renderFacilityManagement(facilities) {
 async function toggleFacility(fid) {
   const facility = facilitiesCache.find((f) => f.id === fid);
   if (!facility) return;
-  facility.is_available = !facility.is_available;
+  const nextAvailability = !facility.is_available;
   try {
-    await tryApi(`facilities.php?id=${encodeURIComponent(fid)}`, 'PUT', { is_available: facility.is_available });
+    await tryApi(`facilities.php?id=${encodeURIComponent(fid)}`, 'PUT', { is_available: nextAvailability });
   } catch (error) {
-    apiOnline = false;
+    showToast(error.message || 'Sambungan server diperlukan untuk mengubah ketersediaan fasiliti.', 'error');
+    return;
   }
+  facility.is_available = nextAvailability;
   renderFacilityManagement(facilitiesCache);
   showToast(`${facility.name} dikemas kini.`, 'success');
 }
@@ -227,7 +229,7 @@ function calendarStatusLabels(bookings = []) {
 
   const statusConfig = {
     unpaid: { label: 'Belum Bayar', color: '#4F46E5', bg: '#EEF2FF' },
-    pending: { label: 'Menunggu', color: 'var(--amber)', bg: '#FDF3E3' },
+    pending: { label: 'Dikunci', color: 'var(--amber)', bg: '#FDF3E3' },
     approved: { label: 'Diluluskan', color: 'var(--green)', bg: '#EAF5EE' },
     rejected: { label: 'Ditolak', color: 'var(--red)', bg: '#FDECEC' },
     cancelled: { label: 'Dibatalkan', color: 'var(--red)', bg: '#FDECEC' },
@@ -318,30 +320,25 @@ async function updateStatus(id, status, note = '') {
   try {
     await tryApi(`bookings.php?action=status&id=${encodeURIComponent(id)}`, 'PUT', { status, admin_note: note });
   } catch (error) {
-    if (!canUseLocalFallback(error)) {
-      showToast(error.message || 'Status tempahan gagal dikemas kini.', 'error');
-      return;
-    }
-    const bookings = getBookings();
-    const booking = bookings.find((b) => b.id === id);
-    if (booking) {
-      booking.status = status;
-      booking.adminNote = note;
-      saveBookings(bookings);
-    }
+    const message = canUseLocalFallback(error)
+      ? 'Sambungan server diperlukan untuk mengubah status tempahan.'
+      : error.message || 'Status tempahan gagal dikemas kini.';
+    showToast(message, 'error');
+    return false;
   }
   await renderAdminDashboard();
+  return true;
 }
 
 async function approveBooking(id) {
-  await updateStatus(id, 'approved');
-  showToast('Diluluskan', 'success');
+  if (await updateStatus(id, 'approved')) showToast('Diluluskan', 'success');
 }
 
 async function approveBookingFromModal(id) {
-  await updateStatus(id, 'approved', document.getElementById('modalNote')?.value || '');
-  closeModal('bookingModal');
-  showToast('Diluluskan', 'success');
+  if (await updateStatus(id, 'approved', document.getElementById('modalNote')?.value || '')) {
+    closeModal('bookingModal');
+    showToast('Diluluskan', 'success');
+  }
 }
 
 function rejectBookingPrompt(id) {
@@ -355,9 +352,10 @@ async function rejectBookingFromModal(id) {
     document.getElementById('modalNote')?.focus();
     return;
   }
-  await updateStatus(id, 'rejected', note);
-  closeModal('bookingModal');
-  showToast('Ditolak', 'error');
+  if (await updateStatus(id, 'rejected', note)) {
+    closeModal('bookingModal');
+    showToast('Ditolak', 'error');
+  }
 }
 
 function closeModal(id) {
