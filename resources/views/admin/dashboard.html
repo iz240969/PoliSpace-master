@@ -82,7 +82,44 @@
         </div>
 
         <div class="admin-panel" id="panel-facilities">
-          <h2 style="margin-bottom:32px;">Pengurusan Fasiliti</h2>
+          <div class="admin-panel-toolbar">
+            <h2>Pengurusan Fasiliti</h2>
+            <button class="btn btn-secondary btn-sm" type="button" onclick="loadFacilities().then(renderFacilityManagement)"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
+          </div>
+          <form class="admin-card admin-facility-form" id="adminFacilityForm" onsubmit="addFacility(event)">
+            <div class="admin-card-header">
+              <div class="admin-card-title">Tambah Fasiliti</div>
+            </div>
+            <div class="admin-facility-form-body">
+              <div class="form-group">
+                <label for="facilityName">Nama Fasiliti *</label>
+                <input type="text" id="facilityName" name="name" maxlength="100" required placeholder="cth: Studio Rakaman">
+              </div>
+              <div class="form-group">
+                <label for="facilityIcon">Ikon Bootstrap</label>
+                <input type="text" id="facilityIcon" name="icon" maxlength="50" value="bi-building" placeholder="bi-building">
+              </div>
+              <div class="form-group">
+                <label for="facilityCapacity">Kapasiti *</label>
+                <input type="number" id="facilityCapacity" name="capacity" min="1" max="5000" required placeholder="30">
+              </div>
+              <div class="form-group">
+                <label for="facilityPrice">Harga (RM) *</label>
+                <input type="number" id="facilityPrice" name="price_per_hour" min="0" max="999999.99" step="0.01" required placeholder="100.00">
+              </div>
+              <div class="form-group admin-facility-description">
+                <label for="facilityDescription">Keterangan</label>
+                <textarea id="facilityDescription" name="description" maxlength="2000" rows="3" placeholder="Kemudahan, kegunaan, atau nota penting."></textarea>
+              </div>
+              <label class="admin-facility-check">
+                <input type="checkbox" id="facilityAvailable" name="is_available" checked>
+                <span>Tersedia untuk tempahan</span>
+              </label>
+            </div>
+            <div class="admin-facility-form-actions">
+              <button class="btn btn-primary" id="addFacilityButton" type="submit"><i class="bi bi-plus-lg"></i> Tambah Fasiliti</button>
+            </div>
+          </form>
           <div class="facility-manage-grid" id="facilityManageGrid"></div>
         </div>
 

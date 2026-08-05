@@ -148,6 +148,7 @@ Admin can:
 - View customers and customer booking history.
 - Reset/set customer passwords.
 - Read customer messages and reply through their email client.
+- Add new facilities from the dashboard.
 - Toggle facility availability.
 - View the booking calendar.
 
@@ -171,6 +172,14 @@ Asrama - Bilik           RM10   2 orang - 1 bilik
 Facility cards use `Arial Black` for the facility name. The Asrama capacity label is rendered as `2 orang - 1 bilik`.
 
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the backend forces `setup_required` to `full`.
+
+Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. The create action calls:
+
+```text
+POST backend/api/facilities.php
+```
+
+Required fields are facility name, capacity, and price. Optional fields are Bootstrap icon class, description, and initial availability.
 
 ## Database
 

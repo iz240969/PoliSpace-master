@@ -283,6 +283,43 @@
 @keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
 
 /* Toggles & Utilities */
+.admin-facility-form {
+  overflow: visible;
+}
+
+.admin-facility-form-body {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  padding: 24px;
+}
+
+.admin-facility-description {
+  grid-column: span 3;
+}
+
+.admin-facility-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  color: var(--grey-4);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-facility-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold);
+}
+
+.admin-facility-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 24px;
+}
+
 .facility-manage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .facility-manage-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); }
 .fmc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -353,6 +390,22 @@
 
   .admin-password-reset-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-facility-form-body {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-facility-description {
+    grid-column: auto;
+  }
+
+  .admin-facility-form-actions {
+    justify-content: stretch;
+  }
+
+  .admin-facility-form-actions .btn {
+    width: 100%;
   }
 }
 

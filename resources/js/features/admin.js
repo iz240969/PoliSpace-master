@@ -1,4 +1,4 @@
-﻿// ==================== ADMIN ====================
+// ==================== ADMIN ====================
 function handleAdminAuthorizationError(error) {
   if (![401, 403].includes(error?.status)) return false;
   clearStoredAuthState();
@@ -97,14 +97,57 @@ async function filterBookings(filter, btn) {
 function renderFacilityManagement(facilities) {
   const grid = document.getElementById('facilityManageGrid');
   if (!grid) return;
+  if (!facilities.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i class="bi bi-building-slash"></i></div><div class="empty-state-title">Tiada Fasiliti</div></div>';
+    return;
+  }
   grid.innerHTML = facilities.map((f) => `
     <div class="facility-manage-card">
       <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
-      <div class="fmc-cap">Kapasiti: ${f.capacity} orang - RM${f.price_per_hour}</div>
+      <div class="fmc-cap">Kapasiti: ${escapeHtml(f.capacity)} orang - RM${escapeHtml(f.price_per_hour)}</div>
       <div class="fmc-footer"><span style="font-size:12px;color:var(--grey-4)">${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
     </div>
   `).join('');
+}
+
+async function addFacility(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = document.getElementById('addFacilityButton');
+  const formData = new FormData(form);
+  const data = {
+    name: String(formData.get('name') || '').trim(),
+    icon: String(formData.get('icon') || 'bi-building').trim() || 'bi-building',
+    capacity: Number(formData.get('capacity') || 0),
+    price_per_hour: Number(formData.get('price_per_hour') || 0),
+    description: String(formData.get('description') || '').trim(),
+    is_available: formData.has('is_available'),
+  };
+
+  if (!data.name || data.capacity < 1 || data.price_per_hour < 0) {
+    showToast('Sila lengkapkan maklumat fasiliti.', 'error');
+    return;
+  }
+
+  if (button) button.disabled = true;
+  try {
+    const result = await tryApi('facilities.php', 'POST', data);
+    const created = normalizeFacilities([result.data])[0];
+    facilitiesCache.push(created);
+    renderFacilityManagement(facilitiesCache);
+    form.reset();
+    const iconInput = document.getElementById('facilityIcon');
+    if (iconInput) iconInput.value = 'bi-building';
+    const availableInput = document.getElementById('facilityAvailable');
+    if (availableInput) availableInput.checked = true;
+    showToast('Fasiliti berjaya ditambah.', 'success');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Fasiliti gagal ditambah.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 async function toggleFacility(fid) {

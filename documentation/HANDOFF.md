@@ -54,7 +54,7 @@ backend/config.php          Loads .env and session/config values
 backend/db.php              PDO connection helper
 backend/api/auth.php        Login/signup/session plus current-user profile update
 backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar endpoints
-backend/api/facilities.php  Facility list/admin availability update endpoint
+backend/api/facilities.php  Facility list/admin create/admin availability update endpoint
 backend/api/messages.php    Contact message endpoint
 backend/api/users.php       Admin customer list/detail/password reset endpoint
 ```
@@ -141,6 +141,7 @@ Important behavior:
 5. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
 6. Admin can set or reset a client password from the customer management flow.
 7. Admin can read customer messages and open an email reply from the message table.
+8. Admin can add new facilities from the `Fasiliti` page without editing SQL manually.
 
 Default admin credentials:
 
@@ -163,6 +164,8 @@ Asrama - Bilik           RM10   2 orang - 1 bilik    Harga untuk satu bilik
 ```
 
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the setup option is forced to `Pakej Lengkap` by the backend.
+
+Admins can add custom facilities from the dashboard `Fasiliti` panel. The form writes to `POST backend/api/facilities.php` with `name`, `icon`, `capacity`, `price_per_hour`, `description`, and `is_available`. New rows use the existing `facilities` table, so no migration is required.
 
 ## Current UI Notes
 
@@ -225,6 +228,7 @@ PUT  backend/api/bookings.php?action=user-update&id=PS...
 DELETE backend/api/bookings.php?id=PS...        Disabled: returns 405 to preserve history
 
 GET  backend/api/facilities.php
+POST backend/api/facilities.php                 Admin create facility
 PUT  backend/api/facilities.php?id=1
 GET  backend/api/users.php
 GET  backend/api/users.php?action=detail&id=1
