@@ -556,7 +556,6 @@ function renderBookingCart() {
       <div class="booking-cart-item-content">
         <div class="booking-cart-item-head">
           <strong>${escapeHtml(item.facility_name || 'Fasiliti')}</strong>
-          <span>RM${escapeHtml(String(item.estimated_cost || 0))}</span>
         </div>
         <div class="booking-cart-item-meta">
           <span><i class="bi bi-calendar3"></i> ${escapeHtml(formatDate(item.booking_date))}</span>
@@ -564,6 +563,7 @@ function renderBookingCart() {
           <span><i class="bi bi-people"></i> ${escapeHtml(String(item.participant_count || 1))} orang</span>
         </div>
       </div>
+      <div class="booking-cart-item-price">RM${escapeHtml(String(item.estimated_cost || 0))}</div>
       <div class="booking-cart-item-actions">
         <button type="button" onclick="editBookingCartItem('${escapeAttr(item.id)}')" title="Edit tempahan" aria-label="Edit ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-pencil"></i></button>
         <button class="is-danger" type="button" onclick="removeBookingCartItem('${escapeAttr(item.id)}')" title="Buang daripada troli" aria-label="Buang ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-trash3"></i></button>

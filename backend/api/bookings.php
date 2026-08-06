@@ -86,9 +86,15 @@ function getAllBookings(Database $db, mixed $status = null): void
             LEFT JOIN facilities f ON b.facility_id = f.id";
     $params = [];
 
-    if ($status && in_array($status, ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'], true)) {
+    if ($status === 'unpaid') {
+        jsonResponse(['success' => true, 'data' => []]);
+    }
+
+    if ($status && in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
         $sql .= ' WHERE b.status = ?';
         $params[] = $status;
+    } else {
+        $sql .= " WHERE b.status <> 'unpaid'";
     }
 
     $sql .= ' ORDER BY b.created_at DESC';
@@ -136,7 +142,7 @@ function getBookingByRef(Database $db, string $ref): void
         [$ref]
     );
 
-    if (!$booking) {
+    if (!$booking || ($isAdmin && (string)$booking['status'] === 'unpaid')) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
 
@@ -589,17 +595,15 @@ function deleteBooking(Database $db, string $id): void
 
 function getDashboardStats(Database $db): void
 {
-    $total = $db->fetchOne('SELECT COUNT(*) AS count FROM bookings');
-    $unpaid = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'unpaid'");
+    $total = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status <> 'unpaid'");
     $pending = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'pending'");
     $approved = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'approved'");
-    $today = $db->fetchOne('SELECT COUNT(*) AS count FROM bookings WHERE booking_date = CURDATE()');
+    $today = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE booking_date = CURDATE() AND status <> 'unpaid'");
 
     jsonResponse([
         'success' => true,
         'data' => [
             'total' => (int)$total['count'],
-            'unpaid' => (int)$unpaid['count'],
             'pending' => (int)$pending['count'],
             'approved' => (int)$approved['count'],
             'today' => (int)$today['count'],

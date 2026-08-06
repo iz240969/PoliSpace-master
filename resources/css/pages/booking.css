@@ -618,7 +618,7 @@ textarea {
 
 .booking-cart-item {
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) 84px;
+  grid-template-columns: 46px minmax(0, 1fr) minmax(76px, auto) 84px;
   align-items: center;
   gap: 14px;
   padding: 14px;
@@ -644,10 +644,7 @@ textarea {
 }
 
 .booking-cart-item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  min-width: 0;
 }
 
 .booking-cart-item-head strong {
@@ -660,11 +657,15 @@ textarea {
   white-space: nowrap;
 }
 
-.booking-cart-item-head span {
-  flex-shrink: 0;
+.booking-cart-item-price {
+  justify-self: end;
+  align-self: center;
+  padding: 4px 0;
   color: var(--gold);
   font-size: 13px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .booking-cart-item-meta {
@@ -850,6 +851,10 @@ textarea {
 
   .booking-cart-item-icon {
     display: none;
+  }
+
+  .booking-cart-item-price {
+    justify-self: start;
   }
 
   .booking-cart-item-actions {

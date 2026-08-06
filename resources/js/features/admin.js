@@ -1,4 +1,4 @@
-// ==================== ADMIN ====================
+﻿// ==================== ADMIN ====================
 function handleAdminAuthorizationError(error) {
   if (![401, 403].includes(error?.status)) return false;
   clearStoredAuthState();
@@ -24,7 +24,6 @@ async function renderAdminDashboard() {
     bookings = [];
     stats = {
       total: 0,
-      unpaid: 0,
       pending: 0,
       approved: 0,
       today: 0,
@@ -32,7 +31,7 @@ async function renderAdminDashboard() {
     showToast(error.message || 'Data dashboard tidak dapat dimuatkan.', 'error');
   }
 
-  setText('pendingBadge', Number(stats.unpaid || 0) + Number(stats.pending || 0));
+  setText('pendingBadge', Number(stats.pending || 0));
   dashDate.textContent = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   document.getElementById('adminStats').innerHTML = buildStatsHTML(stats);
   renderBookingsTable('recentBookingsTbody', bookings.slice(0, 5), true);
@@ -46,9 +45,9 @@ async function renderAdminDashboard() {
 function buildStatsHTML(stats) {
   return `
     <div class="stat-card"><div class="stat-card-label">Jumlah Tempahan</div><div class="stat-card-value">${stats.total}</div></div>
-    <div class="stat-card"><div class="stat-card-label">Belum Bayar</div><div class="stat-card-value" style="color:#4F46E5">${stats.unpaid || 0}</div></div>
     <div class="stat-card"><div class="stat-card-label">Menunggu Semakan</div><div class="stat-card-value" style="color:var(--amber)">${stats.pending}</div></div>
     <div class="stat-card"><div class="stat-card-label">Diluluskan</div><div class="stat-card-value" style="color:var(--green)">${stats.approved}</div></div>
+    <div class="stat-card"><div class="stat-card-label">Hari Ini</div><div class="stat-card-value">${stats.today || 0}</div></div>
   `;
 }
 
@@ -63,7 +62,7 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
 
   tbody.innerHTML = bookings.map((b) => {
     const canApprove = b.status === 'pending';
-    const canReject = ['unpaid', 'pending', 'approved'].includes(b.status);
+    const canReject = ['pending', 'approved'].includes(b.status);
     return `
     <tr>
       <td><div class="booking-id" title="${escapeAttr(b.id)}">${escapeHtml(b.id)}</div></td>
@@ -301,7 +300,7 @@ function renderMessagesTable(messages) {
         <td>${escapeHtml(message.subject || '-')}</td>
         <td class="admin-message-content">${escapeHtml(message.message || '-')}</td>
         <td class="table-date">${escapeHtml(formatDateTime(message.created_at))}</td>
-        <td><a class="btn btn-secondary btn-sm table-icon-btn" href="mailto:${escapeAttr(message.email)}?subject=${replySubject}" title="Balas melalui e-mel" aria-label="Balas mesej ${escapeAttr(message.email)}"><i class="bi bi-reply"></i></a></td>
+        <td><div class="table-actions"><a class="btn btn-secondary btn-sm table-icon-btn" href="mailto:${escapeAttr(message.email)}?subject=${replySubject}" title="Balas melalui e-mel" aria-label="Balas mesej ${escapeAttr(message.email)}"><i class="bi bi-reply"></i></a></div></td>
       </tr>
     `;
   }).join('');
@@ -310,14 +309,24 @@ function renderMessagesTable(messages) {
 function renderCalendar(bookings = [], viewDate = bookingCalendarDate) {
   const calendar = document.getElementById('calendarView');
   if (!calendar) return;
+  const scheduleBookings = bookings.filter((booking) => ['pending', 'approved'].includes(booking.status));
   const now = new Date();
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
   const days = new Date(year, month + 1, 0).getDate();
   const firstDay = new Date(year, month, 1).getDay();
   const monthNames = ['Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun', 'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'];
+  const currentMonthIndex = (now.getFullYear() * 12) + now.getMonth();
+  const viewMonthIndex = (year * 12) + month;
+  const relativeMonthLabel = viewMonthIndex === currentMonthIndex
+    ? 'Bulan Ini'
+    : viewMonthIndex === currentMonthIndex - 1
+      ? 'Bulan Lepas'
+      : viewMonthIndex === currentMonthIndex + 1
+        ? 'Bulan Depan'
+        : monthNames[month];
   const bookedDates = {};
-  bookings.forEach((b) => {
+  scheduleBookings.forEach((b) => {
     if (!bookedDates[b.date]) bookedDates[b.date] = [];
     bookedDates[b.date].push(b);
   });
@@ -327,7 +336,7 @@ function renderCalendar(bookings = [], viewDate = bookingCalendarDate) {
       <h3>${monthNames[month]} ${year}</h3>
       <div class="booking-calendar-actions">
         <button type="button" class="calendar-nav-btn" onclick="changeBookingCalendarMonth(-1)" aria-label="Bulan sebelum"><i class="bi bi-chevron-left"></i></button>
-        <button type="button" class="calendar-today-btn" onclick="resetBookingCalendarMonth()">Bulan Ini</button>
+        <button type="button" class="calendar-today-btn" onclick="resetBookingCalendarMonth()">${relativeMonthLabel}</button>
         <button type="button" class="calendar-nav-btn" onclick="changeBookingCalendarMonth(1)" aria-label="Bulan seterusnya"><i class="bi bi-chevron-right"></i></button>
       </div>
     </div>
@@ -349,28 +358,25 @@ function calendarStatusLabels(bookings = []) {
   if (!bookings.length) return '';
 
   const statusConfig = {
-    unpaid: { label: 'Belum Bayar', color: '#4F46E5', bg: '#EEF2FF' },
-    pending: { label: 'Dikunci', color: 'var(--amber)', bg: '#FDF3E3' },
-    approved: { label: 'Diluluskan', color: 'var(--green)', bg: '#EAF5EE' },
-    rejected: { label: 'Ditolak', color: 'var(--red)', bg: '#FDECEC' },
-    cancelled: { label: 'Dibatalkan', color: 'var(--red)', bg: '#FDECEC' },
+    pending: { color: 'var(--amber)', bg: '#FDF3E3' },
+    approved: { color: 'var(--green)', bg: '#EAF5EE' },
   };
-  const counts = bookings.reduce((acc, booking) => {
-    if (statusConfig[booking.status]) acc[booking.status] = (acc[booking.status] || 0) + 1;
-    return acc;
-  }, {});
-
-  const order = ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'];
-  const labels = order
-    .filter((status) => counts[status])
-    .map((status) => {
-      const config = statusConfig[status];
-      const count = counts[status] > 1 ? ` ${counts[status]}` : '';
-      return `<span style="display:inline-flex;align-items:center;max-width:100%;padding:2px 6px;border-radius:999px;background:${config.bg};color:${config.color};font-size:9px;font-weight:800;line-height:1.2;white-space:nowrap;">${config.label}${count}</span>`;
+  const labels = bookings
+    .filter((booking) => statusConfig[booking.status])
+    .slice(0, 4)
+    .map((booking) => {
+      const config = statusConfig[booking.status];
+      const facilityName = booking.facilityName || 'Fasiliti';
+      return `<span title="${escapeAttr(facilityName)}" style="display:inline-flex;align-items:center;max-width:100%;padding:2px 6px;border-radius:999px;background:${config.bg};color:${config.color};font-size:9px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(facilityName)}</span>`;
     })
     .join('');
 
-  return `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;overflow:hidden;">${labels}</div>`;
+  const hiddenCount = bookings.filter((booking) => statusConfig[booking.status]).length - 4;
+  const moreLabel = hiddenCount > 0
+    ? `<span style="display:inline-flex;align-items:center;padding:2px 6px;border-radius:999px;background:var(--surface-3);color:var(--grey-4);font-size:9px;font-weight:800;line-height:1.2;white-space:nowrap;">+${hiddenCount}</span>`
+    : '';
+
+  return `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;overflow:hidden;">${labels}${moreLabel}</div>`;
 }
 
 function showAdminPanel(name, btn) {
@@ -408,11 +414,11 @@ async function viewBookingDetail(id) {
     <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
-    ${['unpaid', 'pending', 'approved'].includes(booking.status) ? rejectNoteHtml(booking.status, booking.adminNote) : ''}
+    ${['pending', 'approved'].includes(booking.status) ? rejectNoteHtml(booking.status, booking.adminNote) : ''}
   `;
   document.getElementById('modalFooter').innerHTML = booking.status === 'pending'
     ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> Luluskan</button>`
-    : ['unpaid', 'approved'].includes(booking.status)
+    : booking.status === 'approved'
       ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak Tempahan</button>`
     : `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
   document.getElementById('bookingModal')?.classList.add('active');
@@ -421,9 +427,7 @@ async function viewBookingDetail(id) {
 function rejectNoteHtml(status, currentNote = '') {
   const helper = status === 'approved'
     ? 'Tempahan ini sudah diluluskan / dibayar. Nyatakan sebab tarikh tersebut tidak dapat diberikan kepada pengguna.'
-    : status === 'unpaid'
-      ? 'Tempahan ini belum dibayar dan belum mengunci slot. Nyatakan sebab borang/permohonan ini ditolak.'
-      : 'Nyatakan sebab permohonan ini ditolak.';
+    : 'Nyatakan sebab permohonan ini ditolak.';
   return `
     <div class="admin-reject-note">
       <label>Sebab Penolakan *</label>

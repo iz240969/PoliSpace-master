@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     f.name AS facility_name
              FROM bookings b
              LEFT JOIN facilities f ON b.facility_id = f.id
-             WHERE b.email = ?
+             WHERE b.email = ? AND b.status <> 'unpaid'
              ORDER BY b.created_at DESC",
             [$user['email']]
         );
@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         "SELECT u.id, u.email, u.full_name, u.phone, u.role, u.password IS NOT NULL AS has_password,
                 u.created_at, u.updated_at, COUNT(b.id) AS booking_count, MAX(b.created_at) AS latest_booking
          FROM users u
-         LEFT JOIN bookings b ON b.email = u.email
+         LEFT JOIN bookings b ON b.email = u.email AND b.status <> 'unpaid'
          WHERE u.role = 'user'
          GROUP BY u.id, u.email, u.full_name, u.phone, u.role, u.password, u.created_at, u.updated_at
          ORDER BY u.created_at DESC"

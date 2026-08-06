@@ -61,7 +61,7 @@
 .data-table-wrap {
   width: 100%;
   overflow-x: auto;
-  scrollbar-gutter: stable;
+  background: var(--surface-2);
 }
 .data-table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; }
 .data-table th { padding: 14px 18px; text-align: left; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; line-height: 1.3; text-transform: uppercase; color: var(--grey-4); border-bottom: 1px solid var(--border); background: var(--surface-2); }
@@ -70,6 +70,7 @@
 .data-table tbody tr:last-child td { border-bottom: 0; }
 .data-table tbody tr { transition: background-color 0.15s ease; }
 .data-table tbody tr:hover td { background: var(--surface-2); }
+.data-table tbody { background: var(--surface); }
 
 .admin-bookings-table {
   min-width: 1090px;
@@ -93,16 +94,17 @@
 .admin-bookings-table th:last-child,
 .admin-bookings-table td:last-child,
 .admin-clients-table th:last-child,
-.admin-clients-table td:last-child {
+.admin-clients-table td:last-child,
+.admin-client-bookings-table th:last-child,
+.admin-client-bookings-table td:last-child {
   overflow: visible;
   padding-left: 16px;
-  padding-right: 16px;
+  padding-right: 28px;
 }
 
 .admin-bookings-table th:last-child,
 .admin-bookings-table td:last-child {
   padding-left: 14px;
-  padding-right: 14px;
 }
 
 .admin-bookings-table th:last-child,
@@ -145,7 +147,7 @@
 .admin-clients-table th:nth-child(1), .admin-clients-table td:nth-child(1) { width: 42%; }
 .admin-clients-table th:nth-child(2), .admin-clients-table td:nth-child(2) { width: 24%; }
 .admin-clients-table th:nth-child(3), .admin-clients-table td:nth-child(3) { width: 22%; }
-.admin-clients-table th:last-child, .admin-clients-table td:last-child { width: 92px; }
+.admin-clients-table th:last-child, .admin-clients-table td:last-child { width: 104px; }
 
 .admin-client-bookings-table {
   min-width: 720px;
@@ -160,9 +162,10 @@
 .admin-messages-table { min-width: 1080px; }
 .admin-messages-table th:nth-child(1), .admin-messages-table td:nth-child(1) { width: 22%; }
 .admin-messages-table th:nth-child(2), .admin-messages-table td:nth-child(2) { width: 20%; }
-.admin-messages-table th:nth-child(3), .admin-messages-table td:nth-child(3) { width: 36%; }
+.admin-messages-table th:nth-child(3), .admin-messages-table td:nth-child(3) { width: 34%; }
 .admin-messages-table th:nth-child(4), .admin-messages-table td:nth-child(4) { width: 16%; }
-.admin-messages-table th:last-child, .admin-messages-table td:last-child { width: 72px; overflow: visible; text-align: center; }
+.admin-messages-table th:last-child, .admin-messages-table td:last-child { width: 104px; overflow: visible; padding-right: 28px; text-align: right; }
+.admin-messages-table td:last-child .table-actions { justify-content: flex-end; }
 .admin-message-content { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
 
 .booking-id { font-family: var(--display-font); font-size: 12px; font-weight: 900; color: var(--gold); }
