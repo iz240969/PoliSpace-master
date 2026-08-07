@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS facilities (
 CREATE TABLE IF NOT EXISTS bookings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     booking_ref VARCHAR(20) UNIQUE NOT NULL,
+    cart_group_ref VARCHAR(32),
     user_id INT,
     facility_id INT NOT NULL,
     full_name VARCHAR(100) NOT NULL,
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     start_time TIME NOT NULL,
     end_time TIME,
     duration VARCHAR(20),
+    duration_unit ENUM('hour', 'day') NOT NULL DEFAULT 'hour',
     purpose TEXT,
     participant_count INT DEFAULT 0,
     setup_required VARCHAR(50),
@@ -57,6 +59,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     FOREIGN KEY (facility_id) REFERENCES facilities(id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_booking_ref (booking_ref),
+    INDEX idx_cart_group_ref (cart_group_ref),
     INDEX idx_email (email),
     INDEX idx_status (status),
     INDEX idx_booking_date (booking_date),
@@ -91,6 +94,23 @@ SET @equipment_column_sql := IF(
 PREPARE equipment_column_stmt FROM @equipment_column_sql;
 EXECUTE equipment_column_stmt;
 DEALLOCATE PREPARE equipment_column_stmt;
+
+SET @duration_unit_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'duration_unit'
+);
+
+SET @duration_unit_column_sql := IF(
+    @duration_unit_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN duration_unit ENUM('hour', 'day') NOT NULL DEFAULT 'hour' AFTER duration",
+    'SELECT 1'
+);
+PREPARE duration_unit_column_stmt FROM @duration_unit_column_sql;
+EXECUTE duration_unit_column_stmt;
+DEALLOCATE PREPARE duration_unit_column_stmt;
 
 ALTER TABLE bookings
     MODIFY status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid';

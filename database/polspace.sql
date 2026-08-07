@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS facilities (
 CREATE TABLE IF NOT EXISTS bookings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     booking_ref VARCHAR(20) UNIQUE NOT NULL,
+    cart_group_ref VARCHAR(32),
     user_id INT,
     facility_id INT NOT NULL,
     full_name VARCHAR(100) NOT NULL,
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     start_time TIME NOT NULL,
     end_time TIME,
     duration VARCHAR(20),
+    duration_unit ENUM('hour', 'day') NOT NULL DEFAULT 'hour',
     purpose TEXT,
     participant_count INT DEFAULT 0,
     setup_required VARCHAR(50),
@@ -57,6 +59,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     FOREIGN KEY (facility_id) REFERENCES facilities(id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_booking_ref (booking_ref),
+    INDEX idx_cart_group_ref (cart_group_ref),
     INDEX idx_email (email),
     INDEX idx_status (status),
     INDEX idx_booking_date (booking_date),

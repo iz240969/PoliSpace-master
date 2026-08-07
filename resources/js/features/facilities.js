@@ -270,11 +270,49 @@ function sidebarSelectFacility(fid) {
   updateFacilityInfo();
 }
 
+function syncBookingDurationUnitForFacility() {
+  const facility = getSelectedFacility();
+  const hourButton = document.getElementById('durationUnitHour');
+  const input = document.getElementById('f-duration');
+  if (!input) return;
+
+  const dayOnly = isAsramaRoomFacility(facility);
+  if (hourButton) hourButton.disabled = dayOnly;
+  if (dayOnly && selectedDurationUnit() !== 'day') {
+    applyDurationUnitState('f-duration', 'day');
+  } else {
+    applyDurationUnitState('f-duration', selectedDurationUnit());
+  }
+}
+
+function syncAsramaBookingFields() {
+  const asramaSelected = isAsramaRoomFacility(getSelectedFacility());
+  document.querySelectorAll('[data-asrama-optional-field]').forEach((field) => {
+    field.classList.toggle('is-hidden-for-asrama', asramaSelected);
+    field.querySelectorAll('input, select, textarea, button').forEach((control) => {
+      control.disabled = asramaSelected;
+    });
+  });
+
+  if (!asramaSelected) return;
+  const startEl = document.getElementById('f-start');
+  const endEl = document.getElementById('f-end');
+  const equipmentEl = document.getElementById('f-equipment');
+  const participantsEl = document.getElementById('f-participants');
+  if (startEl) startEl.value = '';
+  if (endEl) endEl.value = '';
+  if (equipmentEl) equipmentEl.value = '';
+  if (participantsEl) participantsEl.value = '1';
+  renderEquipmentList();
+}
+
 function updateFacilityInfo() {
   const fid = document.getElementById('f-facility')?.value || '';
   document.querySelectorAll('.facility-select-item').forEach((el) => {
     el.classList.toggle('selected', el.dataset.fid === fid);
   });
+  syncBookingDurationUnitForFacility();
+  syncAsramaBookingFields();
   updateSetupOptions();
   updatePricing();
   renderBookingDatePicker();
@@ -282,7 +320,7 @@ function updateFacilityInfo() {
 
 function getSelectedFacility() {
   const fid = document.getElementById('f-facility')?.value || '';
-  return facilitiesCache.find((f) => f.id === fid);
+  return facilitiesCache.find((f) => String(f.id) === String(fid));
 }
 
 function updateSetupOptions() {
@@ -292,8 +330,10 @@ function updateSetupOptions() {
 function calculateCost() {
   const facility = getSelectedFacility();
   const base = facility ? facility.price_per_hour : 0;
+  const duration = Number(document.getElementById('f-duration')?.value || 1);
+  const multiplier = Number.isFinite(duration) && duration > 0 ? duration : 1;
   const extra = 0;
-  return { base, extra, total: base + extra };
+  return { base, extra, total: (base * multiplier) + extra };
 }
 
 function updatePricing() {
@@ -305,7 +345,7 @@ function updatePricing() {
       <span>RM</span>
       <strong>${cost.total}</strong>
     </div>
-    <p class="pricing-note">Nota: Sewaan dicaj mengikut hari.</p>
+    <p class="pricing-note">Nota: Sewaan dicaj mengikut ${selectedDurationUnit() === 'day' ? 'hari' : 'jam'}.</p>
   `;
 }
 

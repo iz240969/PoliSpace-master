@@ -14,6 +14,8 @@ $db = Database::getInstance();
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 ensureBookingEquipmentColumn($db);
+ensureBookingCartGroupColumn($db);
+ensureBookingDurationUnitColumn($db);
 
 try {
     if ($method === 'GET') {
@@ -171,6 +173,16 @@ function createBooking(Database $db): void
     $data['email'] = (string)$user['email'];
     $data['full_name'] = trim((string)($user['full_name'] ?? ''));
     $data['phone'] = trim((string)($user['phone'] ?? ''));
+    $facility = null;
+    if (!empty($data['facility_id']) && ctype_digit((string)$data['facility_id'])) {
+        $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+        if ($facility && isAsramaRoomFacilityName((string)$facility['name'])) {
+            $data['start_time'] = '00:00';
+            $data['end_time'] = '';
+            $data['equipment_required'] = '';
+            $data['participant_count'] = 1;
+        }
+    }
     $errors = validateBookingData($data);
 
     if ($errors) {
@@ -178,7 +190,9 @@ function createBooking(Database $db): void
     }
 
     $ref = generateBookingRef();
-    $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+    if (!$facility) {
+        $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+    }
     if (!$facility) {
         jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
     }
@@ -191,6 +205,15 @@ function createBooking(Database $db): void
     $packageOnlyFacilities = ['dewan utama', 'dewan syarahan', 'bilik persidangan', 'bilik seminar'];
     if ($facility && in_array(strtolower((string)$facility['name']), $packageOnlyFacilities, true)) {
         $data['setup_required'] = 'full';
+    }
+    if (isAsramaRoomFacilityName((string)$facility['name'])) {
+        if (($data['duration_unit'] ?? 'hour') !== 'day') {
+            jsonResponse(['success' => false, 'error' => 'Asrama - Bilik hanya boleh ditempah mengikut hari.'], 400);
+        }
+        $data['start_time'] = '00:00';
+        $data['end_time'] = '';
+        $data['equipment_required'] = '';
+        $data['participant_count'] = 1;
     }
 
     $paymentFile = null;
@@ -210,12 +233,15 @@ function createBooking(Database $db): void
         $bookingStatus,
         &$paymentFile
     ): void {
-        $latestFacility = $db->fetchOne('SELECT capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+        $latestFacility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
         if (!$latestFacility || !(bool)$latestFacility['is_available']) {
             throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
         }
         if ((int)$data['participant_count'] > (int)$latestFacility['capacity']) {
             throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
+        }
+        if (isAsramaRoomFacilityName((string)$latestFacility['name']) && ($data['duration_unit'] ?? 'hour') !== 'day') {
+            throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
         }
 
         assertBookingDateAvailable($db, (int)$data['facility_id'], (string)$data['booking_date']);
@@ -232,9 +258,9 @@ function createBooking(Database $db): void
             $db->insert(
                 "INSERT INTO bookings (
                     booking_ref, user_id, facility_id, full_name, organization, email, phone,
-                    booking_date, start_time, end_time, duration, purpose, participant_count,
-                    setup_required, equipment_required, payment_file, status, estimated_cost
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    booking_date, start_time, end_time, duration, duration_unit, purpose, participant_count,
+                    setup_required, equipment_required, payment_file, status, estimated_cost, cart_group_ref
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $ref,
                     $userId,
@@ -247,13 +273,15 @@ function createBooking(Database $db): void
                     $data['start_time'],
                     $data['end_time'] ?? null,
                     $data['duration'] ?? '1',
+                    $data['duration_unit'] ?? 'hour',
                     $data['purpose'],
                     $data['participant_count'] ?? 0,
                     $data['setup_required'] ?? 'none',
                     $data['equipment_required'] ?? '',
                     $paymentFile,
                     $bookingStatus,
-                    $latestFacility['price_per_hour'],
+                    ((float)$latestFacility['price_per_hour']) * max(1, (int)($data['duration'] ?? 1)),
+                    trim((string)($data['cart_group_ref'] ?? '')),
                 ]
             );
         } catch (Throwable $e) {
@@ -390,6 +418,7 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
     $startTime = trim((string)($data['start_time'] ?? ''));
     $endTime = trim((string)($data['end_time'] ?? ''));
     $duration = trim((string)($data['duration'] ?? '1'));
+    $durationUnit = trim((string)($data['duration_unit'] ?? 'hour'));
     $purpose = trim((string)($data['purpose'] ?? ''));
     $equipment = trim((string)($data['equipment_required'] ?? ''));
     $participantCount = (int)($data['participant_count'] ?? 0);
@@ -399,6 +428,7 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
         'start_time' => $startTime,
         'end_time' => $endTime,
         'duration' => $duration,
+        'duration_unit' => $durationUnit,
         'participant_count' => $participantCount,
     ]);
     if ($scheduleErrors) {
@@ -432,12 +462,13 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
             $startTime,
             $endTime,
             $duration,
+            $durationUnit,
             $purpose,
             $equipment,
             $participantCount
         ): void {
             $current = $db->fetchOne(
-                "SELECT b.id, b.user_id, b.email, b.status, b.facility_id, f.capacity, f.is_available
+                "SELECT b.id, b.user_id, b.email, b.status, b.facility_id, f.name AS facility_name, f.capacity, f.is_available
                  FROM bookings b
                  JOIN facilities f ON f.id = b.facility_id
                  WHERE b.{$field} = ?",
@@ -460,6 +491,9 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
             if ($participantCount > (int)$current['capacity']) {
                 throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
             }
+            if (isAsramaRoomFacilityName((string)$current['facility_name']) && $durationUnit !== 'day') {
+                throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
+            }
 
             assertBookingDateAvailable(
                 $db,
@@ -468,8 +502,8 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
                 (int)$current['id']
             );
             $db->update(
-                'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, purpose = ?, equipment_required = ?, participant_count = ? WHERE id = ?',
-                [$bookingDate, $startTime, $endTime ?: null, $duration, $purpose, $equipment, $participantCount, $current['id']]
+                'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, duration_unit = ?, purpose = ?, equipment_required = ?, participant_count = ? WHERE id = ?',
+                [$bookingDate, $startTime, $endTime ?: null, $duration, $durationUnit, $purpose, $equipment, $participantCount, $current['id']]
             );
         }
     );
@@ -488,6 +522,51 @@ function ensureBookingEquipmentColumn(Database $db): void
     if ($statusColumn && isset($statusColumn['Type']) && strpos((string)$statusColumn['Type'], "'unpaid'") === false) {
         $db->query("ALTER TABLE bookings MODIFY status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid'");
     }
+}
+
+function ensureBookingCartGroupColumn(Database $db): void
+{
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    $column = $db->fetchOne(
+        "SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'bookings'
+           AND COLUMN_NAME = 'cart_group_ref'"
+    );
+
+    if (!$column) {
+        $db->query("ALTER TABLE bookings ADD COLUMN cart_group_ref VARCHAR(32) NULL AFTER booking_ref");
+        $db->query("ALTER TABLE bookings ADD INDEX idx_cart_group_ref (cart_group_ref)");
+    }
+}
+
+function ensureBookingDurationUnitColumn(Database $db): void
+{
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    $column = $db->fetchOne(
+        "SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'bookings'
+           AND COLUMN_NAME = 'duration_unit'"
+    );
+
+    if (!$column) {
+        $db->query("ALTER TABLE bookings ADD COLUMN duration_unit ENUM('hour', 'day') NOT NULL DEFAULT 'hour' AFTER duration");
+    }
+}
+
+function isAsramaRoomFacilityName(string $name): bool
+{
+    $normalized = strtolower($name);
+    return strpos($normalized, 'asrama') !== false && strpos($normalized, 'bilik') !== false;
 }
 
 function uploadOwnReceipt(Database $db, string $id): void
@@ -517,7 +596,7 @@ function uploadOwnReceipt(Database $db, string $id): void
         function () use ($db, $field, $id, $userId, $userEmail): string {
             $current = $db->fetchOne(
                 "SELECT b.id, b.user_id, b.email, b.status, b.payment_file, b.facility_id,
-                        b.booking_date, b.start_time, b.end_time, b.duration, b.participant_count,
+                        b.booking_date, b.start_time, b.end_time, b.duration, b.duration_unit, b.participant_count,
                         f.is_available
                  FROM bookings b
                  JOIN facilities f ON f.id = b.facility_id
@@ -544,6 +623,7 @@ function uploadOwnReceipt(Database $db, string $id): void
                 'start_time' => substr((string)$current['start_time'], 0, 5),
                 'end_time' => $current['end_time'] ? substr((string)$current['end_time'], 0, 5) : '',
                 'duration' => $current['duration'] ?? '1',
+                'duration_unit' => $current['duration_unit'] ?? 'hour',
                 'participant_count' => $current['participant_count'],
             ]);
             if ($scheduleErrors) {

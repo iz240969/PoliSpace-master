@@ -36,6 +36,8 @@ function formatBookingForFrontend(array $booking): array
         'start' => substr((string)$booking['start_time'], 0, 5),
         'end' => $booking['end_time'] ? substr((string)$booking['end_time'], 0, 5) : '',
         'duration' => $booking['duration'],
+        'durationUnit' => $booking['duration_unit'] ?? 'hour',
+        'duration_unit' => $booking['duration_unit'] ?? 'hour',
         'purpose' => $booking['purpose'],
         'setup' => $booking['setup_required'],
         'equipment' => $booking['equipment_required'] ?? '',
@@ -43,6 +45,7 @@ function formatBookingForFrontend(array $booking): array
         'status' => $booking['status'],
         'adminNote' => $booking['admin_note'],
         'paymentFile' => $booking['payment_file'],
+        'cartGroupRef' => $booking['cart_group_ref'] ?? '',
         'estimatedCost' => $booking['estimated_cost'],
         'createdAt' => $booking['created_at'],
     ];

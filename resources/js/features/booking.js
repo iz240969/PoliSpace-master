@@ -1,7 +1,21 @@
 // ==================== BOOKING FORM ====================
 const BOOKING_CART_STORAGE_PREFIX = 'ps_booking_cart:';
+const DURATION_UNITS = {
+  hour: { label: 'Jam', min: 1, max: 24 },
+  day: { label: 'Hari', min: 1, max: 30 },
+};
 let bookingCartEditingId = null;
 let bookingSubmissionInProgress = false;
+
+function selectedDurationUnit(inputId = 'f-duration') {
+  const input = document.getElementById(inputId);
+  return input?.dataset.durationUnit === 'day' ? 'day' : 'hour';
+}
+
+function isAsramaRoomFacility(facility) {
+  const name = String(facility?.name || facility?.facility_name || '').toLowerCase();
+  return name.includes('asrama') && name.includes('bilik');
+}
 
 function setMinDate() {
   const el = document.getElementById('f-date');
@@ -11,32 +25,67 @@ function setMinDate() {
 function updateEndTime() {
   const start = document.getElementById('f-start')?.value;
   const duration = document.getElementById('f-duration')?.value || '1';
+  const unit = selectedDurationUnit();
+  const endInput = document.getElementById('f-end');
+  if (unit === 'day') {
+    if (endInput) endInput.value = '';
+    return;
+  }
   if (!start) return;
   const [hours, mins] = start.split(':').map(Number);
-  const total = hours * 60 + mins + durationToMinutes(duration);
-  const endInput = document.getElementById('f-end');
+  const total = hours * 60 + mins + durationToMinutes(duration, unit);
   if (!endInput) return;
   endInput.value = total >= 24 * 60
     ? ''
     : `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-function durationToMinutes(duration = '1') {
+function durationToMinutes(duration = '1', unit = 'hour') {
   const durationMap = { halfday: 240, fullday: 480 };
   if (durationMap[duration]) return durationMap[duration];
 
-  const hours = Number.parseFloat(String(duration).replace(',', '.'));
-  if (!Number.isFinite(hours) || hours <= 0) return 60;
-  return Math.round(hours * 60);
+  const amount = Number.parseFloat(String(duration).replace(',', '.'));
+  if (!Number.isFinite(amount) || amount <= 0) return unit === 'day' ? 24 * 60 : 60;
+  return Math.round(amount * (unit === 'day' ? 24 * 60 : 60));
 }
 
-function durationInputValue(duration = '1') {
-  const minutes = durationToMinutes(duration);
-  return String(Math.max(1, Math.ceil(minutes / 60)));
+function durationInputValue(duration = '1', unit = 'hour') {
+  const minutes = durationToMinutes(duration, unit);
+  return String(Math.max(1, Math.ceil(minutes / (unit === 'day' ? 24 * 60 : 60))));
 }
 
 function formatDurationValue(value) {
   return String(Math.max(1, Math.ceil(value)));
+}
+
+function applyDurationUnitState(inputId = 'f-duration', unit = selectedDurationUnit(inputId)) {
+  const config = DURATION_UNITS[unit] || DURATION_UNITS.hour;
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.dataset.durationUnit = unit;
+  input.min = String(config.min);
+  input.max = String(config.max);
+  input.setAttribute('aria-label', `Tempoh penggunaan dalam ${config.label.toLowerCase()}`);
+
+  const label = inputId === 'f-duration'
+    ? document.getElementById('durationUnitLabel')
+    : input.closest('.duration-field')?.querySelector('.duration-unit');
+  if (label) label.textContent = config.label;
+
+  document.querySelectorAll(`[data-duration-unit-target="${inputId}"]`).forEach((button) => {
+    const active = button.dataset.durationUnit === unit;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+
+  normalizeDurationInput(inputId);
+}
+
+function setDurationUnit(unit, inputId = 'f-duration') {
+  const nextUnit = unit === 'day' ? 'day' : 'hour';
+  applyDurationUnitState(inputId, nextUnit);
+  updateEndTime();
+  updatePricing();
 }
 
 function setDurationValue(value, inputId = 'f-duration') {
@@ -44,7 +93,8 @@ function setDurationValue(value, inputId = 'f-duration') {
   if (!input) return;
 
   const min = Number(input.min || 1);
-  const next = Math.max(min, Number(value) || min);
+  const max = Number(input.max || 999);
+  const next = Math.min(max, Math.max(min, Number(value) || min));
   input.value = formatDurationValue(next);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -71,8 +121,9 @@ function normalizeDurationInput(inputId = 'f-duration') {
   if (!input) return;
 
   const min = Number(input.min || 1);
+  const max = Number(input.max || 999);
   const current = Number.parseFloat(String(input.value).replace(',', '.'));
-  input.value = formatDurationValue(Number.isFinite(current) ? Math.max(min, current) : min);
+  input.value = formatDurationValue(Number.isFinite(current) ? Math.min(max, Math.max(min, current)) : min);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
@@ -291,6 +342,8 @@ function getBookingFormData() {
   const accountEmail = psAuthState.role === 'user'
     ? (psAuthState.user?.email || localStorage.getItem('ps_user_email') || '')
     : '';
+  const facility = getSelectedFacility();
+  const asramaSelected = isAsramaRoomFacility(facility);
   return {
     full_name: document.getElementById('f-name')?.value.trim() || '',
     organization: '',
@@ -298,19 +351,21 @@ function getBookingFormData() {
     phone: document.getElementById('f-phone')?.value.trim() || '',
     facility_id: document.getElementById('f-facility')?.value || '',
     booking_date: document.getElementById('f-date')?.value || '',
-    start_time: document.getElementById('f-start')?.value || '',
-    end_time: document.getElementById('f-end')?.value || '',
+    start_time: asramaSelected ? '00:00' : (document.getElementById('f-start')?.value || ''),
+    end_time: asramaSelected ? '' : (document.getElementById('f-end')?.value || ''),
     duration: document.getElementById('f-duration')?.value || '1',
+    duration_unit: selectedDurationUnit(),
     purpose: document.getElementById('f-purpose')?.value.trim() || '',
-    equipment_required: document.getElementById('f-equipment')?.value.trim() || '',
-    participant_count: Number(document.getElementById('f-participants')?.value || 0),
+    equipment_required: asramaSelected ? '' : (document.getElementById('f-equipment')?.value.trim() || ''),
+    participant_count: asramaSelected ? 1 : Number(document.getElementById('f-participants')?.value || 0),
     setup_required: 'full',
     estimated_cost: calculateCost().total,
   };
 }
 
 function validateBookingFormData(data, receiptFile = null) {
-  const durationHours = Number.parseFloat(String(data.duration).replace(',', '.'));
+  const durationValue = Number.parseFloat(String(data.duration).replace(',', '.'));
+  const durationUnit = data.duration_unit === 'day' ? 'day' : 'hour';
   const facility = facilitiesCache.find((item) => String(item.id) === String(data.facility_id));
 
   if (!data.full_name || !data.email || !data.phone || !data.facility_id || !data.booking_date || !data.start_time || !data.purpose) {
@@ -322,7 +377,11 @@ function validateBookingFormData(data, receiptFile = null) {
   if (data.booking_date < getMinimumBookingDateValue()) {
     return 'Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.';
   }
-  if (!Number.isInteger(durationHours) || durationHours <= 0 || durationHours > 24) {
+  if (isAsramaRoomFacility(facility) && durationUnit !== 'day') {
+    return 'Asrama - Bilik hanya boleh ditempah mengikut hari.';
+  }
+  if (!Number.isInteger(durationValue) || durationValue <= 0 || durationValue > DURATION_UNITS[durationUnit].max) {
+    if (durationUnit === 'day') return 'Sila masukkan tempoh penggunaan antara 1 hingga 30 hari penuh.';
     return 'Sila masukkan tempoh penggunaan antara 1 hingga 24 jam penuh.';
   }
   if (!Number.isInteger(data.participant_count) || data.participant_count < 1) {
@@ -333,8 +392,8 @@ function validateBookingFormData(data, receiptFile = null) {
   }
   const startMinutes = bookingTimeToMinutes(data.start_time);
   const endMinutes = bookingTimeToMinutes(data.end_time);
-  const expectedEnd = startMinutes === null ? null : startMinutes + (durationHours * 60);
-  if (startMinutes === null || endMinutes === null || expectedEnd >= 24 * 60 || endMinutes !== expectedEnd) {
+  const expectedEnd = startMinutes === null ? null : startMinutes + (durationValue * 60);
+  if (durationUnit === 'hour' && (startMinutes === null || endMinutes === null || expectedEnd >= 24 * 60 || endMinutes !== expectedEnd)) {
     return 'Tempahan mesti tamat pada hari yang sama dan sepadan dengan tempoh penggunaan.';
   }
   if (!isValidEmail(data.email)) {
@@ -420,7 +479,16 @@ function createBookingCartId() {
   return `cart-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function addBookingToCart() {
+function createBookingCartGroupRef() {
+  const randomPart = window.crypto?.getRandomValues
+    ? Array.from(window.crypto.getRandomValues(new Uint8Array(3))).map((value) => value.toString(16).padStart(2, '0')).join('').toUpperCase()
+    : Math.random().toString(16).slice(2, 8).toUpperCase();
+  return `TR${Date.now().toString(36).toUpperCase()}${randomPart}`;
+}
+
+async function addBookingToCart() {
+  if (bookingSubmissionInProgress) return;
+
   if (!isClientLoggedIn()) {
     showToast('Sila log masuk sebagai pelanggan sebelum menggunakan troli.', 'error');
     window.location.href = ROUTES.login;
@@ -447,6 +515,32 @@ function addBookingToCart() {
     return;
   }
 
+  if (receiptFile) {
+    const addButton = document.getElementById('addToCartButton');
+    bookingSubmissionInProgress = true;
+    if (addButton) {
+      addButton.disabled = true;
+      addButton.innerHTML = '<i class="bi bi-arrow-repeat"></i><span>Menghantar</span>';
+    }
+
+    try {
+      const ref = await createBookingRecord(data, receiptFile);
+      if (bookingCartEditingId) removeBookingCartItem(bookingCartEditingId, false);
+      bookingCartEditingId = null;
+      updateBookingCartFormState();
+      clearBookingDetailFields();
+      renderBookingCart();
+      showToast(`Tempahan dengan resit dihantar. Rujukan: ${ref}`, 'success');
+    } catch (error) {
+      showToast(error.message || 'Tempahan dengan resit gagal dihantar.', 'error');
+    } finally {
+      bookingSubmissionInProgress = false;
+      updateBookingCartFormState();
+      if (addButton) addButton.disabled = false;
+    }
+    return;
+  }
+
   const cartItem = {
     id: bookingCartEditingId || createBookingCartId(),
     facility_id: data.facility_id,
@@ -456,6 +550,7 @@ function addBookingToCart() {
     start_time: data.start_time,
     end_time: data.end_time,
     duration: data.duration,
+    duration_unit: data.duration_unit,
     purpose: data.purpose,
     equipment_required: data.equipment_required,
     participant_count: data.participant_count,
@@ -472,9 +567,7 @@ function addBookingToCart() {
   updateBookingCartFormState();
   clearBookingDetailFields();
   showToast(
-    receiptFile
-      ? 'Tempahan ditambah ke troli. Resit boleh dimuat naik melalui Dashboard selepas troli dihantar.'
-      : wasEditing ? 'Item troli berjaya dikemas kini.' : 'Tempahan berjaya ditambah ke troli.',
+    wasEditing ? 'Item troli berjaya dikemas kini.' : 'Tempahan berjaya ditambah ke troli.',
     'success'
   );
 }
@@ -500,10 +593,15 @@ function ensureBookingCartModal() {
         </div>
         <div class="modal-body booking-cart-body">
           <div class="booking-cart-list" id="bookingCartList"></div>
+          <div class="booking-cart-receipt" id="bookingCartReceiptStatus"></div>
           <div class="booking-cart-summary" id="bookingCartSummary"></div>
         </div>
         <div class="modal-footer booking-cart-footer">
           <button class="btn btn-secondary" type="button" onclick="closeBookingCart()">Tutup</button>
+          <label class="btn btn-secondary booking-cart-receipt-button" for="bookingCartReceiptInput">
+            <i class="bi bi-receipt"></i> Resit
+            <input id="bookingCartReceiptInput" type="file" accept=".jpg,.jpeg,.png,.gif,.pdf" onchange="updateBookingCartReceiptState()" aria-label="Muat naik resit troli">
+          </label>
           <button class="btn btn-primary" id="submitBookingCartButton" type="button" onclick="submitBookingCart()">
             <i class="bi bi-send-check"></i> Hantar Semua
           </button>
@@ -514,6 +612,39 @@ function ensureBookingCartModal() {
   document.getElementById('bookingCartModal')?.addEventListener('click', (event) => {
     if (event.target.id === 'bookingCartModal') closeBookingCart();
   });
+}
+
+function getBookingCartReceiptFile() {
+  return document.getElementById('bookingCartReceiptInput')?.files?.[0] || null;
+}
+
+function updateBookingCartReceiptState() {
+  const receiptStatus = document.getElementById('bookingCartReceiptStatus');
+  const submitButton = document.getElementById('submitBookingCartButton');
+  const receiptFile = getBookingCartReceiptFile();
+  const items = getBookingCartItems();
+  if (!receiptStatus || !submitButton) return;
+
+  if (!items.length) {
+    receiptStatus.innerHTML = '';
+    submitButton.disabled = true;
+    return;
+  }
+
+  if (!receiptFile) {
+    receiptStatus.innerHTML = '<span><i class="bi bi-info-circle"></i> Muat naik resit sebelum hantar semua tempahan.</span>';
+    submitButton.disabled = true;
+    return;
+  }
+
+  if (!isValidReceiptFile(receiptFile)) {
+    receiptStatus.innerHTML = '<span class="is-error"><i class="bi bi-exclamation-circle"></i> Resit mesti JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.</span>';
+    submitButton.disabled = true;
+    return;
+  }
+
+  receiptStatus.innerHTML = `<span class="is-ready"><i class="bi bi-check-circle"></i> ${escapeHtml(receiptFile.name)}</span>`;
+  submitButton.disabled = false;
 }
 
 function openBookingCart() {
@@ -534,7 +665,8 @@ function renderBookingCart() {
   const list = document.getElementById('bookingCartList');
   const summary = document.getElementById('bookingCartSummary');
   const submitButton = document.getElementById('submitBookingCartButton');
-  if (!list || !summary || !submitButton) return;
+  const receiptStatus = document.getElementById('bookingCartReceiptStatus');
+  if (!list || !summary || !submitButton || !receiptStatus) return;
 
   const items = getBookingCartItems();
   if (!items.length) {
@@ -546,6 +678,9 @@ function renderBookingCart() {
       </div>
     `;
     summary.innerHTML = '';
+    receiptStatus.innerHTML = '';
+    const receiptInput = document.getElementById('bookingCartReceiptInput');
+    if (receiptInput) receiptInput.value = '';
     submitButton.disabled = true;
     return;
   }
@@ -560,6 +695,7 @@ function renderBookingCart() {
         <div class="booking-cart-item-meta">
           <span><i class="bi bi-calendar3"></i> ${escapeHtml(formatDate(item.booking_date))}</span>
           <span><i class="bi bi-clock"></i> ${escapeHtml(item.start_time)} - ${escapeHtml(item.end_time || '-')}</span>
+          <span><i class="bi bi-hourglass-split"></i> ${escapeHtml(String(item.duration || 1))} ${item.duration_unit === 'day' ? 'hari' : 'jam'}</span>
           <span><i class="bi bi-people"></i> ${escapeHtml(String(item.participant_count || 1))} orang</span>
         </div>
       </div>
@@ -573,7 +709,7 @@ function renderBookingCart() {
 
   const total = items.reduce((sum, item) => sum + Number(item.estimated_cost || 0), 0);
   summary.innerHTML = `<span>${items.length} tempahan</span><strong>Jumlah Anggaran: RM${escapeHtml(String(total))}</strong>`;
-  submitButton.disabled = false;
+  updateBookingCartReceiptState();
 }
 
 function editBookingCartItem(id) {
@@ -596,6 +732,7 @@ function editBookingCartItem(id) {
   });
 
   bookingCartEditingId = id;
+  applyDurationUnitState('f-duration', item.duration_unit === 'day' ? 'day' : 'hour');
   initializeEquipmentField(item.equipment_required || '');
   clearReceiptUpload();
   updateBookingCartFormState();
@@ -636,6 +773,17 @@ async function submitBookingCart() {
 
   const items = getBookingCartItems();
   if (!items.length) return;
+  const receiptFile = getBookingCartReceiptFile();
+  if (!receiptFile) {
+    showToast('Sila muat naik resit sebelum menghantar troli.', 'error');
+    updateBookingCartReceiptState();
+    return;
+  }
+  if (!isValidReceiptFile(receiptFile)) {
+    showToast('Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.', 'error');
+    updateBookingCartReceiptState();
+    return;
+  }
   const profile = getBookingFormData();
   if (!profile.full_name || !profile.email || !profile.phone) {
     showToast('Sila lengkapkan maklumat profil sebelum menghantar troli.', 'error');
@@ -651,6 +799,7 @@ async function submitBookingCart() {
   const completedIds = [];
   const references = [];
   const failures = [];
+  const cartGroupRef = createBookingCartGroupRef();
   for (const item of items) {
     const data = {
       full_name: profile.full_name,
@@ -662,11 +811,13 @@ async function submitBookingCart() {
       start_time: item.start_time,
       end_time: item.end_time,
       duration: item.duration,
+      duration_unit: item.duration_unit || 'hour',
       purpose: item.purpose,
       equipment_required: item.equipment_required,
       participant_count: Number(item.participant_count || 0),
       setup_required: item.setup_required || 'full',
       estimated_cost: Number(item.estimated_cost || 0),
+      cart_group_ref: cartGroupRef,
     };
     const validationMessage = validateBookingFormData(data);
     if (validationMessage) {
@@ -675,7 +826,7 @@ async function submitBookingCart() {
     }
 
     try {
-      references.push(await createBookingRecord(data));
+      references.push(await createBookingRecord(data, receiptFile));
       completedIds.push(item.id);
     } catch (error) {
       failures.push(item.facility_name || 'Fasiliti');
@@ -692,6 +843,8 @@ async function submitBookingCart() {
 
   if (!failures.length) {
     bookingCartEditingId = null;
+    const receiptInput = document.getElementById('bookingCartReceiptInput');
+    if (receiptInput) receiptInput.value = '';
     updateBookingCartFormState();
     closeBookingCart();
     showBookingSuccess(references.join(', '));
@@ -711,6 +864,7 @@ function clearBookingDetailFields() {
   });
   const durationEl = document.getElementById('f-duration');
   if (durationEl) durationEl.value = '1';
+  applyDurationUnitState('f-duration', 'hour');
   const participantsEl = document.getElementById('f-participants');
   if (participantsEl) participantsEl.value = '1';
   initializeEquipmentField();

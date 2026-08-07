@@ -17,6 +17,7 @@
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-group.span-2 { grid-column: span 2; }
+.form-group.is-hidden-for-asrama { display: none; }
 
 label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--grey-4); font-weight: 700; }
 
@@ -84,6 +85,44 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.duration-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: min(100%, 220px);
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--grey-2);
+  border-radius: var(--radius);
+}
+
+.duration-mode-button {
+  min-height: 34px;
+  border: 0;
+  border-radius: calc(var(--radius) - 3px);
+  background: transparent;
+  color: var(--grey-4);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  transition: var(--transition);
+}
+
+.duration-mode-button:hover:not(:disabled) {
+  color: var(--text-main);
+}
+
+.duration-mode-button.is-active {
+  background: var(--surface);
+  color: var(--text-main);
+  box-shadow: 0 1px 4px rgba(25, 25, 25, 0.08);
+}
+
+.duration-mode-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .duration-input-wrap {
@@ -748,6 +787,27 @@ textarea {
   line-height: 1.5;
 }
 
+.booking-cart-receipt {
+  min-height: 22px;
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.booking-cart-receipt span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.booking-cart-receipt .is-ready {
+  color: var(--green);
+}
+
+.booking-cart-receipt .is-error {
+  color: var(--red);
+}
+
 .booking-cart-summary {
   display: flex;
   align-items: center;
@@ -763,6 +823,18 @@ textarea {
 .booking-cart-summary strong {
   color: var(--text-main);
   font-size: 14px;
+}
+
+.booking-cart-receipt-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.booking-cart-receipt-button input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 /* Booking Sidebar */

@@ -35,9 +35,18 @@ function validateBookingScheduleData(array $data): array
         $errors['start_time'] = 'Masa mula tidak sah.';
     }
 
+    $durationUnit = trim((string)($data['duration_unit'] ?? 'hour'));
+    if (!in_array($durationUnit, ['hour', 'day'], true)) {
+        $errors['duration_unit'] = 'Unit tempoh penggunaan tidak sah.';
+        $durationUnit = 'hour';
+    }
+
     $duration = trim((string)($data['duration'] ?? '1'));
-    if (!ctype_digit($duration) || (int)$duration < 1 || (int)$duration > 24) {
-        $errors['duration'] = 'Tempoh penggunaan mesti antara 1 hingga 24 jam penuh.';
+    $durationMax = $durationUnit === 'day' ? 30 : 24;
+    if (!ctype_digit($duration) || (int)$duration < 1 || (int)$duration > $durationMax) {
+        $errors['duration'] = $durationUnit === 'day'
+            ? 'Tempoh penggunaan mesti antara 1 hingga 30 hari penuh.'
+            : 'Tempoh penggunaan mesti antara 1 hingga 24 jam penuh.';
     }
 
     $endTime = trim((string)($data['end_time'] ?? ''));
@@ -46,7 +55,7 @@ function validateBookingScheduleData(array $data): array
         $errors['end_time'] = 'Masa tamat tidak sah.';
     }
 
-    if ($startMinutes !== null && ctype_digit($duration)) {
+    if ($durationUnit === 'hour' && $startMinutes !== null && ctype_digit($duration)) {
         $expectedEnd = $startMinutes + ((int)$duration * 60);
         if ($expectedEnd >= 24 * 60) {
             $errors['end_time'] = 'Tempahan mesti tamat pada hari yang sama.';

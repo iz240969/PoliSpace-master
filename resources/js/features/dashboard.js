@@ -3,6 +3,7 @@ let psCurrentUserEmail = localStorage.getItem('ps_user_email') || '';
 let pendingCancelBookingId = '';
 let pendingReceiptBookingId = '';
 let psDashboardBookings = [];
+const psExpandedBookingGroups = new Set();
 
 function initDashboard() {
   psCurrentUserEmail = psAuthState.role === 'user'
@@ -54,16 +55,7 @@ function applyBookingFilters() {
   const bookings = psDashboardBookings
     .filter((booking) => {
       if (status !== 'all' && booking.status !== status) return false;
-      if (!query) return true;
-
-      return [
-        booking.id,
-        booking.booking_ref,
-        booking.facilityName,
-        booking.purpose,
-        booking.date,
-        booking.status,
-      ].some((value) => String(value || '').toLowerCase().includes(query));
+      return bookingMatchesDashboardQuery(booking, query);
     })
     .sort(compareBookingsByMostRecent);
 
@@ -87,6 +79,165 @@ function compareBookingsByMostRecent(a, b) {
   return dateB.localeCompare(dateA);
 }
 
+function bookingMatchesDashboardQuery(booking, query) {
+  if (!query) return true;
+  return [
+    booking.id,
+    booking.booking_ref,
+    booking.cartGroupRef,
+    booking.facilityName,
+    booking.purpose,
+    booking.date,
+    booking.status,
+  ].some((value) => String(value || '').toLowerCase().includes(query));
+}
+
+function dashboardBookingGroups(bookings) {
+  const grouped = new Map();
+  const rows = [];
+
+  bookings.forEach((booking) => {
+    const groupRef = String(booking.cartGroupRef || '').trim();
+    if (!groupRef) {
+      rows.push({ type: 'single', booking });
+      return;
+    }
+    if (!grouped.has(groupRef)) grouped.set(groupRef, []);
+    grouped.get(groupRef).push(booking);
+  });
+
+  grouped.forEach((groupBookings, groupRef) => {
+    if (groupBookings.length === 1) {
+      rows.push({ type: 'single', booking: groupBookings[0] });
+      return;
+    }
+    groupBookings.sort(compareBookingsByMostRecent);
+    rows.push({
+      type: 'group',
+      groupRef,
+      bookings: groupBookings,
+      latest: groupBookings[0],
+    });
+  });
+
+  return rows.sort((a, b) => compareBookingsByMostRecent(a.latest || a.booking, b.latest || b.booking));
+}
+
+function groupStatusBadgeHtml(bookings) {
+  const statuses = [...new Set(bookings.map((booking) => booking.status))];
+  if (statuses.length === 1) return statusBadgeHtml(statuses[0]);
+  const pendingCount = bookings.filter((booking) => booking.status === 'pending').length;
+  const approvedCount = bookings.filter((booking) => booking.status === 'approved').length;
+  const unpaidCount = bookings.filter((booking) => booking.status === 'unpaid').length;
+  if (pendingCount) return `<span class="status-badge status-pending">${pendingCount} Menunggu</span>`;
+  if (approvedCount) return `<span class="status-badge status-approved">${approvedCount} Diluluskan</span>`;
+  if (unpaidCount) return `<span class="status-badge status-unpaid">${unpaidCount} Belum Bayar</span>`;
+  return `<span class="status-badge">${statuses.length} Status</span>`;
+}
+
+function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
+  return `
+    <tr class="${extraClass}" ${rowAttributes}>
+      <td><div class="dashboard-booking-cell-content"><span class="booking-id">${escapeHtml(b.id)}</span></div></td>
+      <td>
+        <div class="dashboard-booking-cell-content">
+          <div class="dashboard-facility-cell">
+            <span class="dashboard-facility-icon">${b.facilityIcon || '<i class="bi bi-building"></i>'}</span>
+            <span>${escapeHtml(b.facilityName || '-')}</span>
+          </div>
+        </div>
+      </td>
+      <td><div class="dashboard-booking-cell-content">${formatDate(b.date)}</div></td>
+      <td><div class="dashboard-booking-cell-content">${escapeHtml(b.start || '-')} - ${escapeHtml(b.end || '-')}</div></td>
+      <td><div class="dashboard-booking-cell-content">${statusBadgeHtml(b.status)}</div></td>
+      <td>
+        <div class="dashboard-booking-cell-content">
+          <div class="booking-row-actions">
+            ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
+            ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
+            ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function bookingGroupRowHtml(group) {
+  const expanded = psExpandedBookingGroups.has(group.groupRef);
+  const total = group.bookings.reduce((sum, booking) => sum + Number(booking.estimatedCost || 0), 0);
+  const facilityNames = group.bookings.map((booking) => booking.facilityName || 'Fasiliti').join(', ');
+  const dates = [...new Set(group.bookings.map((booking) => booking.date).filter(Boolean))];
+  const timeSlots = [...new Set(group.bookings.map((booking) => {
+    const start = booking.start || '';
+    const end = booking.end || '';
+    return start && end ? `${start} - ${end}` : (start || end);
+  }).filter(Boolean))];
+  const dateSummary = dates.length === 1 ? formatDate(dates[0]) : `${dates.length} tarikh`;
+  const timeSummary = timeSlots.length === 1 ? timeSlots[0] : `${timeSlots.length} slot masa`;
+  return `
+    <tr class="dashboard-booking-group-row${expanded ? ' is-expanded' : ''}" data-booking-group="${escapeAttr(group.groupRef)}">
+      <td>
+        <div class="dashboard-booking-group-id">
+          <span class="dashboard-booking-group-icon"><i class="bi bi-collection"></i></span>
+          <span class="booking-id">${escapeHtml(group.groupRef)}</span>
+        </div>
+      </td>
+      <td>
+        <div class="dashboard-booking-group-summary">
+          <div class="dashboard-booking-group-summary-main">
+            <strong>${group.bookings.length} tempahan</strong>
+            <span class="dashboard-booking-group-price">RM${escapeHtml(String(total))}</span>
+          </div>
+          <div class="dashboard-booking-group-facilities" title="${escapeAttr(facilityNames)}">${escapeHtml(facilityNames)}</div>
+        </div>
+      </td>
+      <td><div class="dashboard-booking-group-meta"><i class="bi bi-calendar3"></i> ${dateSummary}</div></td>
+      <td><div class="dashboard-booking-group-meta"><i class="bi bi-clock"></i> ${escapeHtml(timeSummary)}</div></td>
+      <td>${groupStatusBadgeHtml(group.bookings)}</td>
+      <td>
+        <div class="booking-row-actions">
+          <button class="btn btn-secondary btn-sm dashboard-booking-group-action" type="button" onclick="toggleDashboardBookingGroup('${escapeAttr(group.groupRef)}')" aria-expanded="${expanded ? 'true' : 'false'}" title="${expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan'}" aria-label="${expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan'}">
+            <i class="bi ${expanded ? 'bi-chevron-up' : 'bi-chevron-down'}"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+    ${group.bookings.map((booking) => bookingRowHtml(
+      booking,
+      `dashboard-booking-child-row${expanded ? ' is-visible' : ''}`,
+      `data-booking-group="${escapeAttr(group.groupRef)}" aria-hidden="${expanded ? 'false' : 'true'}"${expanded ? '' : ' inert'}`
+    )).join('')}
+  `;
+}
+
+function toggleDashboardBookingGroup(groupRef) {
+  const expanded = !psExpandedBookingGroups.has(groupRef);
+  if (expanded) psExpandedBookingGroups.add(groupRef);
+  else psExpandedBookingGroups.delete(groupRef);
+
+  const groupRow = [...document.querySelectorAll('.dashboard-booking-group-row[data-booking-group]')]
+    .find((row) => row.dataset.bookingGroup === groupRef);
+  groupRow?.classList.toggle('is-expanded', expanded);
+
+  const action = groupRow?.querySelector('.dashboard-booking-group-action');
+  if (action) {
+    const label = expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan';
+    action.setAttribute('aria-expanded', String(expanded));
+    action.setAttribute('aria-label', label);
+    action.title = expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan';
+    action.querySelector('i').className = `bi ${expanded ? 'bi-chevron-up' : 'bi-chevron-down'}`;
+  }
+
+  document.querySelectorAll('.dashboard-booking-child-row[data-booking-group]').forEach((row) => {
+    if (row.dataset.bookingGroup !== groupRef) return;
+    row.classList.toggle('is-visible', expanded);
+    row.setAttribute('aria-hidden', String(!expanded));
+    row.inert = !expanded;
+  });
+}
+
 function renderUserBookings(bookings, container, totalCount = bookings.length) {
   setText('bookingCountLabel', totalCount === bookings.length ? `${bookings.length} tempahan` : `${bookings.length} / ${totalCount} tempahan`);
   if (bookings.length === 0) {
@@ -96,6 +247,7 @@ function renderUserBookings(bookings, container, totalCount = bookings.length) {
       : `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Tiada Tempahan</div><div class="empty-sub">Anda belum membuat sebarang tempahan dengan e-mel ini.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan Sekarang</button></div>`;
     return;
   }
+  const rows = dashboardBookingGroups(bookings);
   container.innerHTML = `
     <div class="dashboard-table-wrap">
       <table class="dashboard-booking-table">
@@ -110,28 +262,7 @@ function renderUserBookings(bookings, container, totalCount = bookings.length) {
           </tr>
         </thead>
         <tbody>
-          ${bookings.map((b) => `
-            <tr>
-              <td><span class="booking-id">${escapeHtml(b.id)}</span></td>
-              <td>
-                <div class="dashboard-facility-cell">
-                  <span class="dashboard-facility-icon">${b.facilityIcon || '<i class="bi bi-building"></i>'}</span>
-                  <span>${escapeHtml(b.facilityName || '-')}</span>
-                </div>
-              </td>
-              <td>${formatDate(b.date)}</td>
-              <td>${escapeHtml(b.start || '-')} - ${escapeHtml(b.end || '-')}</td>
-              <td>${statusBadgeHtml(b.status)}</td>
-              <td>
-                <div class="booking-row-actions">
-                  ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
-                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
-                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button>` : ''}
-                  <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
-                </div>
-              </td>
-            </tr>
-          `).join('')}
+          ${rows.map((row) => row.type === 'group' ? bookingGroupRowHtml(row) : bookingRowHtml(row.booking)).join('')}
         </tbody>
       </table>
     </div>
@@ -213,6 +344,8 @@ async function openEditBookingModal(id) {
       return;
     }
 
+    const durationUnit = booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'day' : 'hour';
+    const durationConfig = DURATION_UNITS[durationUnit] || DURATION_UNITS.hour;
     setText('userBookingModalTitle', `Edit Tempahan - ${booking.id || booking.booking_ref}`);
     document.getElementById('userBookingModalBody').innerHTML = `
       <div class="edit-booking-form">
@@ -223,10 +356,10 @@ async function openEditBookingModal(id) {
         <div class="form-group">
           <label>Tempoh Penggunaan</label>
           <div class="duration-field">
-            <div class="duration-input-wrap" role="group" aria-label="Tempoh penggunaan dalam jam">
+            <div class="duration-input-wrap" role="group" aria-label="Tempoh penggunaan dalam ${escapeAttr(durationConfig.label.toLowerCase())}">
               <button type="button" class="duration-step-button" onclick="adjustDuration(-1, 'edit-booking-duration')" aria-label="Kurangkan tempoh penggunaan"><i class="bi bi-dash-lg"></i></button>
-              <input type="number" id="edit-booking-duration" min="1" max="24" step="1" value="${escapeAttr(durationInputValue(booking.duration || '1'))}" inputmode="numeric" aria-label="Tempoh penggunaan dalam jam">
-              <span class="duration-unit">Jam</span>
+              <input type="number" id="edit-booking-duration" min="${escapeAttr(String(durationConfig.min))}" max="${escapeAttr(String(durationConfig.max))}" step="1" value="${escapeAttr(durationInputValue(booking.duration || '1', durationUnit))}" inputmode="numeric" data-duration-unit="${escapeAttr(durationUnit)}" aria-label="Tempoh penggunaan dalam ${escapeAttr(durationConfig.label.toLowerCase())}">
+              <span class="duration-unit">${escapeHtml(durationConfig.label)}</span>
               <button type="button" class="duration-step-button" onclick="adjustDuration(1, 'edit-booking-duration')" aria-label="Tambah tempoh penggunaan"><i class="bi bi-plus-lg"></i></button>
             </div>
           </div>
@@ -320,6 +453,10 @@ function updateEditEndTime() {
   const duration = document.getElementById('edit-booking-duration')?.value || '1';
   const endEl = document.getElementById('edit-booking-end');
   if (!start || !endEl) return;
+  if (selectedDurationUnit('edit-booking-duration') === 'day') {
+    endEl.value = '';
+    return;
+  }
 
   const [hours, mins] = start.split(':').map(Number);
   const total = hours * 60 + mins + durationToMinutes(duration);
@@ -334,13 +471,14 @@ async function submitUserBookingEdit(id) {
   const data = {
     booking_date: document.getElementById('edit-booking-date')?.value || '',
     duration: document.getElementById('edit-booking-duration')?.value || '1',
+    duration_unit: selectedDurationUnit('edit-booking-duration'),
     start_time: document.getElementById('edit-booking-start')?.value || '',
     end_time: document.getElementById('edit-booking-end')?.value || '',
     purpose: document.getElementById('edit-booking-purpose')?.value.trim() || '',
     equipment_required: document.getElementById('edit-booking-equipment')?.value.trim() || '',
     participant_count: Number(document.getElementById('edit-booking-participants')?.value || 0),
   };
-  const durationHours = Number.parseFloat(String(data.duration).replace(',', '.'));
+  const durationValue = Number.parseFloat(String(data.duration).replace(',', '.'));
 
   if (!data.booking_date || !data.start_time || !data.purpose || !Number.isInteger(data.participant_count) || data.participant_count < 1) {
     showToast('Sila lengkapkan tarikh, masa mula, tujuan dan angka pengguna.', 'error');
@@ -356,13 +494,17 @@ async function submitUserBookingEdit(id) {
     showToast('Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.', 'error');
     return;
   }
-  if (!Number.isInteger(durationHours) || durationHours <= 0 || durationHours > 24) {
+  if (!Number.isInteger(durationValue) || durationValue <= 0 || durationValue > DURATION_UNITS[data.duration_unit].max) {
+    if (data.duration_unit === 'day') {
+      showToast('Sila masukkan tempoh penggunaan antara 1 hingga 30 hari penuh.', 'error');
+      return;
+    }
     showToast('Sila masukkan tempoh penggunaan antara 1 hingga 24 jam penuh.', 'error');
     return;
   }
   const startMinutes = bookingTimeToMinutes(data.start_time);
   const endMinutes = bookingTimeToMinutes(data.end_time);
-  if (startMinutes === null || endMinutes === null || startMinutes + (durationHours * 60) !== endMinutes) {
+  if (data.duration_unit === 'hour' && (startMinutes === null || endMinutes === null || startMinutes + (durationValue * 60) !== endMinutes)) {
     showToast('Tempahan mesti tamat pada hari yang sama dan sepadan dengan tempoh penggunaan.', 'error');
     return;
   }
