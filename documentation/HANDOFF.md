@@ -98,7 +98,7 @@ All main pages load:
 
 Payment proof upload is optional on the booking form. If no receipt is uploaded, the booking starts as `unpaid`; uploading a receipt changes it to `pending` for admin review.
 
-The booking form accepts a whole-number duration in hours and supports multiple equipment requests with per-item quantities. Equipment is serialized into `bookings.equipment_required`, for example `Mikrofon x 2, Projektor x 1`.
+The booking form accepts a whole-number duration. Normal facilities use hours; `Asrama - Bilik` uses days. The form supports multiple equipment requests with per-item quantities. Equipment choices come from the selected facility's `facilities.equipment_options` and are serialized into `bookings.equipment_required`, for example `Mikrofon x 2, Projektor x 1`.
 
 ## Booking Status Rules
 
@@ -125,8 +125,9 @@ unpaid, rejected, cancelled
 Important behavior:
 
 - `unpaid` bookings are history records only until payment is made. They do not reserve the facility.
-- Uploading a receipt changes `unpaid` to `pending`. This reserves that facility for the entire selected date, unless another `pending` or `approved` booking already reserves the same facility/date pair.
+- Uploading a receipt changes `unpaid` to `pending`. This reserves that facility for the selected date range, unless another `pending` or `approved` booking already reserves an overlapping date for the same facility.
 - A reservation never disables a different facility on the same date.
+- Day-based bookings block every date in their duration. For example, a 2-day Asrama booking blocks both dates for Asrama.
 - `approved` bookings remain reserved.
 - Admin can reject `unpaid`, `pending`, or `approved` bookings. Rejection requires an admin note and releases the slot.
 - User cancellation changes `unpaid` or `pending` bookings to `cancelled` and releases the slot.
@@ -141,7 +142,7 @@ Important behavior:
 5. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
 6. Admin can set or reset a client password from the customer management flow.
 7. Admin can read customer messages and open an email reply from the message table.
-8. Admin can add new facilities from the `Fasiliti` page without editing SQL manually.
+8. Admin can add and edit facilities from the `Fasiliti` page without editing SQL manually, including facility-specific equipment options.
 
 Default admin credentials:
 
@@ -165,14 +166,15 @@ Asrama - Bilik           RM10   2 orang - 1 bilik    Harga untuk satu bilik
 
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the setup option is forced to `Pakej Lengkap` by the backend.
 
-Admins can add custom facilities from the dashboard `Fasiliti` panel. The form writes to `POST backend/api/facilities.php` with `name`, `icon`, `capacity`, `price_per_hour`, `description`, and `is_available`. New rows use the existing `facilities` table, so no migration is required.
+Admins can add custom facilities from the dashboard `Fasiliti` panel. The form writes to `POST backend/api/facilities.php` with `name`, `icon`, `capacity`, `price_per_hour`, `description`, `equipment_options`, and `is_available`. Existing cards can be edited with `PUT backend/api/facilities.php?id=...`.
 
 ## Current UI Notes
 
 - Global display headings use `Arial Black` through `--display-font`.
 - Facility cards also use `Arial Black` for the facility name and capacity emphasis.
-- Client dashboard bookings are rendered as a table like the admin booking table, sorted by most recent.
+- Client dashboard bookings are rendered as a table like the admin booking table and can be sorted by `Permohonan Terkini` or `Tarikh Terdekat`.
 - Client dashboard filtering is by search text plus status chips.
+- Cart submissions are grouped under `TR...` references. Status lookup accepts both individual `PS...` references and grouped `TR...` references.
 - Admin dashboard logo is static and does not navigate to the public site when clicked.
 - Navigation access is session-aware. Protected tabs are disabled until the session check completes and confirms login.
 - The signed-in customer account menu contains only `Edit Profil` and `Log Keluar`; the admin menu contains only `Log Keluar`.
@@ -219,7 +221,8 @@ POST backend/api/bookings.php                  Client booking create
 POST backend/api/bookings.php?action=receipt&id=PS...
 GET  backend/api/bookings.php?action=user              Current user's bookings from session
 GET  backend/api/bookings.php?action=user&email=user@example.com  Legacy-compatible; must match session email
-GET  backend/api/bookings.php?action=ref&ref=PS...
+GET  backend/api/bookings.php?action=ref&ref=PS...    Individual booking status
+GET  backend/api/bookings.php?action=ref&ref=TR...    Cart group status
 GET  backend/api/bookings.php?action=calendar&year=2026&month=7
 GET  backend/api/bookings.php?action=public-stats
 GET  backend/api/bookings.php?action=stats     Admin dashboard stats
@@ -229,7 +232,7 @@ DELETE backend/api/bookings.php?id=PS...        Disabled: returns 405 to preserv
 
 GET  backend/api/facilities.php
 POST backend/api/facilities.php                 Admin create facility
-PUT  backend/api/facilities.php?id=1
+PUT  backend/api/facilities.php?id=1            Admin edit facility, equipment, or availability
 GET  backend/api/users.php
 GET  backend/api/users.php?action=detail&id=1
 PUT  backend/api/users.php?id=1
@@ -241,7 +244,7 @@ Admin-only endpoints call `requireAdmin()`. Client booking actions rely on the P
 
 ## Database Compatibility
 
-No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. The update script is idempotent and preserves existing admin passwords, custom facilities, and facility availability settings. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use the existing `bookings.equipment_required` `TEXT` column, and whole-hour durations remain compatible with `bookings.duration VARCHAR(20)`.
+No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. The update script is idempotent and preserves existing admin passwords, custom facilities, and facility availability settings. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use `bookings.equipment_required`, facility-specific equipment uses `facilities.equipment_options`, and durations use `bookings.duration` plus `bookings.duration_unit`.
 
 For an older database, check `equipment_required` with `information_schema.COLUMNS`. Add it only when missing:
 
@@ -249,6 +252,8 @@ For an older database, check `equipment_required` with `information_schema.COLUM
 ALTER TABLE bookings
   ADD COLUMN equipment_required TEXT NULL AFTER setup_required;
 ```
+
+Use `database/facility_equipment_defaults.sql` to add/backfill default equipment options on an existing database. Use `database/clear_bookings.sql` to clear only booking rows for a fresh test cycle.
 
 ## Git Notes
 
@@ -280,6 +285,6 @@ root redirect HTML files
 - `APP_ROOT` is hardcoded to ''.
 - There is no `.env.example` in this checkout; keep local database settings in `.env`.
 - Production hardening is still needed: CSRF protection, HTTPS-only cookies, and changing default admin credentials.
-- MySQL named locks plus the `uniq_blocking_facility_date` database index protect simultaneous paid bookings for the same facility/date pair.
+- MySQL named locks plus backend date-range conflict checks protect simultaneous paid bookings for the same facility/date range. The `uniq_blocking_facility_date` index still protects duplicate starts for the same facility/date.
 
 

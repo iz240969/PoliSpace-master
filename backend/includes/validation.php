@@ -124,7 +124,6 @@ function isAllowedBookingEquipment(string $equipment): bool
         return false;
     }
 
-    $allowed = ['Mikrofon', 'Projektor', 'PA System', 'Kerusi Tambahan', 'Meja Tambahan'];
     $seen = [];
     foreach (explode(',', $equipment) as $part) {
         $item = trim($part);
@@ -132,21 +131,21 @@ function isAllowedBookingEquipment(string $equipment): bool
             return false;
         }
 
-        if (in_array($item, $allowed, true)) {
-            $name = $item;
-        } elseif (preg_match('/^(.+?)\s+x\s+([1-9]\d{0,2})$/u', $item, $matches)) {
+        if (preg_match('/^(.+?)\s+x\s+([1-9]\d{0,2})$/u', $item, $matches)) {
             $name = trim($matches[1]);
-            if (!in_array($name, $allowed, true)) {
-                return false;
-            }
         } else {
+            $name = $item;
+        }
+
+        if ($name === '' || strlen($name) > 80 || preg_match('/[<>]/', $name)) {
             return false;
         }
 
-        if (isset($seen[$name])) {
+        $key = strtolower($name);
+        if (isset($seen[$key])) {
             return false;
         }
-        $seen[$name] = true;
+        $seen[$key] = true;
     }
 
     return true;

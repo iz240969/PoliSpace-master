@@ -46,7 +46,7 @@ App startup logic           resources/js/core/init.js
 ```text
 backend/api/auth.php        Role-aware login, signup, session check, self-profile update, logout
 backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar; DELETE is disabled
-backend/api/facilities.php  Facility list plus admin create/availability update
+backend/api/facilities.php  Facility list plus admin create/edit/availability/equipment update
 backend/api/messages.php    Contact admin messages
 backend/api/users.php       Admin customer list/detail/password reset
 ```
@@ -62,19 +62,20 @@ backend/db.php              Creates the PDO database connection
 ## Booking Rules
 
 ```text
-Only pending and approved bookings block availability, and they block only their own facility for the selected date.
+Only pending and approved bookings block availability, and they block only their own facility for the selected date range.
 Unpaid, rejected, and cancelled bookings remain as history but do not block availability.
 Admin can reject unpaid, pending, and approved bookings.
 Users can cancel unpaid and pending bookings.
 Booking deletion is intentionally disabled in the API.
-Booking duration is a whole number of hours with a minimum of 1.
-Multiple equipment items and quantities are stored in equipment_required.
+Booking duration is a whole number. Normal bookings use hours; day-based bookings block every date in the duration.
+Multiple equipment items and quantities are stored in equipment_required, and available options come from facilities.equipment_options.
 ```
 
 Useful places for these rules:
 
 ```text
 Backend conflict checks      backend/api/bookings.php
+Date range lock helpers      backend/includes/booking_availability.php
 Public calendar filtering    backend/api/bookings.php, resources/js/features/facilities.js
 Receipt upload behavior      backend/api/bookings.php, resources/js/features/dashboard.js
 Admin reject UI              resources/js/features/admin.js
@@ -86,6 +87,7 @@ Status label rendering       resources/js/core/helpers.js
 ```text
 Locked booking account email resources/views/booking/index.html, resources/js/features/booking.js
 Client booking table         resources/js/features/dashboard.js, resources/css/pages/dashboard.css
+Cart group status lookup     backend/api/bookings.php, resources/js/features/status.js
 Admin booking table          resources/views/admin/dashboard.html, resources/css/components/admin.css
 User profile editor          resources/js/core/navigation.js, backend/api/auth.php
 Facility card typography     resources/css/pages/landing.css

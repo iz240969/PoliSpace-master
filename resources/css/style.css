@@ -2,10 +2,10 @@
 @import url('./components/navigation.css?v=20260804-booking-cart');
 @import url('./components/buttons.css');
 @import url('./pages/landing.css');
-@import url('./pages/booking.css?v=20260807-asrama-fields');
-@import url('./pages/dashboard.css?v=20260808-user-sort');
-@import url('./pages/status.css');
-@import url('./components/admin.css?v=20260808-facility-equipment');
+@import url('./pages/booking.css?v=20260808-consistency-pass');
+@import url('./pages/dashboard.css?v=20260808-consistency-pass');
+@import url('./pages/status.css?v=20260808-consistency-pass');
+@import url('./components/admin.css?v=20260808-consistency-pass');
 @import url('./components/calendar.css');
 @import url('./components/success.css');
 @import url('./base/responsive.css');

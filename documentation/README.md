@@ -70,8 +70,9 @@ unpaid, rejected, cancelled
 Business behavior:
 
 - A new booking without a receipt starts as `unpaid` and does not reserve the date.
-- A booking with a receipt starts as `pending`, unless another `pending` or `approved` booking already reserves the same facility and date.
+- A booking with a receipt starts as `pending`, unless another `pending` or `approved` booking already reserves the same facility and date range.
 - A reserved date applies only to that facility. Every other available facility can still be booked on the same date.
+- Day-based bookings block every date in their selected duration. A 2-day Asrama booking blocks both dates for Asrama only.
 - Uploading a receipt from the dashboard changes an `unpaid` booking to `pending` and performs the same conflict check.
 - `approved` bookings remain reserved.
 - Admin can reject `unpaid`, `pending`, or `approved` bookings. A rejection note is required.
@@ -96,9 +97,10 @@ Required booking fields include name, email, phone, facility, date, start time, 
 Additional form behavior:
 
 - Start time uses the browser's native time picker with a right-side icon.
-- Duration is entered as a whole number of hours with minus/plus controls. The minimum is 1 hour.
+- Duration is entered as a whole number with minus/plus controls. Normal facilities use hours; Asrama uses days.
 - Duration is placed below start time and participant count uses the full available width.
 - Users can add multiple equipment requests and set a quantity for each item.
+- Equipment choices are loaded from the selected facility's `equipment_options`, so each facility can expose a different equipment list.
 - Equipment is stored in `equipment_required` as readable text, for example `Mikrofon x 2, Projektor x 1`.
 
 Receipt uploads accept JPG, PNG, GIF, or PDF up to 5MB.
@@ -119,7 +121,9 @@ User bookings are loaded from the current session through:
 GET backend/api/bookings.php?action=user
 ```
 
-The list is shown as a table, sorted by most recent. Users can search and filter by status chips. Users can view details, upload receipts for `unpaid` bookings, edit `unpaid` or `pending` bookings, and cancel `unpaid` or `pending` bookings.
+The list is shown as a table. Users can sort by `Permohonan Terkini` or `Tarikh Terdekat`, search, and filter by status chips. Users can view details, upload receipts for `unpaid` bookings, edit `unpaid` or `pending` bookings, and cancel `unpaid` or `pending` bookings.
+
+Cart submissions are grouped under `TR...` references in the dashboard. Those group references work on the status page and show all bookings in the group.
 
 When all actions are available, the user action order from left to right is:
 
@@ -149,6 +153,7 @@ Admin can:
 - Reset/set customer passwords.
 - Read customer messages and reply through their email client.
 - Add new facilities from the dashboard.
+- Add and edit facility-specific equipment options from the facility management panel.
 - Toggle facility availability.
 - View the booking calendar.
 
@@ -173,13 +178,13 @@ Facility cards use `Arial Black` for the facility name. The Asrama capacity labe
 
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the backend forces `setup_required` to `full`.
 
-Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. The create action calls:
+Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. Facility cards can also be edited, including facility-specific equipment options. The create action calls:
 
 ```text
 POST backend/api/facilities.php
 ```
 
-Required fields are facility name, capacity, and price. Optional fields are Bootstrap icon class, description, and initial availability.
+Required fields are facility name, capacity, and price. Optional fields are Bootstrap icon class, description, equipment options, and initial availability.
 
 ## Database
 
@@ -205,6 +210,7 @@ booking_date
 start_time
 end_time
 duration
+duration_unit
 equipment_required
 payment_file
 status
@@ -213,11 +219,11 @@ created_at
 updated_at
 ```
 
-Generated columns expose the facility/date pair only for `pending` and `approved` rows. The `uniq_blocking_facility_date` index prevents two paid bookings from reserving the same facility and date, while any number of `unpaid`, `rejected`, or `cancelled` history rows remain allowed.
+Generated columns expose the facility/start-date pair only for `pending` and `approved` rows. Backend range checks prevent overlapping multi-day bookings for the same facility, while any number of `unpaid`, `rejected`, or `cancelled` history rows remain allowed.
 
 Running `database/update_polspace.sql` preserves existing admin passwords, custom facilities, and each facility's current availability setting.
 
-The current UI and profile editor require no additional columns beyond `database/polspace.sql` or the current `database/update_polspace.sql`. For an older installation, verify that `equipment_required` exists before using multi-equipment requests:
+The current UI requires no additional columns beyond `database/polspace.sql` or the current `database/update_polspace.sql`. For an older installation, verify that `bookings.equipment_required` and `facilities.equipment_options` exist before using facility-specific equipment:
 
 ```sql
 USE polspace;
@@ -234,6 +240,18 @@ If the result is `0`, run:
 ```sql
 ALTER TABLE bookings
   ADD COLUMN equipment_required TEXT NULL AFTER setup_required;
+```
+
+Default facility equipment can be backfilled with:
+
+```powershell
+mysql -u root -p < database/facility_equipment_defaults.sql
+```
+
+All booking rows can be cleared for a fresh test cycle with:
+
+```powershell
+mysql -u root -p < database/clear_bookings.sql
 ```
 
 ## Verification
