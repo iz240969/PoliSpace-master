@@ -26,3 +26,29 @@
 .timeline-content { padding-top: 4px; }
 .timeline-label { font-size: 14px; font-weight: 700; }
 .timeline-time { font-size: 12px; color: var(--grey-4); margin-top: 4px; font-weight: 500;}
+.status-group-booking {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+}
+
+.status-group-booking:last-child {
+  margin-bottom: 0;
+}
+
+.status-group-booking-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.status-group-booking .booking-id {
+  color: var(--gold);
+  font-family: var(--display-font);
+  font-size: 12px;
+  font-weight: 900;
+}

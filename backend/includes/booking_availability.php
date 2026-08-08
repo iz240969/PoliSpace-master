@@ -103,20 +103,66 @@ function hasBlockingBookingConflict(
     string $bookingDate,
     ?int $excludeBookingId = null
 ): bool {
-    $sql = "SELECT id
+    return hasBlockingBookingDateRangeConflict($db, $facilityId, [$bookingDate], $excludeBookingId);
+}
+
+function bookingBlockedDates(string $bookingDate, string|int|null $duration = '1', string $durationUnit = 'hour'): array
+{
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $bookingDate);
+    if (!$date || $date->format('Y-m-d') !== $bookingDate) {
+        return [];
+    }
+
+    $days = $durationUnit === 'day' ? max(1, min(30, (int)$duration)) : 1;
+    $dates = [];
+    for ($i = 0; $i < $days; $i += 1) {
+        $dates[] = $date->modify("+{$i} days")->format('Y-m-d');
+    }
+    return $dates;
+}
+
+function hasBlockingBookingDateRangeConflict(
+    Database $db,
+    int $facilityId,
+    array $bookingDates,
+    ?int $excludeBookingId = null
+): bool {
+    $bookingDates = array_values(array_unique(array_filter($bookingDates)));
+    if (!$bookingDates) {
+        return false;
+    }
+
+    $minDate = min($bookingDates);
+    $maxDate = max($bookingDates);
+    $lookback = (new DateTimeImmutable($minDate))->modify('-30 days')->format('Y-m-d');
+
+    $sql = "SELECT id, booking_date, duration, duration_unit
             FROM bookings
             WHERE facility_id = ?
-              AND booking_date = ?
+              AND booking_date BETWEEN ? AND ?
               AND status IN ('pending', 'approved')";
-    $params = [$facilityId, $bookingDate];
+    $params = [$facilityId, $lookback, $maxDate];
 
     if ($excludeBookingId !== null) {
         $sql .= ' AND id <> ?';
         $params[] = $excludeBookingId;
     }
 
-    $sql .= ' LIMIT 1';
-    return (bool)$db->fetchOne($sql, $params);
+    $requested = array_flip($bookingDates);
+    foreach ($db->fetchAll($sql, $params) as $booking) {
+        $blockedDates = bookingBlockedDates(
+            (string)$booking['booking_date'],
+            $booking['duration'] ?? '1',
+            (string)($booking['duration_unit'] ?? 'hour')
+        );
+        foreach ($blockedDates as $blockedDate) {
+            if (isset($requested[$blockedDate])) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 function assertBookingDateAvailable(
@@ -125,7 +171,16 @@ function assertBookingDateAvailable(
     string $bookingDate,
     ?int $excludeBookingId = null
 ): void {
-    if (hasBlockingBookingConflict($db, $facilityId, $bookingDate, $excludeBookingId)) {
+    assertBookingDatesAvailable($db, $facilityId, [$bookingDate], $excludeBookingId);
+}
+
+function assertBookingDatesAvailable(
+    Database $db,
+    int $facilityId,
+    array $bookingDates,
+    ?int $excludeBookingId = null
+): void {
+    if (hasBlockingBookingDateRangeConflict($db, $facilityId, $bookingDates, $excludeBookingId)) {
         throw new BookingAvailabilityException(
             'Tarikh ini telah dikunci oleh tempahan berbayar. Sila pilih tarikh lain.'
         );

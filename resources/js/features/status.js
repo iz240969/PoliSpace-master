@@ -14,6 +14,11 @@ async function checkStatus() {
 }
 
 function renderStatusCard(booking, card) {
+  if (booking?.type === 'group') {
+    renderStatusGroupCard(booking, card);
+    return;
+  }
+
   card.classList.add('show');
   setText('statusRef', booking.id || booking.booking_ref);
   document.getElementById('statusBadge').innerHTML = statusBadgeHtml(booking.status);
@@ -42,6 +47,38 @@ function renderStatusCard(booking, card) {
     <div class="timeline-step">
       <div class="timeline-dot ${s.done ? 'done' : s.active ? 'active' : 'pending'}">${s.done ? '<i class="bi bi-check-lg"></i>' : s.active ? '<i class="bi bi-three-dots"></i>' : '<i class="bi bi-circle"></i>'}</div>
       <div class="timeline-content"><div class="timeline-label">${s.label}</div><div class="timeline-time">${s.time}</div></div>
+    </div>
+  `).join('');
+}
+
+function renderStatusGroupCard(group, card) {
+  const bookings = group.bookings || [];
+  card.classList.add('show');
+  setText('statusRef', group.id || group.cartGroupRef || '-');
+  document.getElementById('statusBadge').innerHTML = `<div class="status-badge status-pending">${bookings.length} Tempahan</div>`;
+  document.getElementById('statusDetails').innerHTML = bookings.length
+    ? bookings.map((booking) => `
+      <div class="status-group-booking">
+        <div class="status-group-booking-head">
+          <span class="booking-id">${escapeHtml(booking.id || booking.booking_ref)}</span>
+          ${statusBadgeHtml(booking.status)}
+        </div>
+        <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value" style="display:flex;align-items:center;gap:6px">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
+        <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
+        <div class="detail-row"><span class="detail-label">Masa</span><span class="detail-value">${escapeHtml(booking.start)} - ${escapeHtml(booking.end || '-')}</span></div>
+      </div>
+    `).join('')
+    : '<div class="detail-row"><span class="detail-label">Tempahan</span><span class="detail-value">Tiada rekod</span></div>';
+
+  document.getElementById('statusTimeline').innerHTML = bookings.map((booking) => `
+    <div class="timeline-step">
+      <div class="timeline-dot ${booking.status === 'approved' ? 'done' : ['rejected', 'cancelled'].includes(booking.status) ? 'active' : 'pending'}">
+        ${booking.status === 'approved' ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-circle"></i>'}
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-label">${escapeHtml(booking.id || booking.booking_ref)}</div>
+        <div class="timeline-time">${escapeHtml(booking.facilityName || 'Fasiliti')} - ${formatDate(booking.date)}</div>
+      </div>
     </div>
   `).join('');
 }

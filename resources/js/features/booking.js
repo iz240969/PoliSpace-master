@@ -420,6 +420,26 @@ function validateBookingFormData(data, receiptFile = null) {
   return '';
 }
 
+function bookingBlockedDateValues(dateValue, duration = '1', durationUnit = 'hour') {
+  if (!dateValue) return [];
+  const startDate = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(startDate.getTime())) return [];
+
+  const days = durationUnit === 'day'
+    ? Math.max(1, Math.min(30, Number.parseInt(String(duration), 10) || 1))
+    : 1;
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+    return formatLocalDateValue(date);
+  });
+}
+
+function bookingDateRangesOverlap(a, b) {
+  const datesA = new Set(bookingBlockedDateValues(a.booking_date, a.duration, a.duration_unit));
+  return bookingBlockedDateValues(b.booking_date, b.duration, b.duration_unit).some((date) => datesA.has(date));
+}
+
 async function createBookingRecord(data, receiptFile = null) {
   const payload = { ...data };
   if (receiptFile) payload.payment_file = receiptFile;
@@ -524,9 +544,9 @@ async function addBookingToCart() {
   const items = getBookingCartItems();
   const duplicate = items.find((item) => item.id !== bookingCartEditingId
     && String(item.facility_id) === String(data.facility_id)
-    && item.booking_date === data.booking_date);
+    && bookingDateRangesOverlap(item, data));
   if (duplicate) {
-    showToast('Fasiliti dan tarikh ini sudah berada dalam troli.', 'error');
+    showToast('Fasiliti dan tarikh ini bertindih dengan item dalam troli.', 'error');
     return;
   }
 

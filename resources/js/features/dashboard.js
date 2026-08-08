@@ -53,14 +53,15 @@ function applyBookingFilters() {
   const query = (document.getElementById('bookingSearchInput')?.value || '').trim().toLowerCase();
   const status = document.querySelector('.dash-filter-chip.active')?.dataset.status || 'all';
   const sortMode = document.getElementById('bookingSortSelect')?.value || 'recent-application';
+  const comparator = sortMode === 'closest-date' ? compareBookingsByClosestUpcomingDate : compareBookingsByMostRecentApplication;
   const bookings = psDashboardBookings
     .filter((booking) => {
       if (status !== 'all' && booking.status !== status) return false;
       return bookingMatchesDashboardQuery(booking, query);
     })
-    .sort(sortMode === 'closest-date' ? compareBookingsByClosestDate : compareBookingsByMostRecentApplication);
+    .sort(comparator);
 
-  renderUserBookings(bookings, container, psDashboardBookings.length);
+  renderUserBookings(bookings, container, psDashboardBookings.length, comparator);
 }
 
 function setBookingStatusFilter(button) {
@@ -84,18 +85,22 @@ function compareBookingsByMostRecent(a, b) {
   return compareBookingsByMostRecentApplication(a, b);
 }
 
-function compareBookingsByClosestDate(a, b) {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const distanceA = bookingDateDistanceFromToday(a, now);
-  const distanceB = bookingDateDistanceFromToday(b, now);
-  return distanceA - distanceB || compareBookingsByMostRecentApplication(a, b);
+function compareBookingsByClosestUpcomingDate(a, b) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const timeA = bookingDateTime(a);
+  const timeB = bookingDateTime(b);
+  const upcomingA = timeA >= today.getTime();
+  const upcomingB = timeB >= today.getTime();
+
+  if (upcomingA !== upcomingB) return upcomingA ? -1 : 1;
+  if (upcomingA && upcomingB) return timeA - timeB || compareBookingsByMostRecentApplication(a, b);
+  return timeB - timeA || compareBookingsByMostRecentApplication(a, b);
 }
 
-function bookingDateDistanceFromToday(booking, today) {
+function bookingDateTime(booking) {
   const bookingDate = Date.parse(`${booking.date || ''}T${booking.start || '00:00'}`);
-  if (!bookingDate) return Number.MAX_SAFE_INTEGER;
-  return Math.abs(bookingDate - today.getTime());
+  return Number.isNaN(bookingDate) ? Number.MAX_SAFE_INTEGER : bookingDate;
 }
 
 function bookingMatchesDashboardQuery(booking, query) {
@@ -111,7 +116,7 @@ function bookingMatchesDashboardQuery(booking, query) {
   ].some((value) => String(value || '').toLowerCase().includes(query));
 }
 
-function dashboardBookingGroups(bookings) {
+function dashboardBookingGroups(bookings, comparator = compareBookingsByMostRecentApplication) {
   const grouped = new Map();
   const rows = [];
 
@@ -130,16 +135,16 @@ function dashboardBookingGroups(bookings) {
       rows.push({ type: 'single', booking: groupBookings[0] });
       return;
     }
-    groupBookings.sort(compareBookingsByMostRecent);
+    groupBookings.sort(comparator);
     rows.push({
       type: 'group',
       groupRef,
       bookings: groupBookings,
-      latest: groupBookings[0],
+      representative: groupBookings[0],
     });
   });
 
-  return rows.sort((a, b) => compareBookingsByMostRecent(a.latest || a.booking, b.latest || b.booking));
+  return rows.sort((a, b) => comparator(a.representative || a.booking, b.representative || b.booking));
 }
 
 function groupStatusBadgeHtml(bookings) {
@@ -152,6 +157,40 @@ function groupStatusBadgeHtml(bookings) {
   if (approvedCount) return `<span class="status-badge status-approved">${approvedCount} Diluluskan</span>`;
   if (unpaidCount) return `<span class="status-badge status-unpaid">${unpaidCount} Belum Bayar</span>`;
   return `<span class="status-badge">${statuses.length} Status</span>`;
+}
+
+function isDayBooking(booking) {
+  return booking.durationUnit === 'day' || booking.duration_unit === 'day';
+}
+
+function dashboardBookingDurationLabel(booking) {
+  if (!isDayBooking(booking)) {
+    return `${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}`;
+  }
+
+  const days = Math.max(1, Number.parseInt(String(booking.duration || '1'), 10) || 1);
+  return `${days} ${days === 1 ? 'hari' : 'hari'}`;
+}
+
+function dashboardBookingGroupTimeLabel(bookings) {
+  const dayCount = bookings.filter(isDayBooking).length;
+  const hourBookings = bookings.filter((booking) => !isDayBooking(booking));
+  const labels = [];
+
+  if (hourBookings.length) {
+    const timeSlots = [...new Set(hourBookings.map((booking) => {
+      const start = booking.start || '';
+      const end = booking.end || '';
+      return start && end ? `${start} - ${end}` : (start || end);
+    }).filter(Boolean))];
+    labels.push(timeSlots.length === 1 ? timeSlots[0] : `${timeSlots.length} slot masa`);
+  }
+
+  if (dayCount) {
+    labels.push(dayCount === 1 ? '1 tempahan hari' : `${dayCount} tempahan hari`);
+  }
+
+  return labels.join(' / ') || '-';
 }
 
 function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
@@ -167,7 +206,7 @@ function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
         </div>
       </td>
       <td><div class="dashboard-booking-cell-content">${formatDate(b.date)}</div></td>
-      <td><div class="dashboard-booking-cell-content">${escapeHtml(b.start || '-')} - ${escapeHtml(b.end || '-')}</div></td>
+      <td><div class="dashboard-booking-cell-content">${dashboardBookingDurationLabel(b)}</div></td>
       <td><div class="dashboard-booking-cell-content">${statusBadgeHtml(b.status)}</div></td>
       <td>
         <div class="dashboard-booking-cell-content">
@@ -188,18 +227,12 @@ function bookingGroupRowHtml(group) {
   const total = group.bookings.reduce((sum, booking) => sum + Number(booking.estimatedCost || 0), 0);
   const facilityNames = group.bookings.map((booking) => booking.facilityName || 'Fasiliti').join(', ');
   const dates = [...new Set(group.bookings.map((booking) => booking.date).filter(Boolean))];
-  const timeSlots = [...new Set(group.bookings.map((booking) => {
-    const start = booking.start || '';
-    const end = booking.end || '';
-    return start && end ? `${start} - ${end}` : (start || end);
-  }).filter(Boolean))];
   const dateSummary = dates.length === 1 ? formatDate(dates[0]) : `${dates.length} tarikh`;
-  const timeSummary = timeSlots.length === 1 ? timeSlots[0] : `${timeSlots.length} slot masa`;
+  const timeSummary = dashboardBookingGroupTimeLabel(group.bookings);
   return `
     <tr class="dashboard-booking-group-row${expanded ? ' is-expanded' : ''}" data-booking-group="${escapeAttr(group.groupRef)}">
       <td>
         <div class="dashboard-booking-group-id">
-          <span class="dashboard-booking-group-icon"><i class="bi bi-collection"></i></span>
           <span class="booking-id">${escapeHtml(group.groupRef)}</span>
         </div>
       </td>
@@ -257,7 +290,7 @@ function toggleDashboardBookingGroup(groupRef) {
   });
 }
 
-function renderUserBookings(bookings, container, totalCount = bookings.length) {
+function renderUserBookings(bookings, container, totalCount = bookings.length, comparator = compareBookingsByMostRecentApplication) {
   setText('bookingCountLabel', totalCount === bookings.length ? `${bookings.length} tempahan` : `${bookings.length} / ${totalCount} tempahan`);
   if (bookings.length === 0) {
     const hasFilters = totalCount > 0;
@@ -266,7 +299,7 @@ function renderUserBookings(bookings, container, totalCount = bookings.length) {
       : `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Tiada Tempahan</div><div class="empty-sub">Anda belum membuat sebarang tempahan dengan e-mel ini.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan Sekarang</button></div>`;
     return;
   }
-  const rows = dashboardBookingGroups(bookings);
+  const rows = dashboardBookingGroups(bookings, comparator);
   container.innerHTML = `
     <div class="dashboard-table-wrap">
       <table class="dashboard-booking-table">
@@ -333,7 +366,7 @@ async function viewUserBookingDetail(id) {
         ${statusBadgeHtml(booking.status)}
       </div>
       <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
-      <div class="detail-row"><span class="detail-label">Masa</span><span class="detail-value">${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">${isDayBooking(booking) ? 'Tempoh' : 'Masa'}</span><span class="detail-value">${dashboardBookingDurationLabel(booking)}</span></div>
       <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>

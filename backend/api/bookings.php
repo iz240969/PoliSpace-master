@@ -144,7 +144,50 @@ function getBookingByRef(Database $db, string $ref): void
         [$ref]
     );
 
-    if (!$booking || ($isAdmin && (string)$booking['status'] === 'unpaid')) {
+    if (!$booking) {
+        $groupBookings = $db->fetchAll(
+            "SELECT b.*, f.name AS facility_name, f.icon
+             FROM bookings b
+             LEFT JOIN facilities f ON b.facility_id = f.id
+             WHERE b.cart_group_ref = ?
+             ORDER BY b.booking_date ASC, b.start_time ASC, b.created_at DESC",
+            [$ref]
+        );
+
+        if (!$groupBookings) {
+            jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
+        }
+
+        if ($isAdmin) {
+            $groupBookings = array_values(array_filter(
+                $groupBookings,
+                static fn(array $item): bool => (string)$item['status'] !== 'unpaid'
+            ));
+            if (!$groupBookings) {
+                jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
+            }
+        }
+
+        if (!$isAdmin) {
+            foreach ($groupBookings as $groupBooking) {
+                if (strtolower((string)$groupBooking['email']) !== strtolower((string)$_SESSION['user_email'])) {
+                    jsonResponse(['success' => false, 'error' => 'You can only view your own booking'], 403);
+                }
+            }
+        }
+
+        jsonResponse([
+            'success' => true,
+            'data' => [
+                'type' => 'group',
+                'id' => $ref,
+                'cartGroupRef' => $ref,
+                'bookings' => array_map('formatBookingForFrontend', $groupBookings),
+            ],
+        ]);
+    }
+
+    if ($isAdmin && (string)$booking['status'] === 'unpaid') {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
 
@@ -224,9 +267,16 @@ function createBooking(Database $db): void
     }
     if ($hasPaymentFile) $bookingStatus = 'pending';
 
-    withFacilityBookingDateLocks($db, (int)$data['facility_id'], [(string)$data['booking_date']], function () use (
+    $requestedBookingDates = bookingBlockedDates(
+        (string)$data['booking_date'],
+        $data['duration'] ?? '1',
+        (string)($data['duration_unit'] ?? 'hour')
+    );
+
+    withFacilityBookingDateLocks($db, (int)$data['facility_id'], $requestedBookingDates, function () use (
         $db,
         $data,
+        $requestedBookingDates,
         $userId,
         $ref,
         $hasPaymentFile,
@@ -244,7 +294,7 @@ function createBooking(Database $db): void
             throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
         }
 
-        assertBookingDateAvailable($db, (int)$data['facility_id'], (string)$data['booking_date']);
+        assertBookingDatesAvailable($db, (int)$data['facility_id'], $requestedBookingDates);
 
         if ($hasPaymentFile) {
             $upload = handlePaymentUpload($_FILES['payment_file']);
@@ -306,7 +356,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -315,7 +365,13 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'Rejection reason required'], 400);
     }
 
-    withBookingMutationLocks($db, (int)$booking['id'], (int)$booking['facility_id'], [(string)$booking['booking_date']], false, function () use (
+    $bookingDates = bookingBlockedDates(
+        (string)$booking['booking_date'],
+        $booking['duration'] ?? '1',
+        (string)($booking['duration_unit'] ?? 'hour')
+    );
+
+    withBookingMutationLocks($db, (int)$booking['id'], (int)$booking['facility_id'], $bookingDates, false, function () use (
         $db,
         $field,
         $id,
@@ -323,7 +379,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         $adminNote
     ): void {
         $current = $db->fetchOne(
-            "SELECT id, status, payment_file, facility_id, booking_date FROM bookings WHERE {$field} = ?",
+            "SELECT id, status, payment_file, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?",
             [$id]
         );
         if (!$current) {
@@ -340,10 +396,14 @@ function updateBookingStatus(Database $db, string $id, array $data): void
             if (empty($current['payment_file'])) {
                 throw new BookingAvailabilityException('Resit bayaran diperlukan sebelum tarikh boleh dikunci.');
             }
-            assertBookingDateAvailable(
+            assertBookingDatesAvailable(
                 $db,
                 (int)$current['facility_id'],
-                (string)$current['booking_date'],
+                bookingBlockedDates(
+                    (string)$current['booking_date'],
+                    $current['duration'] ?? '1',
+                    (string)($current['duration_unit'] ?? 'hour')
+                ),
                 (int)$current['id']
             );
         }
@@ -367,12 +427,22 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
 
-    withBookingMutationLocks($db, (int)$booking['id'], (int)$booking['facility_id'], [(string)$booking['booking_date']], false, function () use (
+    withBookingMutationLocks(
+        $db,
+        (int)$booking['id'],
+        (int)$booking['facility_id'],
+        bookingBlockedDates(
+            (string)$booking['booking_date'],
+            $booking['duration'] ?? '1',
+            (string)($booking['duration_unit'] ?? 'hour')
+        ),
+        false,
+        function () use (
         $db,
         $field,
         $id,
@@ -409,7 +479,7 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -443,14 +513,18 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'Invalid equipment option'], 400);
     }
 
+    $newBookingDates = bookingBlockedDates($bookingDate, $duration, $durationUnit);
+    $oldBookingDates = bookingBlockedDates(
+        (string)$booking['booking_date'],
+        $booking['duration'] ?? '1',
+        (string)($booking['duration_unit'] ?? 'hour')
+    );
+
     withBookingMutationLocks(
         $db,
         (int)$booking['id'],
         (int)$booking['facility_id'],
-        [
-            (string)$booking['booking_date'],
-            $bookingDate,
-        ],
+        array_merge($oldBookingDates, $newBookingDates),
         true,
         function () use (
             $db,
@@ -495,10 +569,10 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
                 throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
             }
 
-            assertBookingDateAvailable(
+            assertBookingDatesAvailable(
                 $db,
                 (int)$current['facility_id'],
-                $bookingDate,
+                bookingBlockedDates($bookingDate, $duration, $durationUnit),
                 (int)$current['id']
             );
             $db->update(
@@ -578,7 +652,7 @@ function uploadOwnReceipt(Database $db, string $id): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, facility_id, booking_date FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -591,7 +665,11 @@ function uploadOwnReceipt(Database $db, string $id): void
         $db,
         (int)$booking['id'],
         (int)$booking['facility_id'],
-        [(string)$booking['booking_date']],
+        bookingBlockedDates(
+            (string)$booking['booking_date'],
+            $booking['duration'] ?? '1',
+            (string)($booking['duration_unit'] ?? 'hour')
+        ),
         true,
         function () use ($db, $field, $id, $userId, $userEmail): string {
             $current = $db->fetchOne(
@@ -630,10 +708,14 @@ function uploadOwnReceipt(Database $db, string $id): void
                 throw new BookingAvailabilityException(array_values($scheduleErrors)[0], 400);
             }
 
-            assertBookingDateAvailable(
+            assertBookingDatesAvailable(
                 $db,
                 (int)$current['facility_id'],
-                (string)$current['booking_date'],
+                bookingBlockedDates(
+                    (string)$current['booking_date'],
+                    $current['duration'] ?? '1',
+                    (string)($current['duration_unit'] ?? 'hour')
+                ),
                 (int)$current['id']
             );
 
@@ -712,7 +794,8 @@ function getPublicCalendarBookings(Database $db): void
 
     $start = sprintf('%04d-%02d-01', $year, $month);
     $end = date('Y-m-t', strtotime($start));
-    $params = [$start, $end];
+    $lookback = (new DateTimeImmutable($start))->modify('-30 days')->format('Y-m-d');
+    $params = [$lookback, $end];
     $facilityFilter = '';
     if ($facilityId !== null) {
         $facilityFilter = ' AND b.facility_id = ?';
@@ -720,7 +803,7 @@ function getPublicCalendarBookings(Database $db): void
     }
 
     $rows = $db->fetchAll(
-        "SELECT b.booking_ref, b.facility_id, b.booking_date, b.start_time, b.end_time, b.status,
+        "SELECT b.booking_ref, b.facility_id, b.booking_date, b.start_time, b.end_time, b.duration, b.duration_unit, b.status,
                 f.name AS facility_name, f.icon
          FROM bookings b
          LEFT JOIN facilities f ON b.facility_id = f.id
@@ -731,18 +814,31 @@ function getPublicCalendarBookings(Database $db): void
         $params
     );
 
-    $bookings = array_map(static function (array $booking): array {
-        return [
-            'id' => $booking['booking_ref'],
-            'facilityId' => (string)$booking['facility_id'],
-            'date' => $booking['booking_date'],
-            'start' => substr((string)$booking['start_time'], 0, 5),
-            'end' => $booking['end_time'] ? substr((string)$booking['end_time'], 0, 5) : '',
-            'status' => $booking['status'],
-            'facilityName' => $booking['facility_name'] ?? 'Fasiliti',
-            'facilityIcon' => '<i class="bi ' . htmlspecialchars($booking['icon'] ?? 'bi-building', ENT_QUOTES, 'UTF-8') . '"></i>',
-        ];
-    }, $rows);
+    $bookings = [];
+    foreach ($rows as $booking) {
+        foreach (bookingBlockedDates(
+            (string)$booking['booking_date'],
+            $booking['duration'] ?? '1',
+            (string)($booking['duration_unit'] ?? 'hour')
+        ) as $blockedDate) {
+            if ($blockedDate < $start || $blockedDate > $end) {
+                continue;
+            }
+            $bookings[] = [
+                'id' => $booking['booking_ref'],
+                'facilityId' => (string)$booking['facility_id'],
+                'date' => $blockedDate,
+                'start' => substr((string)$booking['start_time'], 0, 5),
+                'end' => $booking['end_time'] ? substr((string)$booking['end_time'], 0, 5) : '',
+                'duration' => $booking['duration'] ?? '1',
+                'durationUnit' => $booking['duration_unit'] ?? 'hour',
+                'duration_unit' => $booking['duration_unit'] ?? 'hour',
+                'status' => $booking['status'],
+                'facilityName' => $booking['facility_name'] ?? 'Fasiliti',
+                'facilityIcon' => '<i class="bi ' . htmlspecialchars($booking['icon'] ?? 'bi-building', ENT_QUOTES, 'UTF-8') . '"></i>',
+            ];
+        }
+    }
 
     jsonResponse(['success' => true, 'data' => $bookings]);
 }
