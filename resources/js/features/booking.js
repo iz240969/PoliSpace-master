@@ -134,26 +134,37 @@ const BOOKING_EQUIPMENT_OPTIONS = [
   { name: 'Kerusi Tambahan', max: null },
   { name: 'Meja Tambahan', max: null },
 ];
+const psEquipmentContextByInput = {};
 
-function equipmentOptions() {
-  return '<option value="">Pilih Peralatan</option>' + BOOKING_EQUIPMENT_OPTIONS
+function equipmentOptionsForFacility(facilityId = '') {
+  const facility = facilitiesCache.find((item) => String(item.id) === String(facilityId));
+  const options = facility ? (facility.equipment_options || []) : BOOKING_EQUIPMENT_OPTIONS;
+  if (isAsramaRoomFacility(facility)) return [];
+  return options;
+}
+
+function equipmentOptions(inputId = 'f-equipment') {
+  const facilityId = psEquipmentContextByInput[inputId] || document.getElementById('f-facility')?.value || '';
+  const options = equipmentOptionsForFacility(facilityId);
+  return '<option value="">Pilih Peralatan</option>' + options
     .map((item) => `<option value="${escapeAttr(item.name)}">${escapeHtml(item.name)}</option>`)
     .join('');
 }
 
-function findEquipmentOption(name) {
+function findEquipmentOption(name, inputId = 'f-equipment') {
   const normalized = String(name || '').trim().toLowerCase();
-  return BOOKING_EQUIPMENT_OPTIONS.find((item) => item.name.toLowerCase() === normalized) || null;
+  const facilityId = psEquipmentContextByInput[inputId] || document.getElementById('f-facility')?.value || '';
+  return equipmentOptionsForFacility(facilityId).find((item) => item.name.toLowerCase() === normalized) || null;
 }
 
-function normalizeEquipmentQuantity(name, value) {
-  const option = findEquipmentOption(name);
+function normalizeEquipmentQuantity(name, value, inputId = 'f-equipment') {
+  const option = findEquipmentOption(name, inputId);
   const max = Number(option?.max || 999);
   const qty = Math.max(1, Math.floor(Number(value) || 1));
   return max > 0 ? Math.min(qty, max) : qty;
 }
 
-function parseEquipmentItems(value = '') {
+function parseEquipmentItems(value = '', inputId = 'f-equipment') {
   const raw = String(value || '').trim();
   if (!raw) return [];
 
@@ -163,13 +174,13 @@ function parseEquipmentItems(value = '') {
 
     const match = text.match(/^(.+?)\s+x\s*(\d+)$/i);
     const name = match ? match[1].trim() : text;
-    const option = findEquipmentOption(name);
+    const option = findEquipmentOption(name, inputId);
     if (!option) return items;
 
-    const qty = normalizeEquipmentQuantity(option.name, match ? match[2] : 1);
+    const qty = normalizeEquipmentQuantity(option.name, match ? match[2] : 1, inputId);
     const existing = items.find((item) => item.name === option.name);
     if (existing) {
-      existing.quantity = normalizeEquipmentQuantity(option.name, existing.quantity + qty);
+      existing.quantity = normalizeEquipmentQuantity(option.name, existing.quantity + qty, inputId);
     } else {
       items.push({ name: option.name, quantity: qty });
     }
@@ -177,12 +188,12 @@ function parseEquipmentItems(value = '') {
   }, []);
 }
 
-function formatEquipmentItems(items = []) {
+function formatEquipmentItems(items = [], inputId = 'f-equipment') {
   return items
     .map((item) => {
-      const option = findEquipmentOption(item.name);
+      const option = findEquipmentOption(item.name, inputId);
       if (!option) return null;
-      return `${option.name} x ${normalizeEquipmentQuantity(option.name, item.quantity)}`;
+      return `${option.name} x ${normalizeEquipmentQuantity(option.name, item.quantity, inputId)}`;
     })
     .filter(Boolean)
     .join(', ');
@@ -193,14 +204,14 @@ function renderEquipmentList(inputId = 'f-equipment', listId = 'equipmentList') 
   const list = document.getElementById(listId);
   if (!input || !list) return;
 
-  const items = parseEquipmentItems(input.value);
+  const items = parseEquipmentItems(input.value, inputId);
   if (!items.length) {
     list.innerHTML = '<div class="equipment-empty">Tiada peralatan dipilih</div>';
     return;
   }
 
   list.innerHTML = items.map((item) => {
-    const max = Number(findEquipmentOption(item.name)?.max || 999);
+    const max = Number(findEquipmentOption(item.name, inputId)?.max || 999);
     return `
     <div class="equipment-item">
       <div class="equipment-name"><i class="bi bi-tools"></i><span>${escapeHtml(item.name)}</span></div>
@@ -219,20 +230,20 @@ function syncEquipmentItems(items, inputId = 'f-equipment', listId = 'equipmentL
   const input = document.getElementById(inputId);
   if (!input) return;
 
-  input.value = formatEquipmentItems(items);
+  input.value = formatEquipmentItems(items, inputId);
   renderEquipmentList(inputId, listId);
 }
 
 function addEquipmentItem(inputId = 'f-equipment', selectId = 'equipmentAddSelect', listId = 'equipmentList') {
   const select = document.getElementById(selectId);
-  const option = findEquipmentOption(select?.value || '');
+  const option = findEquipmentOption(select?.value || '', inputId);
   if (!option) return;
 
   const input = document.getElementById(inputId);
-  const items = parseEquipmentItems(input?.value || '');
+  const items = parseEquipmentItems(input?.value || '', inputId);
   const existing = items.find((item) => item.name === option.name);
   if (existing) {
-    existing.quantity = normalizeEquipmentQuantity(option.name, existing.quantity + 1);
+    existing.quantity = normalizeEquipmentQuantity(option.name, existing.quantity + 1, inputId);
   } else {
     items.push({ name: option.name, quantity: 1 });
   }
@@ -243,37 +254,41 @@ function addEquipmentItem(inputId = 'f-equipment', selectId = 'equipmentAddSelec
 
 function removeEquipmentItem(name, inputId = 'f-equipment', listId = 'equipmentList') {
   const input = document.getElementById(inputId);
-  const items = parseEquipmentItems(input?.value || '').filter((item) => item.name !== name);
+  const items = parseEquipmentItems(input?.value || '', inputId).filter((item) => item.name !== name);
   syncEquipmentItems(items, inputId, listId);
 }
 
 function setEquipmentQuantity(name, value, inputId = 'f-equipment', listId = 'equipmentList') {
   const input = document.getElementById(inputId);
-  const items = parseEquipmentItems(input?.value || '');
+  const items = parseEquipmentItems(input?.value || '', inputId);
   const item = items.find((entry) => entry.name === name);
   if (!item) return;
 
-  item.quantity = normalizeEquipmentQuantity(name, value);
+  item.quantity = normalizeEquipmentQuantity(name, value, inputId);
   syncEquipmentItems(items, inputId, listId);
 }
 
 function adjustEquipmentQuantity(name, delta, inputId = 'f-equipment', listId = 'equipmentList') {
   const input = document.getElementById(inputId);
-  const items = parseEquipmentItems(input?.value || '');
+  const items = parseEquipmentItems(input?.value || '', inputId);
   const item = items.find((entry) => entry.name === name);
   if (!item) return;
 
-  item.quantity = normalizeEquipmentQuantity(name, item.quantity + delta);
+  item.quantity = normalizeEquipmentQuantity(name, item.quantity + delta, inputId);
   syncEquipmentItems(items, inputId, listId);
 }
 
-function initializeEquipmentField(initialValue = '', inputId = 'f-equipment', selectId = 'equipmentAddSelect', listId = 'equipmentList') {
+function initializeEquipmentField(initialValue = '', inputId = 'f-equipment', selectId = 'equipmentAddSelect', listId = 'equipmentList', facilityId = '') {
   const input = document.getElementById(inputId);
   const select = document.getElementById(selectId);
   if (!input) return;
 
-  if (select) select.innerHTML = equipmentOptions();
-  input.value = formatEquipmentItems(parseEquipmentItems(initialValue || input.value));
+  psEquipmentContextByInput[inputId] = facilityId || document.getElementById('f-facility')?.value || '';
+  if (select) {
+    select.innerHTML = equipmentOptions(inputId);
+    select.disabled = equipmentOptionsForFacility(psEquipmentContextByInput[inputId]).length === 0;
+  }
+  input.value = formatEquipmentItems(parseEquipmentItems(initialValue || input.value, inputId), inputId);
   renderEquipmentList(inputId, listId);
 }
 
@@ -281,7 +296,7 @@ function normalizeEquipmentField(inputId = 'f-equipment', listId = 'equipmentLis
   const input = document.getElementById(inputId);
   if (!input) return;
 
-  input.value = formatEquipmentItems(parseEquipmentItems(input.value));
+  input.value = formatEquipmentItems(parseEquipmentItems(input.value, inputId), inputId);
   renderEquipmentList(inputId, listId);
 }
 

@@ -298,7 +298,81 @@
 }
 
 .admin-facility-description {
-  grid-column: span 3;
+  grid-column: span 2;
+}
+
+.admin-facility-equipment {
+  grid-column: span 2;
+}
+
+.admin-equipment-builder {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-equipment-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.admin-equipment-add-row input {
+  min-width: 0;
+}
+
+.admin-equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-equipment-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
+  min-height: 38px;
+  padding: 4px 4px 4px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+}
+
+.admin-equipment-option span {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-equipment-option button {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--grey-4);
+  cursor: pointer;
+}
+
+.admin-equipment-option button:hover {
+  background: #FDECEC;
+  color: var(--red);
+}
+
+.admin-equipment-empty {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--grey-3);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .admin-facility-check {
@@ -329,7 +403,34 @@
 .fmc-icon { font-size: 28px; color: var(--gold); }
 .fmc-name { font-family: var(--display-font); font-size: 16px; font-weight: 900; margin-bottom: 4px; }
 .fmc-cap { font-size: 12px; color: var(--grey-4); font-weight: 500;}
-.fmc-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); }
+.fmc-equipment { margin-top: 14px; min-height: 32px; }
+.fmc-equipment-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.fmc-equipment-list span {
+  max-width: 100%;
+  padding: 4px 8px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  color: var(--grey-4);
+  font-size: 11px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fmc-equipment-empty { color: var(--grey-3); font-size: 12px; font-weight: 700; }
+.fmc-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); }
+.fmc-availability { display: inline-flex; align-items: center; gap: 10px; color: var(--grey-4); font-size: 12px; font-weight: 700; }
+
+.edit-facility-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.edit-facility-form .span-2 {
+  grid-column: span 2;
+}
 
 .toggle-switch { width: 44px; height: 24px; background: var(--grey-2); border-radius: 100px; position: relative; cursor: pointer; transition: var(--transition); }
 .toggle-switch.on { background: var(--green); }
@@ -399,8 +500,14 @@
     grid-template-columns: 1fr;
   }
 
-  .admin-facility-description {
+  .admin-facility-description,
+  .admin-facility-equipment,
+  .edit-facility-form .span-2 {
     grid-column: auto;
+  }
+
+  .edit-facility-form {
+    grid-template-columns: 1fr;
   }
 
   .admin-facility-form-actions {
@@ -409,6 +516,11 @@
 
   .admin-facility-form-actions .btn {
     width: 100%;
+  }
+
+  .admin-equipment-add-row,
+  .admin-equipment-grid {
+    grid-template-columns: 1fr;
   }
 }
 

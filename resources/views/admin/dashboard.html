@@ -7,7 +7,7 @@
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260804-consistency-audit-1">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260808-facility-equipment">
 </head>
 <body>
   <nav id="main-nav">
@@ -111,6 +111,17 @@
                 <label for="facilityDescription">Keterangan</label>
                 <textarea id="facilityDescription" name="description" maxlength="2000" rows="3" placeholder="Kemudahan, kegunaan, atau nota penting."></textarea>
               </div>
+              <div class="form-group admin-facility-equipment">
+                <label for="facilityEquipment">Peralatan</label>
+                <input type="hidden" id="facilityEquipment" name="equipment_options">
+                <div class="admin-equipment-builder" data-equipment-builder="facilityEquipment">
+                  <div class="admin-equipment-add-row">
+                    <input type="text" id="facilityEquipmentNew" placeholder="cth: Mikrofon" onkeydown="if(event.key==='Enter'){event.preventDefault();addAdminEquipmentOption('facilityEquipment')}">
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="addAdminEquipmentOption('facilityEquipment')"><i class="bi bi-plus-lg"></i> Tambah</button>
+                  </div>
+                  <div class="admin-equipment-grid" id="facilityEquipmentGrid"></div>
+                </div>
+              </div>
               <label class="admin-facility-check">
                 <input type="checkbox" id="facilityAvailable" name="is_available" checked>
                 <span>Tersedia untuk tempahan</span>
@@ -139,7 +150,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260804-consistency-audit-1"></script>
+  <script src="/resources/js/script.js?v=20260808-facility-equipment"></script>
 </body>
 </html>
 

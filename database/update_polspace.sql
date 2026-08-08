@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS facilities (
     capacity INT DEFAULT 0,
     price_per_hour DECIMAL(10,2) DEFAULT 0,
     description TEXT,
+    equipment_options TEXT,
     is_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -95,6 +96,23 @@ PREPARE equipment_column_stmt FROM @equipment_column_sql;
 EXECUTE equipment_column_stmt;
 DEALLOCATE PREPARE equipment_column_stmt;
 
+SET @facility_equipment_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'facilities'
+      AND COLUMN_NAME = 'equipment_options'
+);
+
+SET @facility_equipment_column_sql := IF(
+    @facility_equipment_column_exists = 0,
+    'ALTER TABLE facilities ADD COLUMN equipment_options TEXT AFTER description',
+    'SELECT 1'
+);
+PREPARE facility_equipment_column_stmt FROM @facility_equipment_column_sql;
+EXECUTE facility_equipment_column_stmt;
+DEALLOCATE PREPARE facility_equipment_column_stmt;
+
 SET @duration_unit_column_exists := (
     SELECT COUNT(*)
     FROM information_schema.COLUMNS
@@ -168,16 +186,17 @@ VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb
 ON DUPLICATE KEY UPDATE
     email = VALUES(email);
 
-INSERT INTO facilities (id, name, icon, capacity, price_per_hour, description, is_available) VALUES
-(1, 'Dewan Utama', 'bi-bank', 800, 450.00, 'Kemudahan: Econ, PA system, projector.', TRUE),
-(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, 'Kemudahan: Econ, PA system, projector.', TRUE),
-(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, 'Kemudahan: LCD, projector, econ.', TRUE),
-(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, 'Kemudahan: TV besar, econ.', TRUE),
-(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', TRUE),
-(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', TRUE)
+INSERT INTO facilities (id, name, icon, capacity, price_per_hour, description, equipment_options, is_available) VALUES
+(1, 'Dewan Utama', 'bi-bank', 800, 450.00, 'Kemudahan: Econ, PA system, projector.', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
+(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, 'Kemudahan: Econ, PA system, projector.', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
+(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, 'Kemudahan: LCD, projector, econ.', '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
+(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, 'Kemudahan: TV besar, econ.', '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
+(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', '[{"name":"Komputer Tambahan","max":null},{"name":"Projektor","max":null}]', TRUE),
+(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', '[]', TRUE)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     icon = VALUES(icon),
     capacity = VALUES(capacity),
     price_per_hour = VALUES(price_per_hour),
-    description = VALUES(description);
+    description = VALUES(description),
+    equipment_options = VALUES(equipment_options);

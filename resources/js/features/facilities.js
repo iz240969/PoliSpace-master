@@ -10,8 +10,35 @@ function normalizeFacilities(facilities) {
     capacity: Number(f.capacity || f.cap || 0),
     price_per_hour: Number(f.price_per_hour || f.pricePerHour || 0),
     description: f.description || f.desc || '',
+    equipment_options: normalizeFacilityEquipmentOptions(f.equipment_options ?? f.equipmentOptions ?? []),
     is_available: Boolean(Number(f.is_available ?? f.available ?? 1)),
   }));
+}
+
+function normalizeFacilityEquipmentOptions(value) {
+  let items = [];
+  if (Array.isArray(value)) {
+    items = value;
+  } else {
+    const raw = String(value || '').trim();
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      items = Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      items = raw.split(/\r\n|\r|\n|,/);
+    }
+  }
+
+  const seen = new Set();
+  return items.reduce((options, item) => {
+    const name = String(typeof item === 'object' ? item?.name : item || '').trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) return options;
+    seen.add(key);
+    options.push({ name, max: Number(item?.max || 0) || null });
+    return options;
+  }, []);
 }
 
 function facilityIconHtml(facility) {
@@ -313,6 +340,7 @@ function updateFacilityInfo() {
   });
   syncBookingDurationUnitForFacility();
   syncAsramaBookingFields();
+  initializeEquipmentField(document.getElementById('f-equipment')?.value || '', 'f-equipment', 'equipmentAddSelect', 'equipmentList', fid);
   updateSetupOptions();
   updatePricing();
   renderBookingDatePicker();

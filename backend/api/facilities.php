@@ -11,10 +11,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $db = Database::getInstance();
 
+function ensureFacilityEquipmentColumn(Database $db): void
+{
+    $exists = $db->fetchOne(
+        "SELECT COUNT(*) AS count
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'facilities'
+           AND COLUMN_NAME = 'equipment_options'"
+    );
+
+    if ((int)($exists['count'] ?? 0) === 0) {
+        $db->query('ALTER TABLE facilities ADD COLUMN equipment_options TEXT NULL AFTER description');
+    }
+}
+
+function normalizeFacilityEquipmentOptions(mixed $value): string
+{
+    if (is_array($value)) {
+        $items = $value;
+    } else {
+        $raw = trim((string)($value ?? ''));
+        if ($raw === '') {
+            return '[]';
+        }
+        $decoded = json_decode($raw, true);
+        $items = is_array($decoded) ? $decoded : preg_split('/\r\n|\r|\n|,/', $raw);
+    }
+
+    $names = [];
+    foreach ($items as $item) {
+        $name = is_array($item) ? (string)($item['name'] ?? '') : (string)$item;
+        $name = trim($name);
+        if ($name === '' || strlen($name) > 80) {
+            continue;
+        }
+        $key = strtolower($name);
+        if (!isset($names[$key])) {
+            $names[$key] = $name;
+        }
+    }
+
+    return json_encode(array_values(array_map(
+        static fn(string $name): array => ['name' => $name, 'max' => null],
+        $names
+    )), JSON_UNESCAPED_UNICODE);
+}
+
+function defaultFacilityEquipmentOptions(int $facilityId): string
+{
+    $defaults = [
+        1 => ['Mikrofon', 'Projektor', 'PA System', 'Kerusi Tambahan', 'Meja Tambahan'],
+        2 => ['Mikrofon', 'Projektor', 'PA System'],
+        3 => ['Projektor', 'TV LCD', 'Meja Mesyuarat'],
+        4 => ['TV Besar', 'Papan Putih', 'Mikrofon'],
+        5 => ['Komputer Tambahan', 'Projektor'],
+        6 => [],
+    ];
+
+    return normalizeFacilityEquipmentOptions($defaults[$facilityId] ?? ['Mikrofon', 'Projektor', 'PA System']);
+}
+
+function backfillDefaultFacilityEquipment(Database $db): void
+{
+    foreach ([1, 2, 3, 4, 5, 6] as $facilityId) {
+        $db->update(
+            "UPDATE facilities
+             SET equipment_options = ?
+             WHERE id = ?
+               AND (equipment_options IS NULL OR equipment_options = '')",
+            [defaultFacilityEquipmentOptions($facilityId), $facilityId]
+        );
+    }
+}
+
 try {
+    ensureFacilityEquipmentColumn($db);
+    backfillDefaultFacilityEquipment($db);
+
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $facilities = $db->fetchAll(
-            'SELECT id, name, icon, capacity, price_per_hour, description, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available, created_at, updated_at
              FROM facilities
              ORDER BY id'
         );
@@ -30,6 +107,7 @@ try {
         $capacity = (int)($input['capacity'] ?? 0);
         $pricePerHour = (float)($input['price_per_hour'] ?? 0);
         $description = trim((string)($input['description'] ?? ''));
+        $equipmentOptions = normalizeFacilityEquipmentOptions($input['equipment_options'] ?? '');
         $isAvailable = (int)(bool)($input['is_available'] ?? true);
         $errors = [];
 
@@ -60,12 +138,12 @@ try {
         }
 
         $id = $db->insert(
-            'INSERT INTO facilities (name, icon, capacity, price_per_hour, description, is_available)
-             VALUES (?, ?, ?, ?, ?, ?)',
-            [$name, $icon, $capacity, $pricePerHour, $description, $isAvailable]
+            'INSERT INTO facilities (name, icon, capacity, price_per_hour, description, equipment_options, is_available)
+             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [$name, $icon, $capacity, $pricePerHour, $description, $equipmentOptions, $isAvailable]
         );
         $facility = $db->fetchOne(
-            'SELECT id, name, icon, capacity, price_per_hour, description, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available, created_at, updated_at
              FROM facilities
              WHERE id = ?',
             [$id]
@@ -83,20 +161,58 @@ try {
             jsonResponse(['success' => false, 'error' => 'Facility ID required'], 400);
         }
 
-        if (!array_key_exists('is_available', $input)) {
-            jsonResponse(['success' => false, 'error' => 'Availability value required'], 400);
-        }
-
-        $isAvailable = (int)(bool)$input['is_available'];
-        $facility = $db->fetchOne('SELECT id FROM facilities WHERE id = ?', [$id]);
+        $facility = $db->fetchOne('SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available FROM facilities WHERE id = ?', [$id]);
         if (!$facility) {
             jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
         }
 
-        withFacilityAvailabilityLock($db, $id, function () use ($db, $isAvailable, $id): void {
-            $db->update('UPDATE facilities SET is_available = ? WHERE id = ?', [$isAvailable, $id]);
+        $name = array_key_exists('name', $input) ? trim((string)$input['name']) : (string)$facility['name'];
+        $icon = array_key_exists('icon', $input) ? trim((string)$input['icon']) : (string)$facility['icon'];
+        $capacity = array_key_exists('capacity', $input) ? (int)$input['capacity'] : (int)$facility['capacity'];
+        $pricePerHour = array_key_exists('price_per_hour', $input) ? (float)$input['price_per_hour'] : (float)$facility['price_per_hour'];
+        $description = array_key_exists('description', $input) ? trim((string)$input['description']) : (string)($facility['description'] ?? '');
+        $equipmentOptions = array_key_exists('equipment_options', $input)
+            ? normalizeFacilityEquipmentOptions($input['equipment_options'])
+            : (string)($facility['equipment_options'] ?? '[]');
+        $isAvailable = array_key_exists('is_available', $input) ? (int)(bool)$input['is_available'] : (int)$facility['is_available'];
+        $errors = [];
+
+        if ($name === '' || strlen($name) > 100) {
+            $errors['name'] = 'Nama fasiliti mesti diisi dan tidak melebihi 100 aksara.';
+        }
+        if ($icon === '') {
+            $icon = 'bi-building';
+        } elseif (!preg_match('/^bi-[a-z0-9-]+$/', $icon) || strlen($icon) > 50) {
+            $errors['icon'] = 'Ikon Bootstrap tidak sah.';
+        }
+        if ($capacity < 1 || $capacity > 5000) {
+            $errors['capacity'] = 'Kapasiti mesti antara 1 hingga 5000.';
+        }
+        if ($pricePerHour < 0 || $pricePerHour > 999999.99) {
+            $errors['price_per_hour'] = 'Harga tidak sah.';
+        }
+        if (strlen($description) > 2000) {
+            $errors['description'] = 'Keterangan terlalu panjang.';
+        }
+        if ($errors) {
+            jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
+        }
+
+        withFacilityAvailabilityLock($db, $id, function () use ($db, $id, $name, $icon, $capacity, $pricePerHour, $description, $equipmentOptions, $isAvailable): void {
+            $db->update(
+                'UPDATE facilities
+                 SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, description = ?, equipment_options = ?, is_available = ?
+                 WHERE id = ?',
+                [$name, $icon, $capacity, $pricePerHour, $description, $equipmentOptions, $isAvailable, $id]
+            );
         });
-        jsonResponse(['success' => true, 'message' => 'Facility updated']);
+        $updated = $db->fetchOne(
+            'SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available, created_at, updated_at
+             FROM facilities
+             WHERE id = ?',
+            [$id]
+        );
+        jsonResponse(['success' => true, 'message' => 'Facility updated', 'data' => $updated]);
     }
 
     jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);

@@ -96,6 +96,9 @@ async function filterBookings(filter, btn) {
 function renderFacilityManagement(facilities) {
   const grid = document.getElementById('facilityManageGrid');
   if (!grid) return;
+  if (document.getElementById('facilityEquipment') && !document.getElementById('facilityEquipment').value) {
+    setAdminEquipmentOptions('facilityEquipment', defaultAdminEquipmentOptions());
+  }
   if (!facilities.length) {
     grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i class="bi bi-building-slash"></i></div><div class="empty-state-title">Tiada Fasiliti</div></div>';
     return;
@@ -105,9 +108,97 @@ function renderFacilityManagement(facilities) {
       <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
       <div class="fmc-cap">Kapasiti: ${escapeHtml(f.capacity)} orang - RM${escapeHtml(f.price_per_hour)}</div>
-      <div class="fmc-footer"><span style="font-size:12px;color:var(--grey-4)">${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
+      <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
+      <div class="fmc-footer">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button>
+        <div class="fmc-availability"><span>${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
+      </div>
     </div>
   `).join('');
+}
+
+function facilityEquipmentSummaryHtml(facility) {
+  const options = facility.equipment_options || [];
+  if (!options.length) return '<div class="fmc-equipment-empty">Tiada peralatan ditetapkan</div>';
+  return `
+    <div class="fmc-equipment-list">
+      ${options.slice(0, 4).map((item) => `<span>${escapeHtml(item.name)}</span>`).join('')}
+      ${options.length > 4 ? `<span>+${options.length - 4}</span>` : ''}
+    </div>
+  `;
+}
+
+function adminEquipmentTextareaValue(facility) {
+  return (facility.equipment_options || []).map((item) => item.name).join('\n');
+}
+
+function defaultAdminEquipmentOptions() {
+  return ['Mikrofon', 'Projektor', 'PA System', 'Kerusi Tambahan', 'Meja Tambahan'];
+}
+
+function parseAdminEquipmentValue(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item?.name || item || '').trim()).filter(Boolean);
+  } catch (error) {
+    return raw.split(/\r\n|\r|\n|,/).map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function uniqueAdminEquipmentItems(items = []) {
+  const seen = new Set();
+  return items.reduce((next, item) => {
+    const name = String(item || '').trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) return next;
+    seen.add(key);
+    next.push(name);
+    return next;
+  }, []);
+}
+
+function setAdminEquipmentOptions(inputId, items = []) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.value = uniqueAdminEquipmentItems(items).join('\n');
+  renderAdminEquipmentOptions(inputId);
+}
+
+function renderAdminEquipmentOptions(inputId) {
+  const input = document.getElementById(inputId);
+  const grid = document.getElementById(`${inputId}Grid`);
+  if (!input || !grid) return;
+
+  const items = parseAdminEquipmentValue(input.value);
+  if (!items.length) {
+    grid.innerHTML = '<div class="admin-equipment-empty">Tiada peralatan ditetapkan</div>';
+    return;
+  }
+
+  grid.innerHTML = items.map((name) => `
+    <div class="admin-equipment-option">
+      <span>${escapeHtml(name)}</span>
+      <button type="button" onclick="removeAdminEquipmentOption('${escapeAttr(inputId)}', '${escapeAttr(name)}')" aria-label="Buang ${escapeAttr(name)}"><i class="bi bi-x-lg"></i></button>
+    </div>
+  `).join('');
+}
+
+function addAdminEquipmentOption(inputId) {
+  const addInput = document.getElementById(`${inputId}New`);
+  const name = addInput?.value.trim() || '';
+  if (!name) return;
+  setAdminEquipmentOptions(inputId, [...parseAdminEquipmentValue(document.getElementById(inputId)?.value || ''), name]);
+  if (addInput) addInput.value = '';
+}
+
+function removeAdminEquipmentOption(inputId, name) {
+  setAdminEquipmentOptions(
+    inputId,
+    parseAdminEquipmentValue(document.getElementById(inputId)?.value || '').filter((item) => item !== name)
+  );
 }
 
 async function addFacility(event) {
@@ -121,6 +212,7 @@ async function addFacility(event) {
     capacity: Number(formData.get('capacity') || 0),
     price_per_hour: Number(formData.get('price_per_hour') || 0),
     description: String(formData.get('description') || '').trim(),
+    equipment_options: parseAdminEquipmentValue(formData.get('equipment_options') || ''),
     is_available: formData.has('is_available'),
   };
 
@@ -140,10 +232,97 @@ async function addFacility(event) {
     if (iconInput) iconInput.value = 'bi-building';
     const availableInput = document.getElementById('facilityAvailable');
     if (availableInput) availableInput.checked = true;
+    setAdminEquipmentOptions('facilityEquipment', defaultAdminEquipmentOptions());
     showToast('Fasiliti berjaya ditambah.', 'success');
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Fasiliti gagal ditambah.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function openFacilityEditModal(id) {
+  const facility = facilitiesCache.find((item) => String(item.id) === String(id));
+  if (!facility) return;
+
+  setText('modalTitle', `Edit Fasiliti - ${facility.name}`);
+  document.getElementById('modalBody').innerHTML = `
+    <div class="edit-facility-form">
+      <div class="form-group">
+        <label for="editFacilityName">Nama Fasiliti *</label>
+        <input type="text" id="editFacilityName" maxlength="100" value="${escapeAttr(facility.name)}">
+      </div>
+      <div class="form-group">
+        <label for="editFacilityIcon">Ikon Bootstrap</label>
+        <input type="text" id="editFacilityIcon" maxlength="50" value="${escapeAttr(facility.icon || 'bi-building')}">
+      </div>
+      <div class="form-group">
+        <label for="editFacilityCapacity">Kapasiti *</label>
+        <input type="number" id="editFacilityCapacity" min="1" max="5000" value="${escapeAttr(String(facility.capacity || 1))}">
+      </div>
+      <div class="form-group">
+        <label for="editFacilityPrice">Harga (RM) *</label>
+        <input type="number" id="editFacilityPrice" min="0" max="999999.99" step="0.01" value="${escapeAttr(String(facility.price_per_hour || 0))}">
+      </div>
+      <div class="form-group span-2">
+        <label for="editFacilityDescription">Keterangan</label>
+        <textarea id="editFacilityDescription" maxlength="2000" rows="3">${escapeHtml(facility.description || '')}</textarea>
+      </div>
+      <div class="form-group span-2">
+        <label for="editFacilityEquipment">Peralatan</label>
+        <input type="hidden" id="editFacilityEquipment" value="${escapeAttr(adminEquipmentTextareaValue(facility))}">
+        <div class="admin-equipment-builder" data-equipment-builder="editFacilityEquipment">
+          <div class="admin-equipment-add-row">
+            <input type="text" id="editFacilityEquipmentNew" placeholder="cth: Mikrofon" onkeydown="if(event.key==='Enter'){event.preventDefault();addAdminEquipmentOption('editFacilityEquipment')}">
+            <button class="btn btn-secondary btn-sm" type="button" onclick="addAdminEquipmentOption('editFacilityEquipment')"><i class="bi bi-plus-lg"></i> Tambah</button>
+          </div>
+          <div class="admin-equipment-grid" id="editFacilityEquipmentGrid"></div>
+        </div>
+      </div>
+      <label class="admin-facility-check span-2">
+        <input type="checkbox" id="editFacilityAvailable" ${facility.is_available ? 'checked' : ''}>
+        <span>Tersedia untuk tempahan</span>
+      </label>
+    </div>
+  `;
+  renderAdminEquipmentOptions('editFacilityEquipment');
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button>
+    <button class="btn btn-primary" id="updateFacilityButton" onclick="updateFacility('${escapeAttr(facility.id)}')"><i class="bi bi-check-lg"></i> Simpan</button>
+  `;
+  document.getElementById('bookingModal')?.classList.add('active');
+}
+
+async function updateFacility(id) {
+  const button = document.getElementById('updateFacilityButton');
+  const data = {
+    name: document.getElementById('editFacilityName')?.value.trim() || '',
+    icon: document.getElementById('editFacilityIcon')?.value.trim() || 'bi-building',
+    capacity: Number(document.getElementById('editFacilityCapacity')?.value || 0),
+    price_per_hour: Number(document.getElementById('editFacilityPrice')?.value || 0),
+    description: document.getElementById('editFacilityDescription')?.value.trim() || '',
+    equipment_options: parseAdminEquipmentValue(document.getElementById('editFacilityEquipment')?.value || ''),
+    is_available: Boolean(document.getElementById('editFacilityAvailable')?.checked),
+  };
+
+  if (!data.name || data.capacity < 1 || data.price_per_hour < 0) {
+    showToast('Sila lengkapkan maklumat fasiliti.', 'error');
+    return;
+  }
+
+  if (button) button.disabled = true;
+  try {
+    const result = await tryApi(`facilities.php?id=${encodeURIComponent(id)}`, 'PUT', data);
+    const updated = normalizeFacilities([result.data])[0];
+    const index = facilitiesCache.findIndex((item) => String(item.id) === String(id));
+    if (index >= 0) facilitiesCache[index] = updated;
+    renderFacilityManagement(facilitiesCache);
+    closeModal('bookingModal');
+    showToast('Fasiliti berjaya dikemas kini.', 'success');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Fasiliti gagal dikemas kini.', 'error');
   } finally {
     if (button) button.disabled = false;
   }
@@ -154,13 +333,14 @@ async function toggleFacility(fid) {
   if (!facility) return;
   const nextAvailability = !facility.is_available;
   try {
-    await tryApi(`facilities.php?id=${encodeURIComponent(fid)}`, 'PUT', { is_available: nextAvailability });
+    const result = await tryApi(`facilities.php?id=${encodeURIComponent(fid)}`, 'PUT', { is_available: nextAvailability });
+    const updated = normalizeFacilities([result.data])[0];
+    Object.assign(facility, updated);
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Sambungan server diperlukan untuk mengubah ketersediaan fasiliti.', 'error');
     return;
   }
-  facility.is_available = nextAvailability;
   renderFacilityManagement(facilitiesCache);
   showToast(`${facility.name} dikemas kini.`, 'success');
 }

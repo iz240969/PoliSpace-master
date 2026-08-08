@@ -52,12 +52,13 @@ function applyBookingFilters() {
 
   const query = (document.getElementById('bookingSearchInput')?.value || '').trim().toLowerCase();
   const status = document.querySelector('.dash-filter-chip.active')?.dataset.status || 'all';
+  const sortMode = document.getElementById('bookingSortSelect')?.value || 'recent-application';
   const bookings = psDashboardBookings
     .filter((booking) => {
       if (status !== 'all' && booking.status !== status) return false;
       return bookingMatchesDashboardQuery(booking, query);
     })
-    .sort(compareBookingsByMostRecent);
+    .sort(sortMode === 'closest-date' ? compareBookingsByClosestDate : compareBookingsByMostRecentApplication);
 
   renderUserBookings(bookings, container, psDashboardBookings.length);
 }
@@ -69,7 +70,7 @@ function setBookingStatusFilter(button) {
   applyBookingFilters();
 }
 
-function compareBookingsByMostRecent(a, b) {
+function compareBookingsByMostRecentApplication(a, b) {
   const createdA = Date.parse(a.createdAt || a.created_at || '') || 0;
   const createdB = Date.parse(b.createdAt || b.created_at || '') || 0;
   const dateA = `${a.date || ''} ${a.start || ''}`;
@@ -77,6 +78,24 @@ function compareBookingsByMostRecent(a, b) {
 
   if (createdA || createdB) return createdB - createdA;
   return dateB.localeCompare(dateA);
+}
+
+function compareBookingsByMostRecent(a, b) {
+  return compareBookingsByMostRecentApplication(a, b);
+}
+
+function compareBookingsByClosestDate(a, b) {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const distanceA = bookingDateDistanceFromToday(a, now);
+  const distanceB = bookingDateDistanceFromToday(b, now);
+  return distanceA - distanceB || compareBookingsByMostRecentApplication(a, b);
+}
+
+function bookingDateDistanceFromToday(booking, today) {
+  const bookingDate = Date.parse(`${booking.date || ''}T${booking.start || '00:00'}`);
+  if (!bookingDate) return Number.MAX_SAFE_INTEGER;
+  return Math.abs(bookingDate - today.getTime());
 }
 
 function bookingMatchesDashboardQuery(booking, query) {
@@ -417,7 +436,13 @@ async function openEditBookingModal(id) {
     document.getElementById('edit-booking-start')?.addEventListener('change', updateEditEndTime);
     document.getElementById('edit-booking-duration')?.addEventListener('input', updateEditEndTime);
     document.getElementById('edit-booking-duration')?.addEventListener('blur', () => normalizeDurationInput('edit-booking-duration'));
-    initializeEquipmentField(booking.equipment || '', 'edit-booking-equipment', 'editEquipmentAddSelect', 'editEquipmentList');
+    initializeEquipmentField(
+      booking.equipment || '',
+      'edit-booking-equipment',
+      'editEquipmentAddSelect',
+      'editEquipmentList',
+      booking.facilityId || booking.facility_id || ''
+    );
   } catch (error) {
     showToast(error.message || 'Borang edit gagal dimuatkan.', 'error');
   }
