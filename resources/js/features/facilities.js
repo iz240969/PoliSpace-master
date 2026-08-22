@@ -9,6 +9,7 @@ function normalizeFacilities(facilities) {
     icon: f.icon || 'bi-building',
     capacity: Number(f.capacity || f.cap || 0),
     price_per_hour: Number(f.price_per_hour || f.pricePerHour || 0),
+    max_rooms: Number(f.max_rooms ?? f.maxRooms ?? 0) || null,
     description: f.description || f.desc || '',
     equipment_options: normalizeFacilityEquipmentOptions(f.equipment_options ?? f.equipmentOptions ?? []),
     is_available: Boolean(Number(f.is_available ?? f.available ?? 1)),
@@ -48,7 +49,7 @@ function facilityIconHtml(facility) {
 function facilityCapacityLabel(facility) {
   const capacity = Number(facility.capacity || 0);
   const name = String(facility.name || '').toLowerCase();
-  if (name.includes('asrama')) return `${capacity} orang - 1 bilik`;
+  if (name.includes('asrama')) return `${capacity} orang - 1 bilik${facility.max_rooms ? `, maks. ${facility.max_rooms} bilik` : ''}`;
   return `${capacity} orang`;
 }
 
@@ -274,7 +275,7 @@ async function populateBookingFacilities() {
       <div class="facility-select-item ${!f.is_available ? 'is-disabled' : ''}" data-fid="${escapeAttr(f.id)}" ${f.is_available ? `onclick="sidebarSelectFacility('${escapeAttr(f.id)}')"` : 'aria-disabled="true"'}>
         <div>
           <div class="fsi-name">${facilityIconHtml(f)} ${escapeHtml(f.name)}</div>
-          <div class="fsi-cap">Maks. ${f.capacity} orang - RM${f.price_per_hour}</div>
+          <div class="fsi-cap">Maks. ${f.capacity} orang${isAsramaRoomFacility(f) && f.max_rooms ? `, ${f.max_rooms} bilik` : ''} - RM${f.price_per_hour}</div>
         </div>
         <div class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}" style="font-size:10px">
           ${f.is_available ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-x-lg"></i>'}
@@ -313,11 +314,18 @@ function syncBookingDurationUnitForFacility() {
 }
 
 function syncAsramaBookingFields() {
-  const asramaSelected = isAsramaRoomFacility(getSelectedFacility());
+  const facility = getSelectedFacility();
+  const asramaSelected = isAsramaRoomFacility(facility);
   document.querySelectorAll('[data-asrama-optional-field]').forEach((field) => {
     field.classList.toggle('is-hidden-for-asrama', asramaSelected);
     field.querySelectorAll('input, select, textarea, button').forEach((control) => {
       control.disabled = asramaSelected;
+    });
+  });
+  document.querySelectorAll('[data-asrama-field]').forEach((field) => {
+    field.classList.toggle('is-hidden-for-asrama', !asramaSelected);
+    field.querySelectorAll('input, select, textarea, button').forEach((control) => {
+      control.disabled = !asramaSelected;
     });
   });
 
@@ -330,6 +338,12 @@ function syncAsramaBookingFields() {
   if (endEl) endEl.value = '';
   if (equipmentEl) equipmentEl.value = '';
   if (participantsEl) participantsEl.value = '1';
+  const roomCountEl = document.getElementById('f-room-count');
+  if (roomCountEl) {
+    const maxRooms = Number(facility?.max_rooms || 10);
+    roomCountEl.value = String(Math.min(Math.max(1, Number(roomCountEl.value || 1)), maxRooms));
+  }
+  normalizeRoomCount();
   renderEquipmentList();
 }
 
@@ -360,8 +374,11 @@ function calculateCost() {
   const base = facility ? facility.price_per_hour : 0;
   const duration = Number(document.getElementById('f-duration')?.value || 1);
   const multiplier = Number.isFinite(duration) && duration > 0 ? duration : 1;
+  const roomMultiplier = isAsramaRoomFacility(facility)
+    ? Math.max(1, Number(document.getElementById('f-room-count')?.value || 1))
+    : 1;
   const extra = 0;
-  return { base, extra, total: (base * multiplier) + extra };
+  return { base, extra, total: (base * multiplier * roomMultiplier) + extra };
 }
 
 function updatePricing() {

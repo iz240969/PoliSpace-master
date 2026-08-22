@@ -107,7 +107,7 @@ function renderFacilityManagement(facilities) {
     <div class="facility-manage-card">
       <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
-      <div class="fmc-cap">Kapasiti: ${escapeHtml(f.capacity)} orang - RM${escapeHtml(f.price_per_hour)}</div>
+      <div class="fmc-cap">Kapasiti: ${escapeHtml(f.capacity)} orang${isAsramaRoomFacility(f) && f.max_rooms ? ` - Had ${escapeHtml(f.max_rooms)} bilik` : ''} - RM${escapeHtml(f.price_per_hour)}</div>
       <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
       <div class="fmc-footer">
         <button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button>
@@ -211,12 +211,13 @@ async function addFacility(event) {
     icon: String(formData.get('icon') || 'bi-building').trim() || 'bi-building',
     capacity: Number(formData.get('capacity') || 0),
     price_per_hour: Number(formData.get('price_per_hour') || 0),
+    max_rooms: formData.get('max_rooms') === '' ? null : Number(formData.get('max_rooms') || 0),
     description: String(formData.get('description') || '').trim(),
     equipment_options: parseAdminEquipmentValue(formData.get('equipment_options') || ''),
     is_available: formData.has('is_available'),
   };
 
-  if (!data.name || data.capacity < 1 || data.price_per_hour < 0) {
+  if (!data.name || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
     showToast('Sila lengkapkan maklumat fasiliti.', 'error');
     return;
   }
@@ -265,6 +266,10 @@ function openFacilityEditModal(id) {
         <label for="editFacilityPrice">Harga (RM) *</label>
         <input type="number" id="editFacilityPrice" min="0" max="999999.99" step="0.01" value="${escapeAttr(String(facility.price_per_hour || 0))}">
       </div>
+      <div class="form-group">
+        <label for="editFacilityMaxRooms">Had Bilik</label>
+        <input type="number" id="editFacilityMaxRooms" min="1" max="500" value="${escapeAttr(String(facility.max_rooms || ''))}" placeholder="10">
+      </div>
       <div class="form-group span-2">
         <label for="editFacilityDescription">Keterangan</label>
         <textarea id="editFacilityDescription" maxlength="2000" rows="3">${escapeHtml(facility.description || '')}</textarea>
@@ -301,12 +306,13 @@ async function updateFacility(id) {
     icon: document.getElementById('editFacilityIcon')?.value.trim() || 'bi-building',
     capacity: Number(document.getElementById('editFacilityCapacity')?.value || 0),
     price_per_hour: Number(document.getElementById('editFacilityPrice')?.value || 0),
+    max_rooms: document.getElementById('editFacilityMaxRooms')?.value === '' ? null : Number(document.getElementById('editFacilityMaxRooms')?.value || 0),
     description: document.getElementById('editFacilityDescription')?.value.trim() || '',
     equipment_options: parseAdminEquipmentValue(document.getElementById('editFacilityEquipment')?.value || ''),
     is_available: Boolean(document.getElementById('editFacilityAvailable')?.checked),
   };
 
-  if (!data.name || data.capacity < 1 || data.price_per_hour < 0) {
+  if (!data.name || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
     showToast('Sila lengkapkan maklumat fasiliti.', 'error');
     return;
   }
@@ -591,6 +597,7 @@ async function viewBookingDetail(id) {
     <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
     <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
     <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+    ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
     <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>

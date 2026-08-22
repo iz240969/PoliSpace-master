@@ -181,22 +181,103 @@ PREPARE blocking_date_index_stmt FROM @blocking_date_index_sql;
 EXECUTE blocking_date_index_stmt;
 DEALLOCATE PREPARE blocking_date_index_stmt;
 
+SET @facility_max_rooms_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'facilities'
+      AND COLUMN_NAME = 'max_rooms'
+);
+SET @facility_max_rooms_column_sql := IF(
+    @facility_max_rooms_column_exists = 0,
+    "ALTER TABLE facilities ADD COLUMN max_rooms INT NULL AFTER price_per_hour",
+    'SELECT 1'
+);
+PREPARE facility_max_rooms_column_stmt FROM @facility_max_rooms_column_sql;
+EXECUTE facility_max_rooms_column_stmt;
+DEALLOCATE PREPARE facility_max_rooms_column_stmt;
+
+SET @booking_asrama_type_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'asrama_type'
+);
+SET @booking_asrama_type_column_sql := IF(
+    @booking_asrama_type_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN asrama_type VARCHAR(30) NULL AFTER equipment_required",
+    'SELECT 1'
+);
+PREPARE booking_asrama_type_column_stmt FROM @booking_asrama_type_column_sql;
+EXECUTE booking_asrama_type_column_stmt;
+DEALLOCATE PREPARE booking_asrama_type_column_stmt;
+
+SET @booking_room_count_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'room_count'
+);
+SET @booking_room_count_column_sql := IF(
+    @booking_room_count_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN room_count INT NOT NULL DEFAULT 1 AFTER asrama_type",
+    'SELECT 1'
+);
+PREPARE booking_room_count_column_stmt FROM @booking_room_count_column_sql;
+EXECUTE booking_room_count_column_stmt;
+DEALLOCATE PREPARE booking_room_count_column_stmt;
+
+SET @booking_asrama_lelaki_rooms_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'asrama_lelaki_rooms'
+);
+SET @booking_asrama_lelaki_rooms_column_sql := IF(
+    @booking_asrama_lelaki_rooms_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN asrama_lelaki_rooms INT NOT NULL DEFAULT 0 AFTER asrama_type",
+    'SELECT 1'
+);
+PREPARE booking_asrama_lelaki_rooms_column_stmt FROM @booking_asrama_lelaki_rooms_column_sql;
+EXECUTE booking_asrama_lelaki_rooms_column_stmt;
+DEALLOCATE PREPARE booking_asrama_lelaki_rooms_column_stmt;
+
+SET @booking_asrama_perempuan_rooms_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'asrama_perempuan_rooms'
+);
+SET @booking_asrama_perempuan_rooms_column_sql := IF(
+    @booking_asrama_perempuan_rooms_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN asrama_perempuan_rooms INT NOT NULL DEFAULT 0 AFTER asrama_lelaki_rooms",
+    'SELECT 1'
+);
+PREPARE booking_asrama_perempuan_rooms_column_stmt FROM @booking_asrama_perempuan_rooms_column_sql;
+EXECUTE booking_asrama_perempuan_rooms_column_stmt;
+DEALLOCATE PREPARE booking_asrama_perempuan_rooms_column_stmt;
+
 INSERT INTO users (email, password, full_name, role)
 VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb7rm40SpJI56', 'Administrator', 'admin')
 ON DUPLICATE KEY UPDATE
     email = VALUES(email);
 
-INSERT INTO facilities (id, name, icon, capacity, price_per_hour, description, equipment_options, is_available) VALUES
-(1, 'Dewan Utama', 'bi-bank', 800, 450.00, 'Kemudahan: Econ, PA system, projector.', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
-(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, 'Kemudahan: Econ, PA system, projector.', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
-(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, 'Kemudahan: LCD, projector, econ.', '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
-(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, 'Kemudahan: TV besar, econ.', '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
-(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', '[{"name":"Komputer Tambahan","max":null},{"name":"Projektor","max":null}]', TRUE),
-(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', '[]', TRUE)
+INSERT INTO facilities (id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available) VALUES
+(1, 'Dewan Utama', 'bi-bank', 800, 450.00, NULL, 'Kemudahan: Econ, PA system, projector.', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
+(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, NULL, 'Kemudahan: Econ, PA system, projector.', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
+(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, NULL, 'Kemudahan: LCD, projector, econ.', '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
+(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, NULL, 'Kemudahan: TV besar, econ.', '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
+(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, NULL, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', '[{"name":"Komputer Tambahan","max":null},{"name":"Projektor","max":null}]', TRUE),
+(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 10, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', '[]', TRUE)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     icon = VALUES(icon),
     capacity = VALUES(capacity),
     price_per_hour = VALUES(price_per_hour),
+    max_rooms = VALUES(max_rooms),
     description = VALUES(description),
     equipment_options = VALUES(equipment_options);

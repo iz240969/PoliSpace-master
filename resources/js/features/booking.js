@@ -17,6 +17,51 @@ function isAsramaRoomFacility(facility) {
   return name.includes('asrama') && name.includes('bilik');
 }
 
+function selectedAsramaType() {
+  const selected = [];
+  if (Number(document.getElementById('f-asrama-lelaki-rooms')?.value || 0) > 0) selected.push('lelaki');
+  if (Number(document.getElementById('f-asrama-perempuan-rooms')?.value || 0) > 0) selected.push('perempuan');
+  return selected.join(',');
+}
+
+function normalizeRoomCount() {
+  const facility = getSelectedFacility();
+  const maxRooms = Math.max(1, Number(facility?.max_rooms || 10));
+  const lelakiInput = document.getElementById('f-asrama-lelaki-rooms');
+  const perempuanInput = document.getElementById('f-asrama-perempuan-rooms');
+  const totalInput = document.getElementById('f-room-count');
+  if (!lelakiInput || !perempuanInput || !totalInput) return 1;
+
+  let lelaki = Math.max(0, Math.floor(Number(lelakiInput.value || 0)));
+  let perempuan = Math.max(0, Math.floor(Number(perempuanInput.value || 0)));
+  if (lelaki + perempuan < 1) lelaki = 1;
+  if (lelaki + perempuan > maxRooms) {
+    const overflow = lelaki + perempuan - maxRooms;
+    if (document.activeElement === perempuanInput) lelaki = Math.max(0, lelaki - overflow);
+    else perempuan = Math.max(0, perempuan - overflow);
+  }
+
+  lelakiInput.max = String(maxRooms);
+  perempuanInput.max = String(maxRooms);
+  lelakiInput.value = String(lelaki);
+  perempuanInput.value = String(perempuan);
+  totalInput.value = String(lelaki + perempuan);
+  document.getElementById('asramaRoomTotalLabel').textContent = String(lelaki + perempuan);
+  document.getElementById('asramaRoomLimitLabel').textContent = `Maks. ${maxRooms} bilik`;
+  document.getElementById('asramaLelakiHint').textContent = `${lelaki} bilik`;
+  document.getElementById('asramaPerempuanHint').textContent = `${perempuan} bilik`;
+  return lelaki + perempuan;
+}
+
+function adjustAsramaSideRoom(side, delta) {
+  const input = document.getElementById(side === 'perempuan' ? 'f-asrama-perempuan-rooms' : 'f-asrama-lelaki-rooms');
+  if (!input) return;
+  input.value = String(Number(input.value || 1) + delta);
+  normalizeRoomCount();
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  updatePricing();
+}
+
 function setMinDate() {
   const el = document.getElementById('f-date');
   if (el) el.min = getMinimumBookingDateValue();
@@ -359,6 +404,7 @@ function getBookingFormData() {
     : '';
   const facility = getSelectedFacility();
   const asramaSelected = isAsramaRoomFacility(facility);
+  const roomCount = asramaSelected ? normalizeRoomCount() : 1;
   return {
     full_name: document.getElementById('f-name')?.value.trim() || '',
     organization: '',
@@ -372,7 +418,11 @@ function getBookingFormData() {
     duration_unit: selectedDurationUnit(),
     purpose: document.getElementById('f-purpose')?.value.trim() || '',
     equipment_required: asramaSelected ? '' : (document.getElementById('f-equipment')?.value.trim() || ''),
-    participant_count: asramaSelected ? 1 : Number(document.getElementById('f-participants')?.value || 0),
+    participant_count: asramaSelected ? roomCount * Number(facility?.capacity || 1) : Number(document.getElementById('f-participants')?.value || 0),
+    asrama_type: asramaSelected ? selectedAsramaType() : '',
+    asrama_lelaki_rooms: asramaSelected ? Number(document.getElementById('f-asrama-lelaki-rooms')?.value || 0) : 0,
+    asrama_perempuan_rooms: asramaSelected ? Number(document.getElementById('f-asrama-perempuan-rooms')?.value || 0) : 0,
+    room_count: roomCount,
     setup_required: 'full',
     estimated_cost: calculateCost().total,
   };
@@ -395,6 +445,20 @@ function validateBookingFormData(data, receiptFile = null) {
   if (isAsramaRoomFacility(facility) && durationUnit !== 'day') {
     return 'Asrama - Bilik hanya boleh ditempah mengikut hari.';
   }
+  if (isAsramaRoomFacility(facility)) {
+    const allowedTypes = ['lelaki', 'perempuan'];
+    const types = String(data.asrama_type || '').split(',').filter(Boolean);
+    if (!types.length || types.some((type) => !allowedTypes.includes(type))) {
+      return 'Sila pilih Asrama Lelaki, Asrama Perempuan, atau kedua-duanya.';
+    }
+    const maxRooms = Number(facility.max_rooms || 10);
+    if (!Number.isInteger(Number(data.room_count)) || Number(data.room_count) < 1 || Number(data.room_count) > maxRooms) {
+      return `Bilangan bilik mesti antara 1 hingga ${maxRooms}.`;
+    }
+    if ((Number(data.asrama_lelaki_rooms || 0) + Number(data.asrama_perempuan_rooms || 0)) !== Number(data.room_count)) {
+      return 'Jumlah bilik lelaki dan perempuan mesti sepadan dengan bilangan bilik.';
+    }
+  }
   if (!Number.isInteger(durationValue) || durationValue <= 0 || durationValue > DURATION_UNITS[durationUnit].max) {
     if (durationUnit === 'day') return 'Sila masukkan tempoh penggunaan antara 1 hingga 30 hari penuh.';
     return 'Sila masukkan tempoh penggunaan antara 1 hingga 24 jam penuh.';
@@ -402,7 +466,7 @@ function validateBookingFormData(data, receiptFile = null) {
   if (!Number.isInteger(data.participant_count) || data.participant_count < 1) {
     return 'Sila masukkan angka / jumlah pengguna yang sah.';
   }
-  if (facility.capacity > 0 && data.participant_count > facility.capacity) {
+  if (!isAsramaRoomFacility(facility) && facility.capacity > 0 && data.participant_count > facility.capacity) {
     return `Jumlah pengguna melebihi kapasiti ${facility.capacity} orang.`;
   }
   const startMinutes = bookingTimeToMinutes(data.start_time);
@@ -589,6 +653,10 @@ async function addBookingToCart() {
     purpose: data.purpose,
     equipment_required: data.equipment_required,
     participant_count: data.participant_count,
+    asrama_type: data.asrama_type,
+    asrama_lelaki_rooms: data.asrama_lelaki_rooms,
+    asrama_perempuan_rooms: data.asrama_perempuan_rooms,
+    room_count: data.room_count,
     setup_required: data.setup_required,
     estimated_cost: data.estimated_cost,
   };
@@ -732,6 +800,7 @@ function renderBookingCart() {
           <span><i class="bi bi-clock"></i> ${escapeHtml(item.start_time)} - ${escapeHtml(item.end_time || '-')}</span>
           <span><i class="bi bi-hourglass-split"></i> ${escapeHtml(String(item.duration || 1))} ${item.duration_unit === 'day' ? 'hari' : 'jam'}</span>
           <span><i class="bi bi-people"></i> ${escapeHtml(String(item.participant_count || 1))} orang</span>
+          ${item.asrama_type ? `<span><i class="bi bi-door-open"></i> ${escapeHtml(asramaRoomSplitLabel(item))}</span>` : ''}
         </div>
       </div>
       <div class="booking-cart-item-price">RM${escapeHtml(String(item.estimated_cost || 0))}</div>
@@ -760,6 +829,9 @@ function editBookingCartItem(id) {
     'f-purpose': item.purpose,
     'f-equipment': item.equipment_required,
     'f-participants': item.participant_count,
+    'f-room-count': item.room_count || 1,
+    'f-asrama-lelaki-rooms': item.asrama_lelaki_rooms || (String(item.asrama_type || '').includes('lelaki') ? item.room_count || 1 : 0),
+    'f-asrama-perempuan-rooms': item.asrama_perempuan_rooms || (String(item.asrama_type || '').includes('perempuan') && !String(item.asrama_type || '').includes('lelaki') ? item.room_count || 1 : 0),
   };
   Object.entries(values).forEach(([fieldId, value]) => {
     const field = document.getElementById(fieldId);
@@ -768,6 +840,7 @@ function editBookingCartItem(id) {
 
   bookingCartEditingId = id;
   applyDurationUnitState('f-duration', item.duration_unit === 'day' ? 'day' : 'hour');
+  normalizeRoomCount();
   initializeEquipmentField(item.equipment_required || '');
   clearReceiptUpload();
   updateBookingCartFormState();
@@ -850,6 +923,10 @@ async function submitBookingCart() {
       purpose: item.purpose,
       equipment_required: item.equipment_required,
       participant_count: Number(item.participant_count || 0),
+      asrama_type: item.asrama_type || '',
+      asrama_lelaki_rooms: Number(item.asrama_lelaki_rooms || 0),
+      asrama_perempuan_rooms: Number(item.asrama_perempuan_rooms || 0),
+      room_count: Number(item.room_count || 1),
       setup_required: item.setup_required || 'full',
       estimated_cost: Number(item.estimated_cost || 0),
       cart_group_ref: cartGroupRef,
@@ -902,6 +979,10 @@ function clearBookingDetailFields() {
   applyDurationUnitState('f-duration', 'hour');
   const participantsEl = document.getElementById('f-participants');
   if (participantsEl) participantsEl.value = '1';
+  const roomCountEl = document.getElementById('f-room-count');
+  if (roomCountEl) roomCountEl.value = '1';
+  if (document.getElementById('f-asrama-lelaki-rooms')) document.getElementById('f-asrama-lelaki-rooms').value = '1';
+  if (document.getElementById('f-asrama-perempuan-rooms')) document.getElementById('f-asrama-perempuan-rooms').value = '0';
   initializeEquipmentField();
   updateReceiptPreview();
   updateFacilityInfo();
@@ -950,6 +1031,24 @@ function adjustParticipantCount(inputId, delta) {
   const current = Number(input.value || min);
   input.value = String(Math.max(min, current + delta));
   input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function asramaTypeLabel(value = '') {
+  const types = String(value || '').split(',').filter(Boolean);
+  if (types.includes('lelaki') && types.includes('perempuan')) return 'Lelaki & Perempuan';
+  if (types.includes('lelaki')) return 'Lelaki';
+  if (types.includes('perempuan')) return 'Perempuan';
+  return '-';
+}
+
+function asramaRoomSplitLabel(item = {}) {
+  const lelaki = Number(item.asrama_lelaki_rooms || 0);
+  const perempuan = Number(item.asrama_perempuan_rooms || 0);
+  const total = Number(item.room_count || lelaki + perempuan || 1);
+  const parts = [];
+  if (lelaki > 0) parts.push(`${lelaki} lelaki`);
+  if (perempuan > 0) parts.push(`${perempuan} perempuan`);
+  return parts.length ? `${parts.join(', ')} (${total} bilik)` : `${asramaTypeLabel(item.asrama_type)} - ${total} bilik`;
 }
 
 async function doSignup() {

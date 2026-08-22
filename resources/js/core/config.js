@@ -23,5 +23,5 @@ const FALLBACK_FACILITIES = [
   { id: 3, name: 'Bilik Persidangan', icon: 'bi-people', capacity: 60, price_per_hour: 350, description: 'Kemudahan: LCD, projector, econ.', equipment_options: ['Projektor', 'TV LCD', 'Meja Mesyuarat'], is_available: true },
   { id: 4, name: 'Bilik Seminar', icon: 'bi-easel', capacity: 45, price_per_hour: 250, description: 'Kemudahan: TV besar, econ.', equipment_options: ['TV Besar', 'Papan Putih', 'Mikrofon'], is_available: true },
   { id: 5, name: 'Makmal Komputer - ILL 1', icon: 'bi-pc-display', capacity: 50, price_per_hour: 100, description: 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', equipment_options: ['Komputer Tambahan', 'Projektor'], is_available: true },
-  { id: 6, name: 'Asrama - Bilik', icon: 'bi-door-open', capacity: 2, price_per_hour: 10, description: 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', equipment_options: [], is_available: true },
+  { id: 6, name: 'Asrama - Bilik', icon: 'bi-door-open', capacity: 2, price_per_hour: 10, max_rooms: 10, description: 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', equipment_options: [], is_available: true },
 ];

@@ -18,6 +18,49 @@
 .form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-group.span-2 { grid-column: span 2; }
 .form-group.is-hidden-for-asrama { display: none; }
+.asrama-room-allocator {
+  display: grid;
+  gap: 10px;
+}
+.asrama-room-total,
+.asrama-room-side {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+.asrama-room-total {
+  grid-template-columns: auto 1fr auto;
+  background: var(--surface-2);
+}
+.asrama-room-total span,
+.asrama-room-side span {
+  font-size: 13px;
+  font-weight: 800;
+}
+.asrama-room-total strong {
+  justify-self: center;
+  font-family: var(--display-font);
+  font-size: 26px;
+  font-weight: 900;
+}
+.asrama-room-total small,
+.asrama-room-side small {
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 700;
+}
+.quantity-control.compact {
+  width: 190px;
+  min-width: 190px;
+}
+.quantity-control.compact input {
+  min-width: 56px;
+}
 
 label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--grey-4); font-weight: 700; }
 

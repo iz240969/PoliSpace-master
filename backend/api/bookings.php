@@ -16,6 +16,8 @@ $action = $_GET['action'] ?? '';
 ensureBookingEquipmentColumn($db);
 ensureBookingCartGroupColumn($db);
 ensureBookingDurationUnitColumn($db);
+ensureBookingAsramaColumns($db);
+ensureBookingFacilityMaxRoomsColumn($db);
 
 try {
     if ($method === 'GET') {
@@ -218,7 +220,7 @@ function createBooking(Database $db): void
     $data['phone'] = trim((string)($user['phone'] ?? ''));
     $facility = null;
     if (!empty($data['facility_id']) && ctype_digit((string)$data['facility_id'])) {
-        $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+        $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, max_rooms, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
         if ($facility && isAsramaRoomFacilityName((string)$facility['name'])) {
             $data['start_time'] = '00:00';
             $data['end_time'] = '';
@@ -234,7 +236,7 @@ function createBooking(Database $db): void
 
     $ref = generateBookingRef();
     if (!$facility) {
-        $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+        $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, max_rooms, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
     }
     if (!$facility) {
         jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
@@ -242,7 +244,7 @@ function createBooking(Database $db): void
     if (!(bool)$facility['is_available']) {
         jsonResponse(['success' => false, 'error' => 'Fasiliti ini tidak tersedia untuk tempahan.'], 409);
     }
-    if ((int)$data['participant_count'] > (int)$facility['capacity']) {
+    if (!isAsramaRoomFacilityName((string)$facility['name']) && (int)$data['participant_count'] > (int)$facility['capacity']) {
         jsonResponse(['success' => false, 'error' => 'Jumlah pengguna melebihi kapasiti fasiliti.'], 400);
     }
     $packageOnlyFacilities = ['dewan utama', 'dewan syarahan', 'bilik persidangan', 'bilik seminar'];
@@ -256,7 +258,10 @@ function createBooking(Database $db): void
         $data['start_time'] = '00:00';
         $data['end_time'] = '';
         $data['equipment_required'] = '';
-        $data['participant_count'] = 1;
+        validateAsramaBookingMeta($data, (int)($facility['max_rooms'] ?? 10));
+        $data['asrama_type'] = normalizeAsramaTypeFromRooms($data);
+        $data['room_count'] = normalizeAsramaRoomCount($data['room_count'] ?? 1, (int)($facility['max_rooms'] ?? 10));
+        $data['participant_count'] = $data['room_count'] * max(1, (int)$facility['capacity']);
     }
 
     $paymentFile = null;
@@ -283,15 +288,19 @@ function createBooking(Database $db): void
         $bookingStatus,
         &$paymentFile
     ): void {
-        $latestFacility = $db->fetchOne('SELECT name, capacity, price_per_hour, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
+        $latestFacility = $db->fetchOne('SELECT name, capacity, price_per_hour, max_rooms, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
         if (!$latestFacility || !(bool)$latestFacility['is_available']) {
             throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
         }
-        if ((int)$data['participant_count'] > (int)$latestFacility['capacity']) {
+        if (!isAsramaRoomFacilityName((string)$latestFacility['name']) && (int)$data['participant_count'] > (int)$latestFacility['capacity']) {
             throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
         }
         if (isAsramaRoomFacilityName((string)$latestFacility['name']) && ($data['duration_unit'] ?? 'hour') !== 'day') {
             throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
+        }
+        if (isAsramaRoomFacilityName((string)$latestFacility['name'])) {
+            validateAsramaBookingMeta($data, (int)($latestFacility['max_rooms'] ?? 10));
+            $data['asrama_type'] = normalizeAsramaTypeFromRooms($data);
         }
 
         assertBookingDatesAvailable($db, (int)$data['facility_id'], $requestedBookingDates);
@@ -309,8 +318,9 @@ function createBooking(Database $db): void
                 "INSERT INTO bookings (
                     booking_ref, user_id, facility_id, full_name, organization, email, phone,
                     booking_date, start_time, end_time, duration, duration_unit, purpose, participant_count,
-                    setup_required, equipment_required, payment_file, status, estimated_cost, cart_group_ref
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    setup_required, equipment_required, asrama_type, asrama_lelaki_rooms, asrama_perempuan_rooms,
+                    room_count, payment_file, status, estimated_cost, cart_group_ref
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $ref,
                     $userId,
@@ -328,9 +338,13 @@ function createBooking(Database $db): void
                     $data['participant_count'] ?? 0,
                     $data['setup_required'] ?? 'none',
                     $data['equipment_required'] ?? '',
+                    normalizeAsramaType((string)($data['asrama_type'] ?? '')),
+                    (int)($data['asrama_lelaki_rooms'] ?? 0),
+                    (int)($data['asrama_perempuan_rooms'] ?? 0),
+                    (int)($data['room_count'] ?? 1),
                     $paymentFile,
                     $bookingStatus,
-                    ((float)$latestFacility['price_per_hour']) * max(1, (int)($data['duration'] ?? 1)),
+                    ((float)$latestFacility['price_per_hour']) * max(1, (int)($data['duration'] ?? 1)) * max(1, (int)($data['room_count'] ?? 1)),
                     trim((string)($data['cart_group_ref'] ?? '')),
                 ]
             );
@@ -562,7 +576,7 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
             if (!(bool)$current['is_available']) {
                 throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
             }
-            if ($participantCount > (int)$current['capacity']) {
+            if (!isAsramaRoomFacilityName((string)$current['facility_name']) && $participantCount > (int)$current['capacity']) {
                 throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
             }
             if (isAsramaRoomFacilityName((string)$current['facility_name']) && $durationUnit !== 'day') {
@@ -637,10 +651,123 @@ function ensureBookingDurationUnitColumn(Database $db): void
     }
 }
 
+function ensureBookingAsramaColumns(Database $db): void
+{
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    $asramaTypeColumn = $db->fetchOne(
+        "SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'bookings'
+           AND COLUMN_NAME = 'asrama_type'"
+    );
+    if (!$asramaTypeColumn) {
+        $db->query('ALTER TABLE bookings ADD COLUMN asrama_type VARCHAR(30) NULL AFTER equipment_required');
+    }
+
+    $roomCountColumn = $db->fetchOne(
+        "SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'bookings'
+           AND COLUMN_NAME = 'room_count'"
+    );
+    if (!$roomCountColumn) {
+        $db->query('ALTER TABLE bookings ADD COLUMN room_count INT NOT NULL DEFAULT 1 AFTER asrama_type');
+    }
+
+    $lelakiRoomsColumn = $db->fetchOne(
+        "SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'bookings'
+           AND COLUMN_NAME = 'asrama_lelaki_rooms'"
+    );
+    if (!$lelakiRoomsColumn) {
+        $db->query('ALTER TABLE bookings ADD COLUMN asrama_lelaki_rooms INT NOT NULL DEFAULT 0 AFTER asrama_type');
+    }
+
+    $perempuanRoomsColumn = $db->fetchOne(
+        "SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'bookings'
+           AND COLUMN_NAME = 'asrama_perempuan_rooms'"
+    );
+    if (!$perempuanRoomsColumn) {
+        $db->query('ALTER TABLE bookings ADD COLUMN asrama_perempuan_rooms INT NOT NULL DEFAULT 0 AFTER asrama_lelaki_rooms');
+    }
+}
+
+function ensureBookingFacilityMaxRoomsColumn(Database $db): void
+{
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    $column = $db->fetchOne(
+        "SELECT 1
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'facilities'
+           AND COLUMN_NAME = 'max_rooms'"
+    );
+    if (!$column) {
+        $db->query('ALTER TABLE facilities ADD COLUMN max_rooms INT NULL AFTER price_per_hour');
+    }
+
+    $db->update("UPDATE facilities SET max_rooms = 10 WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%' AND (max_rooms IS NULL OR max_rooms < 1)");
+}
+
 function isAsramaRoomFacilityName(string $name): bool
 {
     $normalized = strtolower($name);
     return strpos($normalized, 'asrama') !== false && strpos($normalized, 'bilik') !== false;
+}
+
+function normalizeAsramaType(string $value): string
+{
+    $types = array_values(array_unique(array_filter(array_map('trim', explode(',', strtolower($value))))));
+    $allowed = ['lelaki', 'perempuan'];
+    $types = array_values(array_filter($types, static fn(string $type): bool => in_array($type, $allowed, true)));
+    sort($types);
+    return implode(',', $types);
+}
+
+function normalizeAsramaRoomCount(mixed $value, int $maxRooms): int
+{
+    $maxRooms = max(1, $maxRooms);
+    return min($maxRooms, max(1, (int)$value));
+}
+
+function normalizeAsramaTypeFromRooms(array $data): string
+{
+    $types = [];
+    if ((int)($data['asrama_lelaki_rooms'] ?? 0) > 0) $types[] = 'lelaki';
+    if ((int)($data['asrama_perempuan_rooms'] ?? 0) > 0) $types[] = 'perempuan';
+    return implode(',', $types);
+}
+
+function validateAsramaBookingMeta(array $data, int $maxRooms): void
+{
+    $lelakiRooms = (int)($data['asrama_lelaki_rooms'] ?? 0);
+    $perempuanRooms = (int)($data['asrama_perempuan_rooms'] ?? 0);
+    $roomCount = (int)($data['room_count'] ?? 0);
+    $type = normalizeAsramaTypeFromRooms($data) ?: normalizeAsramaType((string)($data['asrama_type'] ?? ''));
+    if ($type === '') {
+        throw new BookingAvailabilityException('Sila pilih Asrama Lelaki, Asrama Perempuan, atau kedua-duanya.', 400);
+    }
+
+    $maxRooms = max(1, $maxRooms);
+    if ($lelakiRooms < 0 || $perempuanRooms < 0 || $roomCount < 1 || $roomCount > $maxRooms) {
+        throw new BookingAvailabilityException("Bilangan bilik mesti antara 1 hingga {$maxRooms}.", 400);
+    }
+    if (($lelakiRooms + $perempuanRooms) !== $roomCount) {
+        throw new BookingAvailabilityException('Jumlah bilik lelaki dan perempuan mesti sepadan dengan bilangan bilik.', 400);
+    }
 }
 
 function uploadOwnReceipt(Database $db, string $id): void

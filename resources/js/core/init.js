@@ -26,6 +26,10 @@ async function init() {
     document.getElementById('f-facility')?.addEventListener('change', updateFacilityInfo);
     document.getElementById('f-date')?.addEventListener('change', renderBookingDatePicker);
     document.getElementById('f-receipt')?.addEventListener('change', updateReceiptPreview);
+    ['f-asrama-lelaki-rooms', 'f-asrama-perempuan-rooms'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', () => { normalizeRoomCount(); updatePricing(); });
+      document.getElementById(id)?.addEventListener('blur', normalizeRoomCount);
+    });
   }
 
   if (document.getElementById('dashboard')) {

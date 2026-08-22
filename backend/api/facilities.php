@@ -26,6 +26,23 @@ function ensureFacilityEquipmentColumn(Database $db): void
     }
 }
 
+function ensureFacilityMaxRoomsColumn(Database $db): void
+{
+    $exists = $db->fetchOne(
+        "SELECT COUNT(*) AS count
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = 'facilities'
+           AND COLUMN_NAME = 'max_rooms'"
+    );
+
+    if ((int)($exists['count'] ?? 0) === 0) {
+        $db->query('ALTER TABLE facilities ADD COLUMN max_rooms INT NULL AFTER price_per_hour');
+    }
+
+    $db->update("UPDATE facilities SET max_rooms = 10 WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%' AND (max_rooms IS NULL OR max_rooms < 1)");
+}
+
 function normalizeFacilityEquipmentOptions(mixed $value): string
 {
     if (is_array($value)) {
@@ -87,11 +104,12 @@ function backfillDefaultFacilityEquipment(Database $db): void
 
 try {
     ensureFacilityEquipmentColumn($db);
+    ensureFacilityMaxRoomsColumn($db);
     backfillDefaultFacilityEquipment($db);
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $facilities = $db->fetchAll(
-            'SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available, created_at, updated_at
              FROM facilities
              ORDER BY id'
         );
@@ -106,6 +124,9 @@ try {
         $icon = trim((string)($input['icon'] ?? 'bi-building'));
         $capacity = (int)($input['capacity'] ?? 0);
         $pricePerHour = (float)($input['price_per_hour'] ?? 0);
+        $maxRooms = array_key_exists('max_rooms', $input) && $input['max_rooms'] !== null && $input['max_rooms'] !== ''
+            ? (int)$input['max_rooms']
+            : null;
         $description = trim((string)($input['description'] ?? ''));
         $equipmentOptions = normalizeFacilityEquipmentOptions($input['equipment_options'] ?? '');
         $isAvailable = (int)(bool)($input['is_available'] ?? true);
@@ -128,6 +149,9 @@ try {
         if ($pricePerHour < 0 || $pricePerHour > 999999.99) {
             $errors['price_per_hour'] = 'Harga tidak sah.';
         }
+        if ($maxRooms !== null && ($maxRooms < 1 || $maxRooms > 500)) {
+            $errors['max_rooms'] = 'Had bilik mesti antara 1 hingga 500.';
+        }
 
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
@@ -138,12 +162,12 @@ try {
         }
 
         $id = $db->insert(
-            'INSERT INTO facilities (name, icon, capacity, price_per_hour, description, equipment_options, is_available)
-             VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [$name, $icon, $capacity, $pricePerHour, $description, $equipmentOptions, $isAvailable]
+            'INSERT INTO facilities (name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $equipmentOptions, $isAvailable]
         );
         $facility = $db->fetchOne(
-            'SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available, created_at, updated_at
              FROM facilities
              WHERE id = ?',
             [$id]
@@ -161,7 +185,7 @@ try {
             jsonResponse(['success' => false, 'error' => 'Facility ID required'], 400);
         }
 
-        $facility = $db->fetchOne('SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available FROM facilities WHERE id = ?', [$id]);
+        $facility = $db->fetchOne('SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available FROM facilities WHERE id = ?', [$id]);
         if (!$facility) {
             jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
         }
@@ -170,6 +194,9 @@ try {
         $icon = array_key_exists('icon', $input) ? trim((string)$input['icon']) : (string)$facility['icon'];
         $capacity = array_key_exists('capacity', $input) ? (int)$input['capacity'] : (int)$facility['capacity'];
         $pricePerHour = array_key_exists('price_per_hour', $input) ? (float)$input['price_per_hour'] : (float)$facility['price_per_hour'];
+        $maxRooms = array_key_exists('max_rooms', $input)
+            ? (($input['max_rooms'] === null || $input['max_rooms'] === '') ? null : (int)$input['max_rooms'])
+            : ($facility['max_rooms'] === null ? null : (int)$facility['max_rooms']);
         $description = array_key_exists('description', $input) ? trim((string)$input['description']) : (string)($facility['description'] ?? '');
         $equipmentOptions = array_key_exists('equipment_options', $input)
             ? normalizeFacilityEquipmentOptions($input['equipment_options'])
@@ -191,6 +218,9 @@ try {
         if ($pricePerHour < 0 || $pricePerHour > 999999.99) {
             $errors['price_per_hour'] = 'Harga tidak sah.';
         }
+        if ($maxRooms !== null && ($maxRooms < 1 || $maxRooms > 500)) {
+            $errors['max_rooms'] = 'Had bilik mesti antara 1 hingga 500.';
+        }
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
         }
@@ -198,16 +228,16 @@ try {
             jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
         }
 
-        withFacilityAvailabilityLock($db, $id, function () use ($db, $id, $name, $icon, $capacity, $pricePerHour, $description, $equipmentOptions, $isAvailable): void {
+        withFacilityAvailabilityLock($db, $id, function () use ($db, $id, $name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $equipmentOptions, $isAvailable): void {
             $db->update(
                 'UPDATE facilities
-                 SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, description = ?, equipment_options = ?, is_available = ?
+                 SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, max_rooms = ?, description = ?, equipment_options = ?, is_available = ?
                  WHERE id = ?',
-                [$name, $icon, $capacity, $pricePerHour, $description, $equipmentOptions, $isAvailable, $id]
+                [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $equipmentOptions, $isAvailable, $id]
             );
         });
         $updated = $db->fetchOne(
-            'SELECT id, name, icon, capacity, price_per_hour, description, equipment_options, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available, created_at, updated_at
              FROM facilities
              WHERE id = ?',
             [$id]

@@ -87,6 +87,31 @@
                   </div>
                 </div>
               </div>
+              <div class="form-group span-2 is-hidden-for-asrama" data-asrama-field="rooms">
+                <label>Bilangan Bilik *</label>
+                <div class="asrama-room-allocator">
+                  <div class="asrama-room-total">
+                    <span>Jumlah</span>
+                    <strong id="asramaRoomTotalLabel">1</strong>
+                    <small id="asramaRoomLimitLabel">Maks. 10 bilik</small>
+                    <input type="hidden" id="f-room-count" value="1">
+                  </div>
+                  <div class="asrama-room-side">
+                    <div>
+                      <span>Asrama Lelaki</span>
+                      <small id="asramaLelakiHint">0 bilik</small>
+                    </div>
+                    <div class="quantity-control compact"><button type="button" onclick="adjustAsramaSideRoom('lelaki', -1)" aria-label="Kurangkan bilik asrama lelaki"><i class="bi bi-dash-lg"></i></button><input type="number" id="f-asrama-lelaki-rooms" min="0" max="10" step="1" value="1"><button type="button" onclick="adjustAsramaSideRoom('lelaki', 1)" aria-label="Tambah bilik asrama lelaki"><i class="bi bi-plus-lg"></i></button></div>
+                  </div>
+                  <div class="asrama-room-side">
+                    <div>
+                      <span>Asrama Perempuan</span>
+                      <small id="asramaPerempuanHint">0 bilik</small>
+                    </div>
+                    <div class="quantity-control compact"><button type="button" onclick="adjustAsramaSideRoom('perempuan', -1)" aria-label="Kurangkan bilik asrama perempuan"><i class="bi bi-dash-lg"></i></button><input type="number" id="f-asrama-perempuan-rooms" min="0" max="10" step="1" value="0"><button type="button" onclick="adjustAsramaSideRoom('perempuan', 1)" aria-label="Tambah bilik asrama perempuan"><i class="bi bi-plus-lg"></i></button></div>
+                  </div>
+                </div>
+              </div>
               <div class="form-group span-2"><label>Tujuan Penggunaan *</label><textarea id="f-purpose"></textarea></div>
               <div class="form-group span-2" data-asrama-optional-field="equipment">
                 <label>Peralatan Diperlukan</label>

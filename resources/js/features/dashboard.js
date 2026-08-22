@@ -368,6 +368,7 @@ async function viewUserBookingDetail(id) {
       <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
       <div class="detail-row"><span class="detail-label">${isDayBooking(booking) ? 'Tempoh' : 'Masa'}</span><span class="detail-value">${dashboardBookingDurationLabel(booking)}</span></div>
       <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+      ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
       ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value">${escapeHtml(booking.adminNote)}</span></div>` : ''}
@@ -544,7 +545,7 @@ async function submitUserBookingEdit(id) {
   }
   const currentBooking = psDashboardBookings.find((booking) => booking.id === id || booking.booking_ref === id);
   const facility = facilitiesCache.find((item) => String(item.id) === String(currentBooking?.facilityId || currentBooking?.facility_id));
-  if (facility?.capacity > 0 && data.participant_count > facility.capacity) {
+  if (!isAsramaRoomFacility(facility) && facility?.capacity > 0 && data.participant_count > facility.capacity) {
     showToast(`Jumlah pengguna melebihi kapasiti ${facility.capacity} orang.`, 'error');
     return;
   }
