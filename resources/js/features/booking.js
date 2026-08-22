@@ -386,7 +386,7 @@ async function submitBooking() {
   try {
     const ref = await createBookingRecord(data, receiptFile);
     if (bookingCartEditingId) removeBookingCartItem(bookingCartEditingId, false);
-    showBookingSuccess(ref);
+    showBookingSuccess(ref, [getSelectedFacility()]);
   } catch (error) {
     showToast(error.message || 'Tempahan gagal dihantar.', 'error');
   } finally {
@@ -629,7 +629,7 @@ async function addBookingToCart() {
       updateBookingCartFormState();
       clearBookingDetailFields();
       renderBookingCart();
-      showToast(`Tempahan dengan resit dihantar. Rujukan: ${ref}`, 'success');
+      showBookingSuccess(ref, [facility]);
     } catch (error) {
       showToast(error.message || 'Tempahan dengan resit gagal dihantar.', 'error');
     } finally {
@@ -959,7 +959,11 @@ async function submitBookingCart() {
     if (receiptInput) receiptInput.value = '';
     updateBookingCartFormState();
     closeBookingCart();
-    showBookingSuccess(references.join(', '));
+    const submittedFacilities = items
+      .filter((item) => completedIds.includes(item.id))
+      .map((item) => facilitiesCache.find((facility) => String(facility.id) === String(item.facility_id)))
+      .filter(Boolean);
+    showBookingSuccess(references.join(', '), submittedFacilities);
     return;
   }
 
@@ -1017,10 +1021,25 @@ function clearReceiptUpload() {
   updateReceiptPreview();
 }
 
-function showBookingSuccess(ref) {
+function showBookingSuccess(ref, facilities = []) {
   document.getElementById('booking-form-wrap').style.display = 'none';
   document.getElementById('successScreen').classList.add('show');
   setText('refCode', ref || '');
+  const container = document.getElementById('successPicInfo');
+  if (!container) return;
+  const uniqueFacilities = facilities.filter((facility, index, list) => facility
+    && list.findIndex((item) => String(item?.id) === String(facility.id)) === index);
+  container.innerHTML = uniqueFacilities.map((facility) => `
+    <div class="success-pic-item">
+      <i class="bi bi-person-badge"></i>
+      <div>
+        <span>PIC ${escapeHtml(facility.name || 'Fasiliti')}</span>
+        <strong>${escapeHtml(facility.pic_full_name || '-')}</strong>
+        <small>${escapeHtml(facility.pic_phone || '-')}</small>
+      </div>
+    </div>
+  `).join('');
+  container.classList.toggle('show', uniqueFacilities.length > 0);
 }
 
 function adjustParticipantCount(inputId, delta) {

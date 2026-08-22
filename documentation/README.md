@@ -53,6 +53,7 @@ The database stores English status values. The UI displays Malay labels.
 unpaid     Belum Bayar
 pending    Menunggu
 approved   Diluluskan
+completed  Selesai
 rejected   Ditolak
 cancelled  Dibatalkan
 ```
@@ -64,7 +65,7 @@ Blocks availability:
 pending, approved
 
 Does not block availability:
-unpaid, rejected, cancelled
+unpaid, completed, rejected, cancelled
 ```
 
 Business behavior:
@@ -75,6 +76,7 @@ Business behavior:
 - Day-based bookings block every date in their selected duration. A 2-day Asrama booking blocks both dates for Asrama only.
 - Uploading a receipt from the dashboard changes an `unpaid` booking to `pending` and performs the same conflict check.
 - `approved` bookings remain reserved.
+- Admin can mark an `approved` booking as `completed`. This releases the historical slot, sends a completion email automatically, and records `completed_at` plus `completion_email_sent_at`.
 - Admin can reject `unpaid`, `pending`, or `approved` bookings. A rejection note is required.
 - User cancellation changes an `unpaid` or `pending` booking to `cancelled`.
 - `rejected` and `cancelled` bookings release the slot but remain in history.
@@ -101,6 +103,7 @@ Additional form behavior:
 - Duration is placed below start time and participant count uses the full available width.
 - Users can add multiple equipment requests and set a quantity for each item.
 - Equipment choices are loaded from the selected facility's `equipment_options`, so each facility can expose a different equipment list.
+- The selected facility's PIC full name and phone number are shown in the form and remain available in the user dashboard and status details.
 - Equipment is stored in `equipment_required` as readable text, for example `Mikrofon x 2, Projektor x 1`.
 
 Receipt uploads accept JPG, PNG, GIF, or PDF up to 5MB.
@@ -178,13 +181,13 @@ Facility cards use `Arial Black` for the facility name. The Asrama capacity labe
 
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the backend forces `setup_required` to `full`.
 
-Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. Facility cards can also be edited, including facility-specific equipment options. The create action calls:
+Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. Facility cards can also be edited, including the PIC full name, PIC phone number, and facility-specific equipment options. The create action calls:
 
 ```text
 POST backend/api/facilities.php
 ```
 
-Required fields are facility name, capacity, and price. Optional fields are Bootstrap icon class, description, equipment options, and initial availability.
+Required fields are facility name, capacity, price, PIC full name, and PIC phone number. Optional fields are Bootstrap icon class, description, equipment options, and initial availability.
 
 ## Database
 

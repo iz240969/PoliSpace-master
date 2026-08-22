@@ -379,6 +379,7 @@
 .status-booked { background: #FDECEC; color: var(--red); }
 .status-pending { background: #FDF3E3; color: var(--amber); }
 .status-unpaid { background: #EEF2FF; color: #4F46E5; }
+.status-completed { background: #E8F7F4; color: #087F6B; }
 .landing-calendar-marker.unpaid { background: #4F46E5; }
 
 .facility-arrow { position: absolute; top: 28px; right: 28px; font-size: 20px; color: var(--grey-3); transition: var(--transition); }

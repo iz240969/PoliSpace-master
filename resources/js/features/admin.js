@@ -1,4 +1,6 @@
 ﻿// ==================== ADMIN ====================
+let adminMessagesCache = [];
+
 function handleAdminAuthorizationError(error) {
   if (![401, 403].includes(error?.status)) return false;
   clearStoredAuthState();
@@ -26,6 +28,7 @@ async function renderAdminDashboard() {
       total: 0,
       pending: 0,
       approved: 0,
+      completed: 0,
       today: 0,
     };
     showToast(error.message || 'Data dashboard tidak dapat dimuatkan.', 'error');
@@ -47,6 +50,7 @@ function buildStatsHTML(stats) {
     <div class="stat-card"><div class="stat-card-label">Jumlah Tempahan</div><div class="stat-card-value">${stats.total}</div></div>
     <div class="stat-card"><div class="stat-card-label">Menunggu Semakan</div><div class="stat-card-value" style="color:var(--amber)">${stats.pending}</div></div>
     <div class="stat-card"><div class="stat-card-label">Diluluskan</div><div class="stat-card-value" style="color:var(--green)">${stats.approved}</div></div>
+    <div class="stat-card"><div class="stat-card-label">Selesai</div><div class="stat-card-value" style="color:#087F6B">${stats.completed || 0}</div></div>
     <div class="stat-card"><div class="stat-card-label">Hari Ini</div><div class="stat-card-value">${stats.today || 0}</div></div>
   `;
 }
@@ -63,6 +67,8 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
   tbody.innerHTML = bookings.map((b) => {
     const canApprove = b.status === 'pending';
     const canReject = ['pending', 'approved'].includes(b.status);
+    const canComplete = b.status === 'approved';
+    const canRetryEmail = b.status === 'completed' && !b.completionEmailSentAt;
     return `
     <tr>
       <td><div class="booking-id" title="${escapeAttr(b.id)}">${escapeHtml(b.id)}</div></td>
@@ -71,7 +77,7 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
       <td class="table-date">${formatDate(b.date)}</td>
       ${!isRecent ? `<td class="table-time">${escapeHtml(b.start)} - ${escapeHtml(b.end || '?')}</td>` : ''}
       <td class="table-status">${statusBadgeHtml(b.status)}</td>
-      <td><div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(b.id)}')" title="Terima tempahan" aria-label="Terima tempahan ${escapeAttr(b.id)}"><i class="bi bi-check-lg"></i> Terima</button>` : ''}${canReject ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(b.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(b.id)}"><i class="bi bi-eye"></i></button></div></td>
+      <td><div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(b.id)}')" title="Terima tempahan" aria-label="Terima tempahan ${escapeAttr(b.id)}"><i class="bi bi-check-lg"></i> Terima</button>` : ''}${canComplete ? `<button class="btn btn-primary btn-sm admin-decision-btn" onclick="completeBooking('${escapeAttr(b.id)}')" title="Tandakan selesai dan e-mel pelanggan"><i class="bi bi-envelope-check"></i> Selesai</button>` : ''}${canRetryEmail ? `<button class="btn btn-secondary btn-sm admin-decision-btn" onclick="retryCompletionEmail('${escapeAttr(b.id)}')" title="Cuba hantar e-mel semula"><i class="bi bi-envelope-arrow-up"></i> E-mel</button>` : ''}${canReject ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(b.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(b.id)}"><i class="bi bi-eye"></i></button></div></td>
     </tr>
   `;
   }).join('');
@@ -358,6 +364,7 @@ function renderFacilityManagement(facilities) {
       <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
       <div class="fmc-cap">Kapasiti: ${escapeHtml(f.capacity)} orang${isAsramaRoomFacility(f) && f.max_rooms ? ` - Had ${escapeHtml(f.max_rooms)} bilik` : ''} - RM${escapeHtml(f.price_per_hour)}</div>
+      <div class="fmc-pic"><i class="bi bi-person-badge"></i> <strong>${escapeHtml(f.pic_full_name || '-')}</strong><span>${escapeHtml(f.pic_phone || '-')}</span></div>
       <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
       <div class="fmc-footer">
         <button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button>
@@ -463,11 +470,13 @@ async function addFacility(event) {
     price_per_hour: Number(formData.get('price_per_hour') || 0),
     max_rooms: formData.get('max_rooms') === '' ? null : Number(formData.get('max_rooms') || 0),
     description: String(formData.get('description') || '').trim(),
+    pic_full_name: String(formData.get('pic_full_name') || '').trim(),
+    pic_phone: String(formData.get('pic_phone') || '').trim(),
     equipment_options: parseAdminEquipmentValue(formData.get('equipment_options') || ''),
     is_available: formData.has('is_available'),
   };
 
-  if (!data.name || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
+  if (!data.name || !data.pic_full_name || !/^[0-9+()\-\s]{7,20}$/.test(data.pic_phone) || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
     showToast('Sila lengkapkan maklumat fasiliti.', 'error');
     return;
   }
@@ -500,45 +509,63 @@ function openFacilityEditModal(id) {
   setText('modalTitle', `Edit Fasiliti - ${facility.name}`);
   document.getElementById('modalBody').innerHTML = `
     <div class="edit-facility-form">
-      <div class="form-group">
-        <label for="editFacilityName">Nama Fasiliti *</label>
-        <input type="text" id="editFacilityName" maxlength="100" value="${escapeAttr(facility.name)}">
-      </div>
-      <div class="form-group">
-        <label for="editFacilityIcon">Ikon Bootstrap</label>
-        <input type="text" id="editFacilityIcon" maxlength="50" value="${escapeAttr(facility.icon || 'bi-building')}">
-      </div>
-      <div class="form-group">
-        <label for="editFacilityCapacity">Kapasiti *</label>
-        <input type="number" id="editFacilityCapacity" min="1" max="5000" value="${escapeAttr(String(facility.capacity || 1))}">
-      </div>
-      <div class="form-group">
-        <label for="editFacilityPrice">Harga (RM) *</label>
-        <input type="number" id="editFacilityPrice" min="0" max="999999.99" step="0.01" value="${escapeAttr(String(facility.price_per_hour || 0))}">
-      </div>
-      <div class="form-group">
-        <label for="editFacilityMaxRooms">Had Bilik</label>
-        <input type="number" id="editFacilityMaxRooms" min="1" max="500" value="${escapeAttr(String(facility.max_rooms || ''))}" placeholder="10">
-      </div>
-      <div class="form-group span-2">
-        <label for="editFacilityDescription">Keterangan</label>
-        <textarea id="editFacilityDescription" maxlength="2000" rows="3">${escapeHtml(facility.description || '')}</textarea>
-      </div>
-      <div class="form-group span-2">
-        <label for="editFacilityEquipment">Peralatan</label>
-        <input type="hidden" id="editFacilityEquipment" value="${escapeAttr(adminEquipmentTextareaValue(facility))}">
-        <div class="admin-equipment-builder" data-equipment-builder="editFacilityEquipment">
-          <div class="admin-equipment-add-row">
-            <input type="text" id="editFacilityEquipmentNew" placeholder="cth: Mikrofon" onkeydown="if(event.key==='Enter'){event.preventDefault();addAdminEquipmentOption('editFacilityEquipment')}">
-            <button class="btn btn-secondary btn-sm" type="button" onclick="addAdminEquipmentOption('editFacilityEquipment')"><i class="bi bi-plus-lg"></i> Tambah</button>
+      <section class="edit-facility-section span-2">
+        <div class="admin-facility-section-title">Maklumat Fasiliti</div>
+        <div class="edit-facility-section-grid">
+          <div class="form-group">
+            <label for="editFacilityName">Nama Fasiliti *</label>
+            <input type="text" id="editFacilityName" maxlength="100" value="${escapeAttr(facility.name)}">
           </div>
-          <div class="admin-equipment-grid" id="editFacilityEquipmentGrid"></div>
+          <div class="form-group">
+            <label for="editFacilityIcon">Ikon Bootstrap</label>
+            <input type="text" id="editFacilityIcon" maxlength="50" value="${escapeAttr(facility.icon || 'bi-building')}">
+          </div>
+          <div class="form-group">
+            <label for="editFacilityCapacity">Kapasiti *</label>
+            <input type="number" id="editFacilityCapacity" min="1" max="5000" value="${escapeAttr(String(facility.capacity || 1))}">
+          </div>
+          <div class="form-group">
+            <label for="editFacilityPrice">Harga (RM) *</label>
+            <input type="number" id="editFacilityPrice" min="0" max="999999.99" step="0.01" value="${escapeAttr(String(facility.price_per_hour || 0))}">
+          </div>
+          <div class="form-group">
+            <label for="editFacilityMaxRooms">Had Bilik</label>
+            <input type="number" id="editFacilityMaxRooms" min="1" max="500" value="${escapeAttr(String(facility.max_rooms || ''))}" placeholder="10">
+          </div>
+          <label class="admin-facility-check">
+            <input type="checkbox" id="editFacilityAvailable" ${facility.is_available ? 'checked' : ''}>
+            <span>Tersedia untuk tempahan</span>
+          </label>
+          <div class="form-group span-2">
+            <label for="editFacilityDescription">Keterangan</label>
+            <textarea id="editFacilityDescription" maxlength="2000" rows="3">${escapeHtml(facility.description || '')}</textarea>
+          </div>
+          <div class="form-group span-2">
+            <label for="editFacilityEquipment">Peralatan</label>
+            <input type="hidden" id="editFacilityEquipment" value="${escapeAttr(adminEquipmentTextareaValue(facility))}">
+            <div class="admin-equipment-builder" data-equipment-builder="editFacilityEquipment">
+              <div class="admin-equipment-add-row">
+                <input type="text" id="editFacilityEquipmentNew" placeholder="cth: Mikrofon" onkeydown="if(event.key==='Enter'){event.preventDefault();addAdminEquipmentOption('editFacilityEquipment')}">
+                <button class="btn btn-secondary btn-sm" type="button" onclick="addAdminEquipmentOption('editFacilityEquipment')"><i class="bi bi-plus-lg"></i> Tambah</button>
+              </div>
+              <div class="admin-equipment-grid" id="editFacilityEquipmentGrid"></div>
+            </div>
+          </div>
         </div>
-      </div>
-      <label class="admin-facility-check span-2">
-        <input type="checkbox" id="editFacilityAvailable" ${facility.is_available ? 'checked' : ''}>
-        <span>Tersedia untuk tempahan</span>
-      </label>
+      </section>
+      <section class="edit-facility-section span-2">
+        <div class="admin-facility-section-title">Maklumat PIC</div>
+        <div class="edit-facility-section-grid edit-facility-pic-grid">
+          <div class="form-group">
+            <label for="editFacilityPicFullName">Nama Penuh PIC *</label>
+            <input type="text" id="editFacilityPicFullName" maxlength="100" value="${escapeAttr(facility.pic_full_name || '')}">
+          </div>
+          <div class="form-group">
+            <label for="editFacilityPicPhone">No Telefon PIC *</label>
+            <input type="tel" id="editFacilityPicPhone" maxlength="20" value="${escapeAttr(facility.pic_phone || '')}">
+          </div>
+        </div>
+      </section>
     </div>
   `;
   renderAdminEquipmentOptions('editFacilityEquipment');
@@ -558,11 +585,13 @@ async function updateFacility(id) {
     price_per_hour: Number(document.getElementById('editFacilityPrice')?.value || 0),
     max_rooms: document.getElementById('editFacilityMaxRooms')?.value === '' ? null : Number(document.getElementById('editFacilityMaxRooms')?.value || 0),
     description: document.getElementById('editFacilityDescription')?.value.trim() || '',
+    pic_full_name: document.getElementById('editFacilityPicFullName')?.value.trim() || '',
+    pic_phone: document.getElementById('editFacilityPicPhone')?.value.trim() || '',
     equipment_options: parseAdminEquipmentValue(document.getElementById('editFacilityEquipment')?.value || ''),
     is_available: Boolean(document.getElementById('editFacilityAvailable')?.checked),
   };
 
-  if (!data.name || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
+  if (!data.name || !data.pic_full_name || !/^[0-9+()\-\s]{7,20}$/.test(data.pic_phone) || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
     showToast('Sila lengkapkan maklumat fasiliti.', 'error');
     return;
   }
@@ -713,9 +742,11 @@ async function loadMessages() {
 
   try {
     const result = await tryApi('messages.php');
-    renderMessagesTable(result.data || []);
+    adminMessagesCache = result.data || [];
+    renderMessagesTable(adminMessagesCache);
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
+    adminMessagesCache = [];
     tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-chat-square-x"></i></div><div class="empty-state-title">Mesej tidak dapat dimuatkan</div></div></td></tr>';
   }
 }
@@ -729,17 +760,82 @@ function renderMessagesTable(messages) {
   }
 
   tbody.innerHTML = messages.map((message) => {
-    const replySubject = encodeURIComponent(`Re: ${message.subject || 'Mesej PoliSpace'}`);
+    const hasReply = Boolean(message.admin_reply);
+    const replyStatus = hasReply
+      ? `<div class="admin-message-reply"><span class="admin-message-reply-label">Dibalas</span>${escapeHtml(message.admin_reply)}</div>`
+      : '<div class="admin-message-pending">Belum dibalas</div>';
     return `
       <tr>
         <td><span class="table-email" title="${escapeAttr(message.email)}">${escapeHtml(message.email)}</span></td>
         <td>${escapeHtml(message.subject || '-')}</td>
-        <td class="admin-message-content">${escapeHtml(message.message || '-')}</td>
+        <td class="admin-message-content"><div>${escapeHtml(message.message || '-')}</div>${replyStatus}</td>
         <td class="table-date">${escapeHtml(formatDateTime(message.created_at))}</td>
-        <td><div class="table-actions"><a class="btn btn-secondary btn-sm table-icon-btn" href="mailto:${escapeAttr(message.email)}?subject=${replySubject}" title="Balas melalui e-mel" aria-label="Balas mesej ${escapeAttr(message.email)}"><i class="bi bi-reply"></i></a></div></td>
+        <td><div class="table-actions"><button class="btn btn-secondary btn-sm table-icon-btn" type="button" onclick="openMessageReplyModal('${escapeAttr(message.id)}')" title="Balas mesej" aria-label="Balas mesej ${escapeAttr(message.email)}"><i class="bi bi-reply"></i></button></div></td>
       </tr>
     `;
   }).join('');
+}
+
+function findAdminMessage(id) {
+  return (adminMessagesCache || []).find((message) => String(message.id) === String(id)) || null;
+}
+
+function openMessageReplyModal(id) {
+  const message = findAdminMessage(id);
+  if (!message) {
+    showToast('Mesej tidak dijumpai.', 'error');
+    return;
+  }
+
+  setText('modalTitle', `Balas Mesej - ${message.email}`);
+  document.getElementById('modalBody').innerHTML = `
+    <div class="admin-message-thread">
+      <div class="admin-message-thread-item">
+        <div class="admin-message-thread-meta">${escapeHtml(message.subject || '-')} &bull; ${escapeHtml(formatDateTime(message.created_at))}</div>
+        <div class="admin-message-thread-text">${escapeHtml(message.message || '-')}</div>
+      </div>
+      <div class="form-group">
+        <label for="adminReplyText">Balasan Admin *</label>
+        <textarea id="adminReplyText" maxlength="5000" rows="6" placeholder="Tulis balasan kepada pelanggan...">${escapeHtml(message.admin_reply || '')}</textarea>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-secondary" type="button" onclick="closeModal('bookingModal')">Batal</button>
+    <button class="btn btn-primary" id="adminReplyButton" type="button" onclick="sendMessageReply('${escapeAttr(message.id)}')"><i class="bi bi-send"></i> Hantar Balasan</button>
+  `;
+  document.getElementById('bookingModal')?.classList.add('active');
+  document.getElementById('adminReplyText')?.focus();
+}
+
+async function sendMessageReply(id) {
+  const replyEl = document.getElementById('adminReplyText');
+  const reply = replyEl?.value.trim() || '';
+  if (reply.length < 2) {
+    showToast('Sila tulis balasan admin.', 'error');
+    replyEl?.focus();
+    return;
+  }
+
+  const button = document.getElementById('adminReplyButton');
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
+  }
+
+  try {
+    await tryApi(`messages.php?action=reply&id=${encodeURIComponent(id)}`, 'PUT', { reply });
+    closeModal('bookingModal');
+    await loadMessages();
+    showToast('Balasan telah dihantar kepada pelanggan.', 'success');
+  } catch (error) {
+    showToast(error.message || 'Balasan gagal dihantar.', 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = '<i class="bi bi-send"></i> Hantar Balasan';
+    }
+  }
 }
 
 function renderCalendar(bookings = [], viewDate = bookingCalendarDate) {
@@ -844,20 +940,31 @@ async function viewBookingDetail(id) {
       <div><div style="font-family:var(--display-font);font-size:16px;font-weight:900">${escapeHtml(booking.facilityName)}</div><div style="font-size:12px;color:var(--grey-4);margin-top:2px">${formatDate(booking.date)}</div></div>
       <div style="margin-left:auto">${statusBadgeHtml(booking.status)}</div>
     </div>
-    <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
-    <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
-    <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
-    ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
-    <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
-    <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
-    <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
+    <div class="admin-detail-section">
+      <div class="admin-facility-section-title">Maklumat Tempahan</div>
+      <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
+      <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
+      <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+      ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
+      <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
+      ${booking.status === 'completed' ? `<div class="detail-row"><span class="detail-label">E-mel Selesai</span><span class="detail-value">${booking.completionEmailSentAt ? `Dihantar ${escapeHtml(formatDateTime(booking.completionEmailSentAt))}` : 'Belum dihantar'}</span></div>` : ''}
+    </div>
+    <div class="admin-detail-section">
+      <div class="admin-facility-section-title">Maklumat PIC</div>
+      <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">No Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
+    </div>
     ${['pending', 'approved'].includes(booking.status) ? rejectNoteHtml(booking.status, booking.adminNote) : ''}
   `;
   document.getElementById('modalFooter').innerHTML = booking.status === 'pending'
     ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> Luluskan</button>`
     : booking.status === 'approved'
-      ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak Tempahan</button>`
-    : `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
+      ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak Tempahan</button><button class="btn btn-primary" onclick="completeBooking('${escapeAttr(booking.id)}', true)"><i class="bi bi-envelope-check"></i> Selesai & E-mel</button>`
+    : booking.status === 'completed' && !booking.completionEmailSentAt
+      ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button><button class="btn btn-primary" onclick="retryCompletionEmail('${escapeAttr(booking.id)}', true)"><i class="bi bi-envelope-arrow-up"></i> Hantar E-mel Semula</button>`
+      : `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
   document.getElementById('bookingModal')?.classList.add('active');
 }
 
@@ -876,14 +983,14 @@ function rejectNoteHtml(status, currentNote = '') {
 
 async function updateStatus(id, status, note = '') {
   try {
-    await tryApi(`bookings.php?action=status&id=${encodeURIComponent(id)}`, 'PUT', { status, admin_note: note });
+    const result = await tryApi(`bookings.php?action=status&id=${encodeURIComponent(id)}`, 'PUT', { status, admin_note: note });
+    await renderAdminDashboard();
+    return result;
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return false;
     showToast(error.message || 'Status tempahan gagal dikemas kini.', 'error');
     return false;
   }
-  await renderAdminDashboard();
-  return true;
 }
 
 async function approveBooking(id) {
@@ -894,6 +1001,29 @@ async function approveBookingFromModal(id) {
   if (await updateStatus(id, 'approved', document.getElementById('modalNote')?.value || '')) {
     closeModal('bookingModal');
     showToast('Diluluskan', 'success');
+  }
+}
+
+async function completeBooking(id, fromModal = false) {
+  if (!window.confirm(`Tandakan tempahan ${id} sebagai selesai dan hantar e-mel kepada pelanggan?`)) return;
+  const result = await updateStatus(id, 'completed');
+  if (!result) return;
+  if (fromModal) closeModal('bookingModal');
+  showToast(
+    result.email_sent ? 'Tempahan selesai dan e-mel telah dihantar.' : (result.warning || 'Tempahan selesai tetapi e-mel gagal dihantar.'),
+    result.email_sent ? 'success' : 'error'
+  );
+}
+
+async function retryCompletionEmail(id, fromModal = false) {
+  try {
+    await tryApi(`bookings.php?action=completion-email&id=${encodeURIComponent(id)}`, 'POST');
+    if (fromModal) closeModal('bookingModal');
+    await renderAdminDashboard();
+    showToast('E-mel selesai telah dihantar.', 'success');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'E-mel tidak dapat dihantar.', 'error');
   }
 }
 

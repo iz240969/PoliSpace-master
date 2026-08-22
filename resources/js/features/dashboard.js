@@ -3,6 +3,7 @@ let psCurrentUserEmail = localStorage.getItem('ps_user_email') || '';
 let pendingCancelBookingId = '';
 let pendingReceiptBookingId = '';
 let psDashboardBookings = [];
+let psContactMessages = [];
 const psExpandedBookingGroups = new Set();
 
 function initDashboard() {
@@ -110,6 +111,8 @@ function bookingMatchesDashboardQuery(booking, query) {
     booking.booking_ref,
     booking.cartGroupRef,
     booking.facilityName,
+    booking.picFullName,
+    booking.picPhone,
     booking.purpose,
     booking.date,
     booking.status,
@@ -152,9 +155,11 @@ function groupStatusBadgeHtml(bookings) {
   if (statuses.length === 1) return statusBadgeHtml(statuses[0]);
   const pendingCount = bookings.filter((booking) => booking.status === 'pending').length;
   const approvedCount = bookings.filter((booking) => booking.status === 'approved').length;
+  const completedCount = bookings.filter((booking) => booking.status === 'completed').length;
   const unpaidCount = bookings.filter((booking) => booking.status === 'unpaid').length;
   if (pendingCount) return `<span class="status-badge status-pending">${pendingCount} Menunggu</span>`;
   if (approvedCount) return `<span class="status-badge status-approved">${approvedCount} Diluluskan</span>`;
+  if (completedCount) return `<span class="status-badge status-completed">${completedCount} Selesai</span>`;
   if (unpaidCount) return `<span class="status-badge status-unpaid">${unpaidCount} Belum Bayar</span>`;
   return `<span class="status-badge">${statuses.length} Status</span>`;
 }
@@ -299,22 +304,32 @@ function renderUserBookings(bookings, container, totalCount = bookings.length, c
       : `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Tiada Tempahan</div><div class="empty-sub">Anda belum membuat sebarang tempahan dengan e-mel ini.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan Sekarang</button></div>`;
     return;
   }
-  const rows = dashboardBookingGroups(bookings, comparator);
   container.innerHTML = `
-    <div class="dashboard-table-wrap">
-      <table class="dashboard-booking-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Fasiliti</th>
-            <th>Tarikh</th>
-            <th>Masa</th>
-            <th>Status</th>
-            <th>Tindakan</th>
-          </tr>
-        </thead>
+    <div class="dash-table-wrap">
+      <table class="data-table dash-bookings-table">
+        <thead><tr><th>Rujukan</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead>
         <tbody>
-          ${rows.map((row) => row.type === 'group' ? bookingGroupRowHtml(row) : bookingRowHtml(row.booking)).join('')}
+          ${bookings.map((b) => `
+            <tr>
+              <td><span class="booking-id">${escapeHtml(b.id)}</span></td>
+              <td>
+                <div class="dashboard-facility-cell">
+                  <span class="dashboard-facility-icon">${b.facilityIcon || '<i class="bi bi-building"></i>'}</span>
+                  <span>${escapeHtml(b.facilityName || '-')}</span>
+                </div>
+              </td>
+              <td>${formatDate(b.date)}</td>
+              <td>${dashboardBookingDurationLabel(b)}</td>
+              <td>${statusBadgeHtml(b.status)}</td>
+              <td>
+                <div class="booking-row-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
+                  ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
+                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button><button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
+                </div>
+              </td>
+            </tr>
+          `).join('')}
         </tbody>
       </table>
     </div>
@@ -368,6 +383,9 @@ async function viewUserBookingDetail(id) {
       <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
       <div class="detail-row"><span class="detail-label">${isDayBooking(booking) ? 'Tempoh' : 'Masa'}</span><span class="detail-value">${dashboardBookingDurationLabel(booking)}</span></div>
       <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+      <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">No Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
+      ${booking.completedAt ? `<div class="detail-row"><span class="detail-label">Diselesaikan</span><span class="detail-value">${escapeHtml(formatDateTime(booking.completedAt))}</span></div>` : ''}
       ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
@@ -627,6 +645,51 @@ function openContactModal() {
   const emailInput = document.getElementById('contactEmail');
   if (emailInput) emailInput.value = psCurrentUserEmail || '';
   document.getElementById('contactModal')?.classList.add('active');
+  loadContactMessages();
+}
+
+async function loadContactMessages() {
+  const container = document.getElementById('contactHistory');
+  if (!container) return;
+
+  container.innerHTML = '<div class="contact-history-empty">Memuatkan mesej...</div>';
+  try {
+    const result = await tryApi('messages.php?action=my');
+    psContactMessages = result.data || [];
+    renderContactMessages();
+  } catch (error) {
+    psContactMessages = [];
+    container.innerHTML = '<div class="contact-history-empty">Sejarah mesej tidak dapat dimuatkan.</div>';
+  }
+}
+
+function renderContactMessages() {
+  const container = document.getElementById('contactHistory');
+  if (!container) return;
+
+  if (!psContactMessages.length) {
+    container.innerHTML = '<div class="contact-history-empty">Tiada mesej dihantar lagi.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="contact-history-title">Mesej Anda</div>
+    ${psContactMessages.map((message) => `
+      <div class="contact-history-item">
+        <div class="contact-history-head">
+          <span>${escapeHtml(message.subject || '-')}</span>
+          <small>${escapeHtml(formatDateTime(message.created_at))}</small>
+        </div>
+        <div class="contact-history-message">${escapeHtml(message.message || '-')}</div>
+        ${message.admin_reply ? `
+          <div class="contact-history-reply">
+            <span>Balasan Admin${message.replied_at ? ` &bull; ${escapeHtml(formatDateTime(message.replied_at))}` : ''}</span>
+            ${escapeHtml(message.admin_reply)}
+          </div>
+        ` : '<div class="contact-history-pending">Menunggu balasan admin</div>'}
+      </div>
+    `).join('')}
+  `;
 }
 
 async function sendContactMessage() {
@@ -657,10 +720,10 @@ async function sendContactMessage() {
     }
   }
 
-  closeModal('contactModal');
   const subjectEl = document.getElementById('contactSubject');
   const messageEl = document.getElementById('contactMessage');
   if (subjectEl) subjectEl.value = '';
   if (messageEl) messageEl.value = '';
+  await loadContactMessages();
   showToast('Mesej anda telah dihantar kepada admin.', 'success');
 }

@@ -40,7 +40,7 @@
 .admin-panel { display: none; }
 .admin-panel.active { display: block; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; position: relative; overflow: hidden; box-shadow: var(--shadow-sm); }
 .stat-card-accent { position: absolute; top: 0; right: 0; width: 80px; height: 80px; border-radius: 50%; transform: translate(20px, -20px); }
 .stat-card-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--grey-4); margin-bottom: 12px; }
@@ -175,8 +175,53 @@
 .admin-messages-table th:last-child, .admin-messages-table td:last-child { width: 104px; overflow: visible; padding-right: 28px; text-align: right; }
 .admin-messages-table td:last-child .table-actions { justify-content: flex-end; }
 .admin-message-content { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.admin-message-reply,
+.admin-message-pending {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 600;
+}
+.admin-message-reply-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.admin-message-thread {
+  display: grid;
+  gap: 18px;
+}
+.admin-message-thread-item {
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.admin-message-thread-meta {
+  margin-bottom: 8px;
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-message-thread-text {
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 
 .booking-id { font-family: var(--display-font); font-size: 12px; font-weight: 900; color: var(--gold); }
+.fmc-pic { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: var(--grey-4); font-size: 12px; }
+.fmc-pic i { color: var(--gold); }
+.fmc-pic strong { color: var(--text-main); }
+.fmc-pic span { margin-left: auto; }
 .tenant-name { font-weight: 700; font-size: 14px; color: var(--text-main); }
 .tenant-org { overflow: hidden; margin-top: 3px; color: var(--grey-4); font-size: 11px; font-weight: 500; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .table-actions {
@@ -243,6 +288,17 @@
 .detail-row:last-child { border-bottom: none; }
 .detail-label { color: var(--grey-4); font-weight: 600; }
 .detail-value { font-weight: 700; text-align: right; color: var(--text-main); }
+
+.admin-detail-section {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-detail-section + .admin-detail-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-light);
+}
 
 .admin-reject-note {
   margin-top: 20px;
@@ -407,9 +463,41 @@
 
 .admin-facility-form-body {
   display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.admin-facility-section {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-facility-section + .admin-facility-section {
+  padding-top: 20px;
+  border-top: 1px solid var(--border-light);
+}
+
+.admin-facility-section-title {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.admin-facility-section-grid {
+  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
-  padding: 24px;
+}
+
+.admin-facility-pic-section {
+  border-radius: var(--radius);
+}
+
+.admin-facility-pic-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 720px;
 }
 
 .admin-facility-description {
@@ -547,6 +635,26 @@
   grid-column: span 2;
 }
 
+.edit-facility-section {
+  display: grid;
+  gap: 14px;
+}
+
+.edit-facility-section + .edit-facility-section {
+  padding-top: 18px;
+  border-top: 1px solid var(--border-light);
+}
+
+.edit-facility-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.edit-facility-pic-grid {
+  max-width: 100%;
+}
+
 .toggle-switch { width: 44px; height: 24px; background: var(--grey-2); border-radius: 100px; position: relative; cursor: pointer; transition: var(--transition); }
 .toggle-switch.on { background: var(--green); }
 .toggle-switch::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #FFF; top: 3px; left: 3px; transition: var(--transition); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
@@ -615,6 +723,12 @@
     grid-template-columns: 1fr;
   }
 
+  .admin-facility-section-grid,
+  .admin-facility-pic-grid {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+
   .admin-facility-description,
   .admin-facility-equipment,
   .edit-facility-form .span-2 {
@@ -622,6 +736,10 @@
   }
 
   .edit-facility-form {
+    grid-template-columns: 1fr;
+  }
+
+  .edit-facility-section-grid {
     grid-template-columns: 1fr;
   }
 

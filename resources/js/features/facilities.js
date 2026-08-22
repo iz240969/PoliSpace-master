@@ -11,6 +11,8 @@ function normalizeFacilities(facilities) {
     price_per_hour: Number(f.price_per_hour || f.pricePerHour || 0),
     max_rooms: Number(f.max_rooms ?? f.maxRooms ?? 0) || null,
     description: f.description || f.desc || '',
+    pic_full_name: f.pic_full_name || f.picFullName || '',
+    pic_phone: f.pic_phone || f.picPhone || '',
     equipment_options: normalizeFacilityEquipmentOptions(f.equipment_options ?? f.equipmentOptions ?? []),
     is_available: Boolean(Number(f.is_available ?? f.available ?? 1)),
   }));
@@ -352,12 +354,38 @@ function updateFacilityInfo() {
   document.querySelectorAll('.facility-select-item').forEach((el) => {
     el.classList.toggle('selected', el.dataset.fid === fid);
   });
+  renderSelectedFacilityPic();
   syncBookingDurationUnitForFacility();
   syncAsramaBookingFields();
   initializeEquipmentField(document.getElementById('f-equipment')?.value || '', 'f-equipment', 'equipmentAddSelect', 'equipmentList', fid);
   updateSetupOptions();
   updatePricing();
   renderBookingDatePicker();
+}
+
+function renderSelectedFacilityPic() {
+  const container = document.getElementById('facilityPicInfo');
+  if (!container) return;
+
+  const facility = getSelectedFacility();
+  if (!facility) {
+    container.classList.remove('show');
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="facility-pic-heading">
+      <i class="bi bi-person-badge"></i>
+      <span class="facility-pic-label">PIC</span>
+      <span class="facility-pic-name">${escapeHtml(facility.pic_full_name || '-')}</span>
+    </div>
+    <div class="facility-pic-contact">
+      <i class="bi bi-telephone"></i>
+      <span class="facility-pic-phone">${escapeHtml(facility.pic_phone || '-')}</span>
+    </div>
+  `;
+  container.classList.add('show');
 }
 
 function getSelectedFacility() {

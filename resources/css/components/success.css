@@ -9,6 +9,14 @@
 .booking-ref-code { font-family: var(--display-font); font-size: 28px; font-weight: 900; color: var(--gold); letter-spacing: 4px; margin-top: 6px; }
 .success-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
 .success-actions .btn { justify-content: center; min-width: 160px; }
+.success-pic-list { display: none; width: min(100%, 440px); margin: -12px 0 24px; gap: 8px; text-align: left; }
+.success-pic-list.show { display: grid; }
+.success-pic-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface-2); }
+.success-pic-item > i { color: var(--gold); font-size: 16px; }
+.success-pic-item > div { display: grid; min-width: 0; gap: 1px; }
+.success-pic-item span { color: var(--grey-4); font-size: 10px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+.success-pic-item strong { color: var(--text-main); font-size: 13px; }
+.success-pic-item small { color: var(--grey-4); font-size: 12px; font-weight: 700; }
 
 @media (max-width: 520px) {
   .success-screen { padding: 56px 20px; }

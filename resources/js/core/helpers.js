@@ -18,6 +18,7 @@ function statusBadgeHtml(status) {
     unpaid: '<div class="status-badge status-unpaid">Belum Bayar</div>',
     pending: '<div class="status-badge status-pending">Menunggu</div>',
     approved: '<div class="status-badge status-available">Diluluskan</div>',
+    completed: '<div class="status-badge status-completed">Selesai</div>',
     rejected: '<div class="status-badge status-booked">Ditolak</div>',
     cancelled: '<div class="status-badge status-booked">Dibatalkan</div>',
     available: '<div class="status-badge status-available">Tersedia</div>',

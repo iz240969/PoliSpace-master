@@ -43,6 +43,22 @@ function ensureFacilityMaxRoomsColumn(Database $db): void
     $db->update("UPDATE facilities SET max_rooms = 10 WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%' AND (max_rooms IS NULL OR max_rooms < 1)");
 }
 
+function ensureFacilityPicColumns(Database $db): void
+{
+    $nameColumn = $db->fetchOne("SHOW COLUMNS FROM facilities LIKE 'pic_full_name'");
+    if (!$nameColumn) {
+        $db->query('ALTER TABLE facilities ADD COLUMN pic_full_name VARCHAR(100) NULL AFTER description');
+    }
+
+    $phoneColumn = $db->fetchOne("SHOW COLUMNS FROM facilities LIKE 'pic_phone'");
+    if (!$phoneColumn) {
+        $db->query('ALTER TABLE facilities ADD COLUMN pic_phone VARCHAR(20) NULL AFTER pic_full_name');
+    }
+
+    $db->update("UPDATE facilities SET pic_full_name = CONCAT('Person ', id) WHERE pic_full_name IS NULL OR TRIM(pic_full_name) = ''");
+    $db->update("UPDATE facilities SET pic_phone = CONCAT('012-000-', LPAD(id, 4, '0')) WHERE pic_phone IS NULL OR TRIM(pic_phone) = ''");
+}
+
 function normalizeFacilityEquipmentOptions(mixed $value): string
 {
     if (is_array($value)) {
@@ -105,11 +121,12 @@ function backfillDefaultFacilityEquipment(Database $db): void
 try {
     ensureFacilityEquipmentColumn($db);
     ensureFacilityMaxRoomsColumn($db);
+    ensureFacilityPicColumns($db);
     backfillDefaultFacilityEquipment($db);
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $facilities = $db->fetchAll(
-            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, equipment_options, is_available, created_at, updated_at
              FROM facilities
              ORDER BY id'
         );
@@ -128,6 +145,8 @@ try {
             ? (int)$input['max_rooms']
             : null;
         $description = trim((string)($input['description'] ?? ''));
+        $picFullName = trim((string)($input['pic_full_name'] ?? ''));
+        $picPhone = trim((string)($input['pic_phone'] ?? ''));
         $equipmentOptions = normalizeFacilityEquipmentOptions($input['equipment_options'] ?? '');
         $isAvailable = (int)(bool)($input['is_available'] ?? true);
         $errors = [];
@@ -156,18 +175,24 @@ try {
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
         }
+        if ($picFullName === '' || strlen($picFullName) > 100) {
+            $errors['pic_full_name'] = 'Nama penuh PIC mesti diisi dan tidak melebihi 100 aksara.';
+        }
+        if (!preg_match('/^[0-9+()\-\s]{7,20}$/', $picPhone)) {
+            $errors['pic_phone'] = 'Nombor telefon PIC tidak sah.';
+        }
 
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
         }
 
         $id = $db->insert(
-            'INSERT INTO facilities (name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $equipmentOptions, $isAvailable]
+            'INSERT INTO facilities (name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, equipment_options, is_available)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picFullName, $picPhone, $equipmentOptions, $isAvailable]
         );
         $facility = $db->fetchOne(
-            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, equipment_options, is_available, created_at, updated_at
              FROM facilities
              WHERE id = ?',
             [$id]
@@ -185,7 +210,7 @@ try {
             jsonResponse(['success' => false, 'error' => 'Facility ID required'], 400);
         }
 
-        $facility = $db->fetchOne('SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available FROM facilities WHERE id = ?', [$id]);
+        $facility = $db->fetchOne('SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, equipment_options, is_available FROM facilities WHERE id = ?', [$id]);
         if (!$facility) {
             jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
         }
@@ -198,6 +223,8 @@ try {
             ? (($input['max_rooms'] === null || $input['max_rooms'] === '') ? null : (int)$input['max_rooms'])
             : ($facility['max_rooms'] === null ? null : (int)$facility['max_rooms']);
         $description = array_key_exists('description', $input) ? trim((string)$input['description']) : (string)($facility['description'] ?? '');
+        $picFullName = array_key_exists('pic_full_name', $input) ? trim((string)$input['pic_full_name']) : (string)($facility['pic_full_name'] ?? '');
+        $picPhone = array_key_exists('pic_phone', $input) ? trim((string)$input['pic_phone']) : (string)($facility['pic_phone'] ?? '');
         $equipmentOptions = array_key_exists('equipment_options', $input)
             ? normalizeFacilityEquipmentOptions($input['equipment_options'])
             : (string)($facility['equipment_options'] ?? '[]');
@@ -224,20 +251,26 @@ try {
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
         }
+        if ($picFullName === '' || strlen($picFullName) > 100) {
+            $errors['pic_full_name'] = 'Nama penuh PIC mesti diisi dan tidak melebihi 100 aksara.';
+        }
+        if (!preg_match('/^[0-9+()\-\s]{7,20}$/', $picPhone)) {
+            $errors['pic_phone'] = 'Nombor telefon PIC tidak sah.';
+        }
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
         }
 
-        withFacilityAvailabilityLock($db, $id, function () use ($db, $id, $name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $equipmentOptions, $isAvailable): void {
+        withFacilityAvailabilityLock($db, $id, function () use ($db, $id, $name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picFullName, $picPhone, $equipmentOptions, $isAvailable): void {
             $db->update(
                 'UPDATE facilities
-                 SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, max_rooms = ?, description = ?, equipment_options = ?, is_available = ?
+                 SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, max_rooms = ?, description = ?, pic_full_name = ?, pic_phone = ?, equipment_options = ?, is_available = ?
                  WHERE id = ?',
-                [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $equipmentOptions, $isAvailable, $id]
+                [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picFullName, $picPhone, $equipmentOptions, $isAvailable, $id]
             );
         });
         $updated = $db->fetchOne(
-            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, equipment_options, is_available, created_at, updated_at
+            'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, equipment_options, is_available, created_at, updated_at
              FROM facilities
              WHERE id = ?',
             [$id]
