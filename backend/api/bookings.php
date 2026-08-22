@@ -19,7 +19,6 @@ ensureBookingDurationUnitColumn($db);
 ensureBookingAsramaColumns($db);
 ensureBookingFacilityMaxRoomsColumn($db);
 ensureBookingFacilityPicColumns($db);
-ensureBookingCompletionColumns($db);
 
 try {
     if ($method === 'GET') {
@@ -63,11 +62,6 @@ try {
         createBooking($db, true);
     }
 
-    if ($method === 'POST' && $action === 'completion-email' && isset($_GET['id'])) {
-        requireAdmin();
-        resendBookingCompletionEmail($db, (string)$_GET['id']);
-    }
-
     if ($method === 'POST') {
         createBooking($db);
     }
@@ -105,7 +99,7 @@ function getAllBookings(Database $db, mixed $status = null): void
         jsonResponse(['success' => true, 'data' => []]);
     }
 
-    if ($status && in_array($status, ['pending', 'approved', 'completed', 'rejected', 'cancelled'], true)) {
+    if ($status && in_array($status, ['pending', 'approved', 'rejected', 'cancelled'], true)) {
         $sql .= ' WHERE b.status = ?';
         $params[] = $status;
     } else {
@@ -388,7 +382,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
     $status = $data['status'] ?? '';
     $adminNote = trim((string)($data['admin_note'] ?? ''));
 
-    if (!in_array($status, ['approved', 'completed', 'rejected'], true)) {
+    if (!in_array($status, ['approved', 'rejected'], true)) {
         jsonResponse(['success' => false, 'error' => 'Invalid status'], 400);
     }
 
@@ -426,9 +420,6 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         if ($status === 'approved' && $current['status'] !== 'pending') {
             throw new BookingAvailabilityException('Hanya tempahan menunggu dengan resit boleh diluluskan.');
         }
-        if ($status === 'completed' && $current['status'] !== 'approved') {
-            throw new BookingAvailabilityException('Hanya tempahan yang telah diluluskan boleh ditandakan selesai.');
-        }
         if ($status === 'rejected' && !in_array($current['status'], ['unpaid', 'pending', 'approved'], true)) {
             throw new BookingAvailabilityException('Tempahan ini tidak boleh ditolak dalam status semasa.');
         }
@@ -448,75 +439,10 @@ function updateBookingStatus(Database $db, string $id, array $data): void
             );
         }
 
-        if ($status === 'completed') {
-            $db->update('UPDATE bookings SET status = ?, completed_at = NOW() WHERE id = ?', [$status, $current['id']]);
-        } else {
-            $db->update('UPDATE bookings SET status = ?, admin_note = ? WHERE id = ?', [$status, $adminNote, $current['id']]);
-        }
+        $db->update('UPDATE bookings SET status = ?, admin_note = ? WHERE id = ?', [$status, $adminNote, $current['id']]);
     });
 
-    if ($status !== 'completed') {
-        jsonResponse(['success' => true, 'message' => 'Booking status updated']);
-    }
-
-    $emailResult = deliverBookingCompletionEmail($db, $id);
-    jsonResponse([
-        'success' => true,
-        'message' => 'Booking completed',
-        'email_sent' => $emailResult['sent'],
-        'email_already_sent' => $emailResult['already_sent'],
-        'warning' => $emailResult['sent'] ? null : 'Tempahan selesai tetapi e-mel tidak dapat dihantar. Semak konfigurasi e-mel dan cuba lagi.',
-    ]);
-}
-
-function resendBookingCompletionEmail(Database $db, string $id): void
-{
-    $emailResult = deliverBookingCompletionEmail($db, $id);
-    if (!$emailResult['sent']) {
-        jsonResponse([
-            'success' => false,
-            'error' => 'E-mel tidak dapat dihantar. Semak konfigurasi e-mel pelayan dan cuba lagi.',
-        ], 502);
-    }
-
-    jsonResponse([
-        'success' => true,
-        'message' => $emailResult['already_sent'] ? 'Completion email was already sent' : 'Completion email sent',
-        'email_sent' => true,
-        'email_already_sent' => $emailResult['already_sent'],
-    ]);
-}
-
-function deliverBookingCompletionEmail(Database $db, string $id): array
-{
-    $field = ctype_digit($id) ? 'b.id' : 'b.booking_ref';
-    $booking = $db->fetchOne(
-        "SELECT b.id, b.booking_ref, b.full_name, b.email, b.booking_date, b.status, b.completion_email_sent_at,
-                f.name AS facility_name, f.pic_full_name, f.pic_phone
-         FROM bookings b
-         LEFT JOIN facilities f ON b.facility_id = f.id
-         WHERE {$field} = ?",
-        [$id]
-    );
-    if (!$booking) {
-        throw new BookingAvailabilityException('Booking not found', 404);
-    }
-    if ((string)$booking['status'] !== 'completed') {
-        throw new BookingAvailabilityException('Tempahan mesti ditandakan selesai sebelum e-mel dihantar.');
-    }
-    if (!empty($booking['completion_email_sent_at'])) {
-        return ['sent' => true, 'already_sent' => true];
-    }
-
-    $sent = sendBookingCompletionEmail($booking);
-    if ($sent) {
-        $db->update(
-            'UPDATE bookings SET completion_email_sent_at = NOW() WHERE id = ? AND completion_email_sent_at IS NULL',
-            [$booking['id']]
-        );
-    }
-
-    return ['sent' => $sent, 'already_sent' => false];
+    jsonResponse(['success' => true, 'message' => 'Booking status updated']);
 }
 
 function cancelOwnBooking(Database $db, string $id, array $data): void
@@ -699,25 +625,9 @@ function ensureBookingEquipmentColumn(Database $db): void
     }
 
     $statusColumn = $db->fetchOne("SHOW COLUMNS FROM bookings LIKE 'status'");
-    if ($statusColumn && isset($statusColumn['Type']) && strpos((string)$statusColumn['Type'], "'completed'") === false) {
-        $db->query("ALTER TABLE bookings MODIFY status ENUM('unpaid', 'pending', 'approved', 'completed', 'rejected', 'cancelled') DEFAULT 'unpaid'");
-    }
-}
-
-function ensureBookingCompletionColumns(Database $db): void
-{
-    static $checked = false;
-    if ($checked) return;
-    $checked = true;
-
-    $completedAtColumn = $db->fetchOne("SHOW COLUMNS FROM bookings LIKE 'completed_at'");
-    if (!$completedAtColumn) {
-        $db->query('ALTER TABLE bookings ADD COLUMN completed_at TIMESTAMP NULL AFTER admin_note');
-    }
-
-    $emailSentColumn = $db->fetchOne("SHOW COLUMNS FROM bookings LIKE 'completion_email_sent_at'");
-    if (!$emailSentColumn) {
-        $db->query('ALTER TABLE bookings ADD COLUMN completion_email_sent_at TIMESTAMP NULL AFTER completed_at');
+    if ($statusColumn && isset($statusColumn['Type']) && strpos((string)$statusColumn['Type'], "'completed'") !== false) {
+        $db->update("UPDATE bookings SET status = 'approved' WHERE status = 'completed'");
+        $db->query("ALTER TABLE bookings MODIFY status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid'");
     }
 }
 
@@ -1016,7 +926,6 @@ function getDashboardStats(Database $db): void
     $total = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status <> 'unpaid'");
     $pending = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'pending'");
     $approved = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'approved'");
-    $completed = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE status = 'completed'");
     $today = $db->fetchOne("SELECT COUNT(*) AS count FROM bookings WHERE booking_date = CURDATE() AND status <> 'unpaid'");
 
     jsonResponse([
@@ -1025,7 +934,6 @@ function getDashboardStats(Database $db): void
             'total' => (int)$total['count'],
             'pending' => (int)$pending['count'],
             'approved' => (int)$approved['count'],
-            'completed' => (int)$completed['count'],
             'today' => (int)$today['count'],
         ],
     ]);

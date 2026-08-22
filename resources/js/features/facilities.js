@@ -13,6 +13,7 @@ function normalizeFacilities(facilities) {
     description: f.description || f.desc || '',
     pic_full_name: f.pic_full_name || f.picFullName || '',
     pic_phone: f.pic_phone || f.picPhone || '',
+    pic_email: f.pic_email || f.picEmail || '',
     equipment_options: normalizeFacilityEquipmentOptions(f.equipment_options ?? f.equipmentOptions ?? []),
     is_available: Boolean(Number(f.is_available ?? f.available ?? 1)),
   }));

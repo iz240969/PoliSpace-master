@@ -40,9 +40,8 @@ function renderStatusCard(booking, card) {
   const steps = [
     { label: 'Permohonan Dihantar', done: true, time: formatDateTime(booking.createdAt || booking.created_at) },
     { label: 'Bayaran / Resit', done: hasReceipt, active: booking.status === 'unpaid', time: hasReceipt ? 'Resit diterima' : booking.status === 'cancelled' ? 'Tiada resit' : 'Menunggu resit bayaran' },
-    { label: 'Semakan Permohonan', done: ['approved', 'completed', 'rejected'].includes(booking.status), active: booking.status === 'pending', time: booking.status === 'pending' ? 'Dalam proses...' : ['approved', 'completed', 'rejected'].includes(booking.status) ? 'Selesai' : 'Belum bermula' },
-    { label: booking.status === 'rejected' ? 'Permohonan Ditolak' : booking.status === 'cancelled' ? 'Tempahan Dibatalkan' : 'Tempahan Disahkan', done: ['approved', 'completed'].includes(booking.status), active: ['rejected', 'cancelled'].includes(booking.status), time: ['approved', 'completed'].includes(booking.status) ? 'Tempahan telah diluluskan' : booking.status === 'rejected' ? 'Sila hubungi pentadbir' : booking.status === 'cancelled' ? 'Dibatalkan oleh pengguna' : 'Menunggu' },
-    { label: 'Tempahan Selesai', done: booking.status === 'completed', active: false, time: booking.status === 'completed' ? formatDateTime(booking.completedAt) : 'Menunggu pengesahan admin' },
+    { label: 'Semakan Permohonan', done: ['approved', 'rejected'].includes(booking.status), active: booking.status === 'pending', time: booking.status === 'pending' ? 'Dalam proses...' : ['approved', 'rejected'].includes(booking.status) ? 'Sudah disemak' : 'Belum bermula' },
+    { label: booking.status === 'rejected' ? 'Permohonan Ditolak' : booking.status === 'cancelled' ? 'Tempahan Dibatalkan' : 'Tempahan Disahkan', done: booking.status === 'approved', active: ['rejected', 'cancelled'].includes(booking.status), time: booking.status === 'approved' ? 'Tempahan telah diluluskan' : booking.status === 'rejected' ? 'Sila hubungi pentadbir' : booking.status === 'cancelled' ? 'Dibatalkan oleh pengguna' : 'Menunggu' },
   ];
   document.getElementById('statusTimeline').innerHTML = steps.map((s) => `
     <div class="timeline-step">
@@ -75,8 +74,8 @@ function renderStatusGroupCard(group, card) {
 
   document.getElementById('statusTimeline').innerHTML = bookings.map((booking) => `
     <div class="timeline-step">
-      <div class="timeline-dot ${['approved', 'completed'].includes(booking.status) ? 'done' : ['rejected', 'cancelled'].includes(booking.status) ? 'active' : 'pending'}">
-        ${['approved', 'completed'].includes(booking.status) ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-circle"></i>'}
+      <div class="timeline-dot ${booking.status === 'approved' ? 'done' : ['rejected', 'cancelled'].includes(booking.status) ? 'active' : 'pending'}">
+        ${booking.status === 'approved' ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-circle"></i>'}
       </div>
       <div class="timeline-content">
         <div class="timeline-label">${escapeHtml(booking.id || booking.booking_ref)}</div>

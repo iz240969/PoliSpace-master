@@ -59,7 +59,7 @@ backend/api/messages.php    Contact message endpoint
 backend/api/users.php       Admin customer list/detail/password reset endpoint
 ```
 
-The app uses MySQL database `polspace`. Configuration should come from `.env`.
+The app uses MySQL database `polspace`. Configuration should come from `.env`. Trial PIC emails use PHP `mail()` with optional `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME` values; a real SMTP/mail setup is still required for actual delivery.
 
 ## Important Frontend Notes
 
@@ -227,13 +227,14 @@ GET  backend/api/bookings.php?action=calendar&year=2026&month=7
 GET  backend/api/bookings.php?action=public-stats
 GET  backend/api/bookings.php?action=stats     Admin dashboard stats
 PUT  backend/api/bookings.php?action=status&id=PS...
-POST backend/api/bookings.php?action=completion-email&id=PS...  Retry a failed completion email
 PUT  backend/api/bookings.php?action=user-update&id=PS...
 DELETE backend/api/bookings.php?id=PS...        Disabled: returns 405 to preserve history
 
-GET  backend/api/facilities.php                          Includes PIC full name and phone
+GET  backend/api/facilities.php                          Includes PIC full name and phone; includes PIC email only for admin sessions
 POST backend/api/facilities.php                 Admin create facility
 PUT  backend/api/facilities.php?id=1            Admin edit facility, equipment, or availability
+PUT  backend/api/facilities.php?action=pic&id=1 Admin edit PIC full name, phone, and email
+POST backend/api/facilities.php?action=pic-email&id=1 Admin send trial email to PIC
 GET  backend/api/users.php
 GET  backend/api/users.php?action=detail&id=1
 PUT  backend/api/users.php?id=1
@@ -245,7 +246,7 @@ Admin-only endpoints call `requireAdmin()`. Client booking actions rely on the P
 
 ## Database Compatibility
 
-No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. The update script is idempotent and preserves existing admin passwords, custom facilities, facility availability settings, and edited PIC contacts. PIC details use `facilities.pic_full_name` and `facilities.pic_phone`. Booking completion uses the `completed` status with `bookings.completed_at` and `bookings.completion_email_sent_at`. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use `bookings.equipment_required`, facility-specific equipment uses `facilities.equipment_options`, and durations use `bookings.duration` plus `bookings.duration_unit`.
+No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. The update script is idempotent and preserves existing admin passwords, custom facilities, facility availability settings, and edited PIC contacts. PIC details use `facilities.pic_full_name`, `facilities.pic_phone`, and admin-only `facilities.pic_email`. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use `bookings.equipment_required`, facility-specific equipment uses `facilities.equipment_options`, and durations use `bookings.duration` plus `bookings.duration_unit`.
 
 For an older database, check `equipment_required` with `information_schema.COLUMNS`. Add it only when missing:
 

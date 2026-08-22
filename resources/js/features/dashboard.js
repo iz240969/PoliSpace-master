@@ -155,11 +155,9 @@ function groupStatusBadgeHtml(bookings) {
   if (statuses.length === 1) return statusBadgeHtml(statuses[0]);
   const pendingCount = bookings.filter((booking) => booking.status === 'pending').length;
   const approvedCount = bookings.filter((booking) => booking.status === 'approved').length;
-  const completedCount = bookings.filter((booking) => booking.status === 'completed').length;
   const unpaidCount = bookings.filter((booking) => booking.status === 'unpaid').length;
   if (pendingCount) return `<span class="status-badge status-pending">${pendingCount} Menunggu</span>`;
   if (approvedCount) return `<span class="status-badge status-approved">${approvedCount} Diluluskan</span>`;
-  if (completedCount) return `<span class="status-badge status-completed">${completedCount} Selesai</span>`;
   if (unpaidCount) return `<span class="status-badge status-unpaid">${unpaidCount} Belum Bayar</span>`;
   return `<span class="status-badge">${statuses.length} Status</span>`;
 }
@@ -385,7 +383,6 @@ async function viewUserBookingDetail(id) {
       <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
       <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">No Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
-      ${booking.completedAt ? `<div class="detail-row"><span class="detail-label">Diselesaikan</span><span class="detail-value">${escapeHtml(formatDateTime(booking.completedAt))}</span></div>` : ''}
       ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>

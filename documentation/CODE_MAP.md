@@ -32,6 +32,7 @@ Admin dashboard HTML        resources/views/admin/dashboard.html
 Admin dashboard behavior    resources/js/features/admin.js
 Admin dashboard styling     resources/css/components/admin.css
 Admin facility create form  resources/views/admin/dashboard.html, resources/js/features/admin.js, backend/api/facilities.php
+Admin PIC management        resources/views/admin/dashboard.html, resources/js/features/admin.js, backend/api/facilities.php
 
 Login/signup behavior       resources/js/features/auth.js
 Profile editor/menu         resources/js/core/navigation.js, resources/css/components/navigation.css
@@ -46,7 +47,7 @@ App startup logic           resources/js/core/init.js
 ```text
 backend/api/auth.php        Role-aware login, signup, session check, self-profile update, logout
 backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar; DELETE is disabled
-backend/api/facilities.php  Facility list plus admin create/edit/availability/equipment update
+backend/api/facilities.php  Facility list plus admin create/edit/availability/equipment/PIC update and trial PIC email
 backend/api/messages.php    Contact admin messages
 backend/api/users.php       Admin customer list/detail/password reset
 ```

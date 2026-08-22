@@ -60,54 +60,7 @@ function formatBookingForFrontend(array $booking): array
         'cartGroupRef' => $booking['cart_group_ref'] ?? '',
         'estimatedCost' => $booking['estimated_cost'],
         'createdAt' => $booking['created_at'],
-        'completedAt' => $booking['completed_at'] ?? null,
-        'completionEmailSentAt' => $booking['completion_email_sent_at'] ?? null,
     ];
-}
-
-function sendBookingCompletionEmail(array $booking): bool
-{
-    $recipient = trim((string)($booking['email'] ?? ''));
-    if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n]/', $recipient)) {
-        return false;
-    }
-
-    $customerName = trim((string)($booking['full_name'] ?? 'Pelanggan')) ?: 'Pelanggan';
-    $reference = trim((string)($booking['booking_ref'] ?? '-')) ?: '-';
-    $facility = trim((string)($booking['facility_name'] ?? 'Fasiliti')) ?: 'Fasiliti';
-    $bookingDate = trim((string)($booking['booking_date'] ?? '-')) ?: '-';
-    $picName = trim((string)($booking['pic_full_name'] ?? ''));
-    $picPhone = trim((string)($booking['pic_phone'] ?? ''));
-
-    $subject = APP_NAME . ' - Tempahan ' . $reference . ' Selesai';
-    $lines = [
-        'Salam ' . $customerName . ',',
-        '',
-        'Tempahan anda telah ditandakan sebagai selesai.',
-        'Rujukan: ' . $reference,
-        'Fasiliti: ' . $facility,
-        'Tarikh tempahan: ' . $bookingDate,
-    ];
-    if ($picName !== '') {
-        $lines[] = 'Pegawai bertanggungjawab (PIC): ' . $picName;
-    }
-    if ($picPhone !== '') {
-        $lines[] = 'No. telefon PIC: ' . $picPhone;
-    }
-    $lines[] = '';
-    $lines[] = 'Terima kasih kerana menggunakan ' . APP_NAME . '.';
-
-    $fromAddress = filter_var(MAIL_FROM_ADDRESS, FILTER_VALIDATE_EMAIL) && !preg_match('/[\r\n]/', MAIL_FROM_ADDRESS)
-        ? MAIL_FROM_ADDRESS
-        : 'no-reply@polspace.local';
-    $fromName = preg_replace('/[\r\n]+/', ' ', MAIL_FROM_NAME) ?: APP_NAME;
-    $headers = [
-        'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        'From: ' . $fromName . ' <' . $fromAddress . '>',
-    ];
-
-    return @mail($recipient, $subject, implode("\r\n", $lines), implode("\r\n", $headers));
 }
 
 function handlePaymentUpload(array $file): array
@@ -153,5 +106,27 @@ function requireAdmin(): void
     if (empty($_SESSION['admin_id']) || !empty($_SESSION['user_id'])) {
         jsonResponse(['success' => false, 'error' => 'Admin login required'], 401);
     }
+}
+
+function sendPlainEmail(string $to, string $subject, string $body): bool
+{
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $fromAddress = defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : 'no-reply@polspace.local';
+    $fromName = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'PoliSpace';
+    $encodedFromName = function_exists('mb_encode_mimeheader')
+        ? mb_encode_mimeheader($fromName)
+        : $fromName;
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-Type: text/plain; charset=UTF-8',
+        'From: ' . $encodedFromName . ' <' . $fromAddress . '>',
+        'Reply-To: ' . $fromAddress,
+        'X-Mailer: PHP/' . phpversion(),
+    ];
+
+    return @mail($to, $subject, $body, implode("\r\n", $headers));
 }
 ?>

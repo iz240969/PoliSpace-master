@@ -59,7 +59,6 @@ These statuses do not block availability:
 
 ```text
 unpaid     = Belum Bayar
-completed  = Selesai
 rejected   = Ditolak
 cancelled  = Dibatalkan
 ```
@@ -68,4 +67,4 @@ An unpaid booking does not reserve the date. The date is secured only when a rec
 
 Day-based bookings, such as `Asrama - Bilik`, block every date in their selected duration. For example, a 2-day Asrama booking blocks both selected dates for that facility.
 
-Each facility has an editable PIC full name and phone number. Users see that contact while selecting a facility and in their booking details afterward. After approval, an admin can mark a booking as `completed`; PoliSpace then sends the customer a completion email and records the successful send time. Local Laragon delivery is captured by its configured Mailpit sendmail transport. Set `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME` in `.env` to change the sender identity.
+Each facility has editable PIC details. Users see the PIC full name and phone number while selecting a facility and in their booking details afterward. Admins also have a separate PIC section for PIC email management and a trial email send button.

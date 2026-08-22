@@ -1,11 +1,11 @@
 @import url('./base/base.css');
 @import url('./components/navigation.css?v=20260804-booking-cart');
 @import url('./components/buttons.css');
-@import url('./pages/landing.css?v=20260822-pic-completion');
-@import url('./pages/booking.css?v=20260822-pic-completion');
-@import url('./pages/dashboard.css?v=20260822-pic-completion');
-@import url('./pages/status.css?v=20260822-pic-completion');
-@import url('./components/admin.css?v=20260822-pic-completion');
+@import url('./pages/landing.css?v=20260823-pic-admin-trial');
+@import url('./pages/booking.css?v=20260823-pic-admin-trial');
+@import url('./pages/dashboard.css?v=20260823-pic-admin-trial');
+@import url('./pages/status.css?v=20260823-pic-admin-trial');
+@import url('./components/admin.css?v=20260823-pic-admin-trial');
 @import url('./components/calendar.css');
-@import url('./components/success.css?v=20260822-pic-completion');
+@import url('./components/success.css?v=20260823-pic-admin-trial');
 @import url('./base/responsive.css');

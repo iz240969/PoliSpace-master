@@ -58,6 +58,13 @@
   flex-wrap: wrap;
 }
 
+.admin-panel-subtitle {
+  margin-top: 6px;
+  color: var(--grey-4);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .admin-toolbar-actions {
   display: flex;
   align-items: center;
@@ -222,6 +229,16 @@
 .fmc-pic i { color: var(--gold); }
 .fmc-pic strong { color: var(--text-main); }
 .fmc-pic span { margin-left: auto; }
+.fmc-pic-email {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 700;
+}
+.fmc-pic-email i { color: var(--gold); }
 .tenant-name { font-weight: 700; font-size: 14px; color: var(--text-main); }
 .tenant-org { overflow: hidden; margin-top: 3px; color: var(--grey-4); font-size: 11px; font-weight: 500; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .table-actions {
@@ -651,8 +668,104 @@
   gap: 16px;
 }
 
+.edit-facility-section-grid .span-2 {
+  grid-column: span 2;
+}
+
 .edit-facility-pic-grid {
   max-width: 100%;
+}
+
+.pic-manage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.pic-manage-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.pic-card-main,
+.pic-edit-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pic-edit-summary {
+  margin-bottom: 20px;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+}
+
+.pic-card-icon {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,0.22);
+  border-radius: 50%;
+  color: var(--gold);
+  font-size: 22px;
+}
+
+.pic-card-copy {
+  min-width: 0;
+}
+
+.pic-card-kicker {
+  margin-bottom: 3px;
+  color: var(--grey-4);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+
+.pic-card-name {
+  overflow: hidden;
+  color: var(--text-main);
+  font-family: var(--display-font);
+  font-size: 17px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pic-card-contact {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.pic-card-contact i {
+  color: var(--gold);
+}
+
+.pic-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
 }
 
 .toggle-switch { width: 44px; height: 24px; background: var(--grey-2); border-radius: 100px; position: relative; cursor: pointer; transition: var(--transition); }
@@ -743,6 +856,10 @@
     grid-template-columns: 1fr;
   }
 
+  .edit-facility-section-grid .span-2 {
+    grid-column: auto;
+  }
+
   .admin-facility-form-actions {
     justify-content: stretch;
   }
@@ -759,6 +876,11 @@
   .admin-toolbar-actions,
   .admin-toolbar-actions .btn,
   .admin-toolbar-actions .filter-tabs {
+    width: 100%;
+  }
+
+  .pic-card-actions,
+  .pic-card-actions .btn {
     width: 100%;
   }
 

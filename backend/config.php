@@ -44,9 +44,9 @@ define('DB_PASS', envValue('DB_PASS', ''));
 define('APP_NAME', envValue('APP_NAME', 'PoliSpace'));
 define('APP_URL', envValue('APP_URL', 'http://localhost'));
 define('APP_DEBUG', filter_var(envValue('APP_DEBUG', 'false'), FILTER_VALIDATE_BOOLEAN));
+define('UPLOAD_DIR', dirname(__DIR__) . '/uploads/payments/');
 define('MAIL_FROM_ADDRESS', envValue('MAIL_FROM_ADDRESS', 'no-reply@polspace.local'));
 define('MAIL_FROM_NAME', envValue('MAIL_FROM_NAME', APP_NAME));
-define('UPLOAD_DIR', dirname(__DIR__) . '/uploads/payments/');
 
 date_default_timezone_set(envValue('APP_TIMEZONE', 'Asia/Kuala_Lumpur'));
 

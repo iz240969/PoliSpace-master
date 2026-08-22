@@ -904,7 +904,7 @@ async function submitBookingCart() {
     submitButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
   }
 
-  const completedIds = [];
+  const submittedIds = [];
   const references = [];
   const failures = [];
   const cartGroupRef = createBookingCartGroupRef();
@@ -939,13 +939,13 @@ async function submitBookingCart() {
 
     try {
       references.push(await createBookingRecord(data, receiptFile));
-      completedIds.push(item.id);
+      submittedIds.push(item.id);
     } catch (error) {
       failures.push(item.facility_name || 'Fasiliti');
     }
   }
 
-  const remainingItems = getBookingCartItems().filter((item) => !completedIds.includes(item.id));
+  const remainingItems = getBookingCartItems().filter((item) => !submittedIds.includes(item.id));
   saveBookingCartItems(remainingItems);
   renderBookingCart();
   if (submitButton) {
@@ -960,15 +960,15 @@ async function submitBookingCart() {
     updateBookingCartFormState();
     closeBookingCart();
     const submittedFacilities = items
-      .filter((item) => completedIds.includes(item.id))
+      .filter((item) => submittedIds.includes(item.id))
       .map((item) => facilitiesCache.find((facility) => String(facility.id) === String(item.facility_id)))
       .filter(Boolean);
     showBookingSuccess(references.join(', '), submittedFacilities);
     return;
   }
 
-  const resultMessage = completedIds.length
-    ? `${completedIds.length} tempahan dihantar. ${failures.length} tempahan masih berada dalam troli.`
+  const resultMessage = submittedIds.length
+    ? `${submittedIds.length} tempahan dihantar. ${failures.length} tempahan masih berada dalam troli.`
     : 'Troli tidak dapat dihantar. Sila cuba lagi.';
   showToast(resultMessage, 'error');
 }

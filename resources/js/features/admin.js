@@ -28,7 +28,6 @@ async function renderAdminDashboard() {
       total: 0,
       pending: 0,
       approved: 0,
-      completed: 0,
       today: 0,
     };
     showToast(error.message || 'Data dashboard tidak dapat dimuatkan.', 'error');
@@ -40,6 +39,7 @@ async function renderAdminDashboard() {
   renderBookingsTable('recentBookingsTbody', bookings.slice(0, 5), true);
   renderBookingsTable('allBookingsTbody', bookings, false);
   renderFacilityManagement(facilities);
+  renderPicManagement(facilities);
   renderCalendar(bookings, bookingCalendarDate);
   loadClients();
   loadMessages();
@@ -50,7 +50,6 @@ function buildStatsHTML(stats) {
     <div class="stat-card"><div class="stat-card-label">Jumlah Tempahan</div><div class="stat-card-value">${stats.total}</div></div>
     <div class="stat-card"><div class="stat-card-label">Menunggu Semakan</div><div class="stat-card-value" style="color:var(--amber)">${stats.pending}</div></div>
     <div class="stat-card"><div class="stat-card-label">Diluluskan</div><div class="stat-card-value" style="color:var(--green)">${stats.approved}</div></div>
-    <div class="stat-card"><div class="stat-card-label">Selesai</div><div class="stat-card-value" style="color:#087F6B">${stats.completed || 0}</div></div>
     <div class="stat-card"><div class="stat-card-label">Hari Ini</div><div class="stat-card-value">${stats.today || 0}</div></div>
   `;
 }
@@ -67,8 +66,6 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
   tbody.innerHTML = bookings.map((b) => {
     const canApprove = b.status === 'pending';
     const canReject = ['pending', 'approved'].includes(b.status);
-    const canComplete = b.status === 'approved';
-    const canRetryEmail = b.status === 'completed' && !b.completionEmailSentAt;
     return `
     <tr>
       <td><div class="booking-id" title="${escapeAttr(b.id)}">${escapeHtml(b.id)}</div></td>
@@ -77,7 +74,7 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false) {
       <td class="table-date">${formatDate(b.date)}</td>
       ${!isRecent ? `<td class="table-time">${escapeHtml(b.start)} - ${escapeHtml(b.end || '?')}</td>` : ''}
       <td class="table-status">${statusBadgeHtml(b.status)}</td>
-      <td><div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(b.id)}')" title="Terima tempahan" aria-label="Terima tempahan ${escapeAttr(b.id)}"><i class="bi bi-check-lg"></i> Terima</button>` : ''}${canComplete ? `<button class="btn btn-primary btn-sm admin-decision-btn" onclick="completeBooking('${escapeAttr(b.id)}')" title="Tandakan selesai dan e-mel pelanggan"><i class="bi bi-envelope-check"></i> Selesai</button>` : ''}${canRetryEmail ? `<button class="btn btn-secondary btn-sm admin-decision-btn" onclick="retryCompletionEmail('${escapeAttr(b.id)}')" title="Cuba hantar e-mel semula"><i class="bi bi-envelope-arrow-up"></i> E-mel</button>` : ''}${canReject ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(b.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(b.id)}"><i class="bi bi-eye"></i></button></div></td>
+      <td><div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(b.id)}')" title="Terima tempahan" aria-label="Terima tempahan ${escapeAttr(b.id)}"><i class="bi bi-check-lg"></i> Terima</button>` : ''}${canReject ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(b.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(b.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(b.id)}"><i class="bi bi-eye"></i></button></div></td>
     </tr>
   `;
   }).join('');
@@ -365,10 +362,38 @@ function renderFacilityManagement(facilities) {
       <div class="fmc-name">${escapeHtml(f.name)}</div>
       <div class="fmc-cap">Kapasiti: ${escapeHtml(f.capacity)} orang${isAsramaRoomFacility(f) && f.max_rooms ? ` - Had ${escapeHtml(f.max_rooms)} bilik` : ''} - RM${escapeHtml(f.price_per_hour)}</div>
       <div class="fmc-pic"><i class="bi bi-person-badge"></i> <strong>${escapeHtml(f.pic_full_name || '-')}</strong><span>${escapeHtml(f.pic_phone || '-')}</span></div>
+      ${f.pic_email ? `<div class="fmc-pic-email"><i class="bi bi-envelope"></i> ${escapeHtml(f.pic_email)}</div>` : ''}
       <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
       <div class="fmc-footer">
         <button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button>
         <div class="fmc-availability"><span>${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderPicManagement(facilities = facilitiesCache) {
+  const grid = document.getElementById('picManageGrid');
+  if (!grid) return;
+  if (!facilities.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada PIC</div></div>';
+    return;
+  }
+
+  grid.innerHTML = facilities.map((facility) => `
+    <div class="pic-manage-card">
+      <div class="pic-card-main">
+        <div class="pic-card-icon">${facilityIconHtml(facility)}</div>
+        <div class="pic-card-copy">
+          <div class="pic-card-kicker">${escapeHtml(facility.name)}</div>
+          <div class="pic-card-name">${escapeHtml(facility.pic_full_name || '-')}</div>
+          <div class="pic-card-contact"><i class="bi bi-telephone"></i> ${escapeHtml(facility.pic_phone || '-')}</div>
+          <div class="pic-card-contact"><i class="bi bi-envelope"></i> ${escapeHtml(facility.pic_email || 'Belum ditetapkan')}</div>
+        </div>
+      </div>
+      <div class="pic-card-actions">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="openPicEditModal('${escapeAttr(facility.id)}')"><i class="bi bi-pencil-square"></i> Edit PIC</button>
+        <button class="btn btn-primary btn-sm" type="button" onclick="sendPicTrialEmail('${escapeAttr(facility.id)}')" ${facility.pic_email ? '' : 'disabled'}><i class="bi bi-send"></i> E-mel Trial</button>
       </div>
     </div>
   `).join('');
@@ -472,11 +497,12 @@ async function addFacility(event) {
     description: String(formData.get('description') || '').trim(),
     pic_full_name: String(formData.get('pic_full_name') || '').trim(),
     pic_phone: String(formData.get('pic_phone') || '').trim(),
+    pic_email: String(formData.get('pic_email') || '').trim(),
     equipment_options: parseAdminEquipmentValue(formData.get('equipment_options') || ''),
     is_available: formData.has('is_available'),
   };
 
-  if (!data.name || !data.pic_full_name || !/^[0-9+()\-\s]{7,20}$/.test(data.pic_phone) || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
+  if (!data.name || !data.pic_full_name || !/^[0-9+()\-\s]{7,20}$/.test(data.pic_phone) || (data.pic_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.pic_email)) || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
     showToast('Sila lengkapkan maklumat fasiliti.', 'error');
     return;
   }
@@ -487,6 +513,7 @@ async function addFacility(event) {
     const created = normalizeFacilities([result.data])[0];
     facilitiesCache.push(created);
     renderFacilityManagement(facilitiesCache);
+    renderPicManagement(facilitiesCache);
     form.reset();
     const iconInput = document.getElementById('facilityIcon');
     if (iconInput) iconInput.value = 'bi-building';
@@ -564,6 +591,10 @@ function openFacilityEditModal(id) {
             <label for="editFacilityPicPhone">No Telefon PIC *</label>
             <input type="tel" id="editFacilityPicPhone" maxlength="20" value="${escapeAttr(facility.pic_phone || '')}">
           </div>
+          <div class="form-group">
+            <label for="editFacilityPicEmail">E-mel PIC</label>
+            <input type="email" id="editFacilityPicEmail" maxlength="100" value="${escapeAttr(facility.pic_email || '')}">
+          </div>
         </div>
       </section>
     </div>
@@ -587,11 +618,12 @@ async function updateFacility(id) {
     description: document.getElementById('editFacilityDescription')?.value.trim() || '',
     pic_full_name: document.getElementById('editFacilityPicFullName')?.value.trim() || '',
     pic_phone: document.getElementById('editFacilityPicPhone')?.value.trim() || '',
+    pic_email: document.getElementById('editFacilityPicEmail')?.value.trim() || '',
     equipment_options: parseAdminEquipmentValue(document.getElementById('editFacilityEquipment')?.value || ''),
     is_available: Boolean(document.getElementById('editFacilityAvailable')?.checked),
   };
 
-  if (!data.name || !data.pic_full_name || !/^[0-9+()\-\s]{7,20}$/.test(data.pic_phone) || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
+  if (!data.name || !data.pic_full_name || !/^[0-9+()\-\s]{7,20}$/.test(data.pic_phone) || (data.pic_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.pic_email)) || data.capacity < 1 || data.price_per_hour < 0 || (data.max_rooms !== null && data.max_rooms < 1)) {
     showToast('Sila lengkapkan maklumat fasiliti.', 'error');
     return;
   }
@@ -603,6 +635,7 @@ async function updateFacility(id) {
     const index = facilitiesCache.findIndex((item) => String(item.id) === String(id));
     if (index >= 0) facilitiesCache[index] = updated;
     renderFacilityManagement(facilitiesCache);
+    renderPicManagement(facilitiesCache);
     closeModal('bookingModal');
     showToast('Fasiliti berjaya dikemas kini.', 'success');
   } catch (error) {
@@ -627,7 +660,90 @@ async function toggleFacility(fid) {
     return;
   }
   renderFacilityManagement(facilitiesCache);
+  renderPicManagement(facilitiesCache);
   showToast(`${facility.name} dikemas kini.`, 'success');
+}
+
+function openPicEditModal(id) {
+  const facility = facilitiesCache.find((item) => String(item.id) === String(id));
+  if (!facility) return;
+
+  setText('modalTitle', `Edit PIC - ${facility.name}`);
+  document.getElementById('modalBody').innerHTML = `
+    <div class="pic-edit-summary">
+      <div class="pic-card-icon">${facilityIconHtml(facility)}</div>
+      <div>
+        <div class="pic-card-kicker">Fasiliti</div>
+        <div class="pic-card-name">${escapeHtml(facility.name)}</div>
+      </div>
+    </div>
+    <div class="edit-facility-section-grid">
+      <div class="form-group">
+        <label for="editPicFullName">Nama Penuh PIC *</label>
+        <input type="text" id="editPicFullName" maxlength="100" value="${escapeAttr(facility.pic_full_name || '')}">
+      </div>
+      <div class="form-group">
+        <label for="editPicPhone">No Telefon PIC *</label>
+        <input type="tel" id="editPicPhone" maxlength="20" value="${escapeAttr(facility.pic_phone || '')}">
+      </div>
+      <div class="form-group span-2">
+        <label for="editPicEmail">E-mel PIC *</label>
+        <input type="email" id="editPicEmail" maxlength="100" value="${escapeAttr(facility.pic_email || '')}" placeholder="person1@polspace.local">
+      </div>
+    </div>
+  `;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-secondary" type="button" onclick="closeModal('bookingModal')">Batal</button>
+    <button class="btn btn-primary" id="updatePicButton" type="button" onclick="updatePic('${escapeAttr(facility.id)}')"><i class="bi bi-check-lg"></i> Simpan PIC</button>
+  `;
+  document.getElementById('bookingModal')?.classList.add('active');
+  document.getElementById('editPicFullName')?.focus();
+}
+
+async function updatePic(id) {
+  const button = document.getElementById('updatePicButton');
+  const data = {
+    pic_full_name: document.getElementById('editPicFullName')?.value.trim() || '',
+    pic_phone: document.getElementById('editPicPhone')?.value.trim() || '',
+    pic_email: document.getElementById('editPicEmail')?.value.trim() || '',
+  };
+  if (!data.pic_full_name || !/^[0-9+()\-\s]{7,20}$/.test(data.pic_phone) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.pic_email)) {
+    showToast('Sila lengkapkan maklumat PIC.', 'error');
+    return;
+  }
+
+  if (button) button.disabled = true;
+  try {
+    const result = await tryApi(`facilities.php?action=pic&id=${encodeURIComponent(id)}`, 'PUT', data);
+    const updated = normalizeFacilities([result.data])[0];
+    const index = facilitiesCache.findIndex((item) => String(item.id) === String(id));
+    if (index >= 0) facilitiesCache[index] = updated;
+    renderFacilityManagement(facilitiesCache);
+    renderPicManagement(facilitiesCache);
+    closeModal('bookingModal');
+    showToast('Maklumat PIC berjaya dikemas kini.', 'success');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Maklumat PIC gagal dikemas kini.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function sendPicTrialEmail(id) {
+  const facility = facilitiesCache.find((item) => String(item.id) === String(id));
+  if (!facility?.pic_email) {
+    showToast('Sila tetapkan e-mel PIC dahulu.', 'error');
+    return;
+  }
+
+  try {
+    await tryApi(`facilities.php?action=pic-email&id=${encodeURIComponent(id)}`, 'POST', {});
+    showToast(`E-mel trial dihantar kepada ${facility.pic_full_name || 'PIC'}.`, 'success');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'E-mel trial gagal dihantar.', 'error');
+  }
 }
 
 async function loadClients() {
@@ -919,6 +1035,7 @@ function showAdminPanel(name, btn) {
   if (name === 'bookings') filterBookings('all', document.querySelector('#bookingFilterTabs .filter-tab'));
   if (name === 'messages') loadMessages();
   if (name === 'clients') loadClients();
+  if (name === 'pic') loadFacilities().then(renderPicManagement);
   if (name === 'calendar') renderAdminDashboard();
 }
 
@@ -949,7 +1066,6 @@ async function viewBookingDetail(id) {
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
-      ${booking.status === 'completed' ? `<div class="detail-row"><span class="detail-label">E-mel Selesai</span><span class="detail-value">${booking.completionEmailSentAt ? `Dihantar ${escapeHtml(formatDateTime(booking.completionEmailSentAt))}` : 'Belum dihantar'}</span></div>` : ''}
     </div>
     <div class="admin-detail-section">
       <div class="admin-facility-section-title">Maklumat PIC</div>
@@ -961,9 +1077,7 @@ async function viewBookingDetail(id) {
   document.getElementById('modalFooter').innerHTML = booking.status === 'pending'
     ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> Luluskan</button>`
     : booking.status === 'approved'
-      ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak Tempahan</button><button class="btn btn-primary" onclick="completeBooking('${escapeAttr(booking.id)}', true)"><i class="bi bi-envelope-check"></i> Selesai & E-mel</button>`
-    : booking.status === 'completed' && !booking.completionEmailSentAt
-      ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button><button class="btn btn-primary" onclick="retryCompletionEmail('${escapeAttr(booking.id)}', true)"><i class="bi bi-envelope-arrow-up"></i> Hantar E-mel Semula</button>`
+      ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak Tempahan</button>`
       : `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
   document.getElementById('bookingModal')?.classList.add('active');
 }
@@ -1001,29 +1115,6 @@ async function approveBookingFromModal(id) {
   if (await updateStatus(id, 'approved', document.getElementById('modalNote')?.value || '')) {
     closeModal('bookingModal');
     showToast('Diluluskan', 'success');
-  }
-}
-
-async function completeBooking(id, fromModal = false) {
-  if (!window.confirm(`Tandakan tempahan ${id} sebagai selesai dan hantar e-mel kepada pelanggan?`)) return;
-  const result = await updateStatus(id, 'completed');
-  if (!result) return;
-  if (fromModal) closeModal('bookingModal');
-  showToast(
-    result.email_sent ? 'Tempahan selesai dan e-mel telah dihantar.' : (result.warning || 'Tempahan selesai tetapi e-mel gagal dihantar.'),
-    result.email_sent ? 'success' : 'error'
-  );
-}
-
-async function retryCompletionEmail(id, fromModal = false) {
-  try {
-    await tryApi(`bookings.php?action=completion-email&id=${encodeURIComponent(id)}`, 'POST');
-    if (fromModal) closeModal('bookingModal');
-    await renderAdminDashboard();
-    showToast('E-mel selesai telah dihantar.', 'success');
-  } catch (error) {
-    if (handleAdminAuthorizationError(error)) return;
-    showToast(error.message || 'E-mel tidak dapat dihantar.', 'error');
   }
 }
 

@@ -7,7 +7,7 @@
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260822-pic-completion">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260823-pic-admin-trial">
 </head>
 <body>
   <nav id="main-nav">
@@ -30,6 +30,7 @@
         <div class="admin-menu-label">Pengurusan</div>
         <button class="admin-menu-item" onclick="showAdminPanel('clients', this)"><span class="menu-icon"><i class="bi bi-people"></i></span> Pelanggan</button>
         <button class="admin-menu-item" onclick="showAdminPanel('facilities', this)"><span class="menu-icon"><i class="bi bi-building"></i></span> Fasiliti</button>
+        <button class="admin-menu-item" onclick="showAdminPanel('pic', this)"><span class="menu-icon"><i class="bi bi-person-badge"></i></span> PIC</button>
         <button class="admin-menu-item" onclick="showAdminPanel('calendar', this)"><span class="menu-icon"><i class="bi bi-calendar3"></i></span> Kalendar</button>
       </div>
 
@@ -52,7 +53,7 @@
             <h2>Pengurusan Tempahan</h2>
             <div class="admin-toolbar-actions">
               <button class="btn btn-primary btn-sm" type="button" onclick="openAdminCreateBookingModal()"><i class="bi bi-plus-lg"></i> Tambah Tempahan</button>
-              <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('completed', this)">Selesai</button><button class="filter-tab" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
+              <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
             </div>
           </div>
           <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-full"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div></div>
@@ -149,6 +150,10 @@
                     <label for="facilityPicPhone">No Telefon PIC *</label>
                     <input type="tel" id="facilityPicPhone" name="pic_phone" maxlength="20" required placeholder="012-000-0007">
                   </div>
+                  <div class="form-group">
+                    <label for="facilityPicEmail">E-mel PIC</label>
+                    <input type="email" id="facilityPicEmail" name="pic_email" maxlength="100" placeholder="person7@polspace.local">
+                  </div>
                 </div>
               </section>
             </div>
@@ -157,6 +162,17 @@
             </div>
           </form>
           <div class="facility-manage-grid" id="facilityManageGrid"></div>
+        </div>
+
+        <div class="admin-panel" id="panel-pic">
+          <div class="admin-panel-toolbar">
+            <div>
+              <h2>Pengurusan PIC</h2>
+              <p class="admin-panel-subtitle">Urus orang bertanggungjawab untuk setiap fasiliti dan hantar e-mel percubaan kepada PIC.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" type="button" onclick="loadFacilities().then(renderPicManagement)"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
+          </div>
+          <div class="pic-manage-grid" id="picManageGrid"></div>
         </div>
 
         <div class="admin-panel" id="panel-calendar">
@@ -175,7 +191,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260822-pic-completion"></script>
+  <script src="/resources/js/script.js?v=20260823-pic-admin-trial"></script>
 </body>
 </html>
 
