@@ -93,6 +93,256 @@ async function filterBookings(filter, btn) {
   renderBookingsTable('allBookingsTbody', bookings, false);
 }
 
+function openAdminCreateBookingModal() {
+  setText('modalTitle', 'Tambah Tempahan');
+  const minDate = typeof getMinimumBookingDateValue === 'function' ? getMinimumBookingDateValue() : '';
+  document.getElementById('modalBody').innerHTML = `
+    <form class="admin-create-booking-form" id="adminCreateBookingForm" onsubmit="submitAdminCreateBooking(event)">
+      <div class="form-group">
+        <label for="adminBookingName">Nama Penyewa *</label>
+        <input type="text" id="adminBookingName" maxlength="100" required placeholder="cth: Ahmad bin Ali">
+      </div>
+      <div class="form-group">
+        <label for="adminBookingPhone">No Telefon *</label>
+        <input type="tel" id="adminBookingPhone" maxlength="20" required placeholder="012-345 6789">
+      </div>
+      <div class="form-group span-2">
+        <label for="adminBookingEmail">Alamat E-mel *</label>
+        <input type="email" id="adminBookingEmail" required placeholder="contoh@email.com">
+      </div>
+      <div class="form-group span-2">
+        <label for="adminBookingFacility">Nama Fasiliti *</label>
+        <select id="adminBookingFacility" required onchange="syncAdminCreateBookingFields()">${adminCreateBookingFacilityOptions()}</select>
+      </div>
+      <div class="form-group">
+        <label for="adminBookingDate">Tarikh Tempahan *</label>
+        <input type="date" id="adminBookingDate" ${minDate ? `min="${escapeAttr(minDate)}"` : ''} required>
+      </div>
+      <div class="form-group" data-admin-create-time>
+        <label for="adminBookingStart">Masa Mula *</label>
+        <input type="time" id="adminBookingStart" value="08:00" required oninput="syncAdminCreateBookingEndTime()" onchange="syncAdminCreateBookingEndTime()">
+      </div>
+      <div class="form-group">
+        <label for="adminBookingDuration">Tempoh *</label>
+        <input type="number" id="adminBookingDuration" min="1" max="24" step="1" value="1" required oninput="syncAdminCreateBookingEndTime()" onchange="syncAdminCreateBookingEndTime()">
+      </div>
+      <div class="form-group">
+        <label for="adminBookingDurationUnit">Unit Tempoh *</label>
+        <select id="adminBookingDurationUnit" onchange="syncAdminCreateBookingFields()">
+          <option value="hour">Jam</option>
+          <option value="day">Hari</option>
+        </select>
+      </div>
+      <div class="form-group span-2 admin-create-asrama is-hidden">
+        <label>Bilangan Bilik *</label>
+        <div class="admin-create-room-grid">
+          <div class="admin-create-room-summary"><span>Jumlah</span><strong id="adminCreateRoomTotal">1</strong><small id="adminCreateRoomLimit">Maks. 10 bilik</small></div>
+          <div class="admin-create-room-card">
+            <div><span>Asrama Lelaki</span><small id="adminCreateLelakiHint">1 bilik</small></div>
+            <div class="quantity-control compact"><button type="button" onclick="adjustAdminCreateAsramaRoom('lelaki', -1)" aria-label="Kurangkan bilik asrama lelaki"><i class="bi bi-dash-lg"></i></button><input type="number" id="adminBookingLelakiRooms" min="0" max="10" step="1" value="1" oninput="normalizeAdminCreateRooms()"><button type="button" onclick="adjustAdminCreateAsramaRoom('lelaki', 1)" aria-label="Tambah bilik asrama lelaki"><i class="bi bi-plus-lg"></i></button></div>
+          </div>
+          <div class="admin-create-room-card">
+            <div><span>Asrama Perempuan</span><small id="adminCreatePerempuanHint">0 bilik</small></div>
+            <div class="quantity-control compact"><button type="button" onclick="adjustAdminCreateAsramaRoom('perempuan', -1)" aria-label="Kurangkan bilik asrama perempuan"><i class="bi bi-dash-lg"></i></button><input type="number" id="adminBookingPerempuanRooms" min="0" max="10" step="1" value="0" oninput="normalizeAdminCreateRooms()"><button type="button" onclick="adjustAdminCreateAsramaRoom('perempuan', 1)" aria-label="Tambah bilik asrama perempuan"><i class="bi bi-plus-lg"></i></button></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group" data-admin-create-participants>
+        <label for="adminBookingParticipants">Jumlah Pengguna *</label>
+        <input type="number" id="adminBookingParticipants" min="1" max="5000" step="1" value="1" required>
+      </div>
+      <div class="form-group span-2" data-admin-create-equipment>
+        <label>Peralatan Diperlukan</label>
+        <input type="hidden" id="adminBookingEquipment">
+        <div class="admin-create-equipment-grid" id="adminCreateEquipmentGrid"></div>
+      </div>
+      <div class="form-group span-2">
+        <label for="adminBookingPurpose">Tujuan Penggunaan *</label>
+        <textarea id="adminBookingPurpose" maxlength="1000" required></textarea>
+      </div>
+      <input type="hidden" id="adminBookingEnd">
+    </form>
+  `;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-secondary" type="button" onclick="closeModal('bookingModal')">Batal</button>
+    <button class="btn btn-primary" id="adminCreateBookingButton" type="submit" form="adminCreateBookingForm"><i class="bi bi-plus-lg"></i> Cipta Tempahan</button>
+  `;
+  document.getElementById('bookingModal')?.classList.add('active');
+  syncAdminCreateBookingFields();
+}
+
+function adminCreateBookingFacilityOptions() {
+  const options = facilitiesCache.filter((facility) => facility.is_available);
+  if (!options.length) return '<option value="">Tiada fasiliti tersedia</option>';
+  return options.map((facility) => `<option value="${escapeAttr(facility.id)}">${escapeHtml(facility.name)} - RM${escapeHtml(String(facility.price_per_hour))}</option>`).join('');
+}
+
+function getAdminCreateSelectedFacility() {
+  const id = document.getElementById('adminBookingFacility')?.value || '';
+  return facilitiesCache.find((facility) => String(facility.id) === String(id));
+}
+
+function syncAdminCreateBookingFields() {
+  const facility = getAdminCreateSelectedFacility();
+  const asrama = isAsramaRoomFacility(facility);
+  document.querySelectorAll('[data-admin-create-time], [data-admin-create-equipment], [data-admin-create-participants]').forEach((field) => {
+    field.classList.toggle('is-hidden', asrama);
+    field.querySelectorAll('input, textarea, select, button').forEach((control) => { control.disabled = asrama; });
+  });
+  document.querySelector('.admin-create-asrama')?.classList.toggle('is-hidden', !asrama);
+  document.querySelectorAll('.admin-create-asrama input, .admin-create-asrama button').forEach((control) => { control.disabled = !asrama; });
+
+  const unitEl = document.getElementById('adminBookingDurationUnit');
+  const durationEl = document.getElementById('adminBookingDuration');
+  if (asrama) {
+    if (unitEl) unitEl.value = 'day';
+    if (durationEl) durationEl.max = '30';
+    const startEl = document.getElementById('adminBookingStart');
+    const endEl = document.getElementById('adminBookingEnd');
+    if (startEl) startEl.value = '00:00';
+    if (endEl) endEl.value = '';
+    normalizeAdminCreateRooms();
+  } else if (durationEl) {
+    durationEl.max = unitEl?.value === 'day' ? '30' : '24';
+  }
+  renderAdminCreateEquipmentOptions();
+  syncAdminCreateBookingEndTime();
+}
+
+function renderAdminCreateEquipmentOptions() {
+  const grid = document.getElementById('adminCreateEquipmentGrid');
+  const input = document.getElementById('adminBookingEquipment');
+  const facility = getAdminCreateSelectedFacility();
+  if (!grid || !input) return;
+
+  const options = facility?.equipment_options || [];
+  const optionNames = options.map((option) => String(option?.name || option || '').trim()).filter(Boolean);
+  const selected = new Set(String(input.value || '').split(',').map((item) => item.trim()).filter((item) => optionNames.includes(item)));
+  input.value = Array.from(selected).join(', ');
+  if (!options.length) {
+    input.value = '';
+    grid.innerHTML = '<div class="admin-create-equipment-empty">Tiada peralatan ditetapkan untuk fasiliti ini.</div>';
+    return;
+  }
+
+  grid.innerHTML = optionNames.map((name) => {
+    const active = selected.has(name);
+    return `<button type="button" class="admin-create-equipment-option ${active ? 'is-active' : ''}" onclick="toggleAdminCreateEquipment('${escapeAttr(name)}')" aria-pressed="${active ? 'true' : 'false'}">${escapeHtml(name)}</button>`;
+  }).join('');
+}
+
+function toggleAdminCreateEquipment(name) {
+  const input = document.getElementById('adminBookingEquipment');
+  if (!input) return;
+  const selected = new Set(String(input.value || '').split(',').map((item) => item.trim()).filter(Boolean));
+  if (selected.has(name)) selected.delete(name);
+  else selected.add(name);
+  input.value = Array.from(selected).join(', ');
+  renderAdminCreateEquipmentOptions();
+}
+
+function syncAdminCreateBookingEndTime() {
+  const facility = getAdminCreateSelectedFacility();
+  const unit = document.getElementById('adminBookingDurationUnit')?.value || 'hour';
+  const duration = Number(document.getElementById('adminBookingDuration')?.value || 1);
+  const start = document.getElementById('adminBookingStart')?.value || '';
+  const endEl = document.getElementById('adminBookingEnd');
+  if (!endEl || unit !== 'hour' || isAsramaRoomFacility(facility)) {
+    if (endEl) endEl.value = '';
+    return;
+  }
+  const startMinutes = bookingTimeToMinutes(start);
+  if (startMinutes === null || !Number.isFinite(duration)) {
+    endEl.value = '';
+    return;
+  }
+  const endMinutes = startMinutes + (Math.max(1, Math.floor(duration)) * 60);
+  endEl.value = endMinutes < 1440
+    ? `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+    : '';
+}
+
+function normalizeAdminCreateRooms() {
+  const facility = getAdminCreateSelectedFacility();
+  const maxRooms = Math.max(1, Number(facility?.max_rooms || 10));
+  const lelakiEl = document.getElementById('adminBookingLelakiRooms');
+  const perempuanEl = document.getElementById('adminBookingPerempuanRooms');
+  if (!lelakiEl || !perempuanEl) return 1;
+  let lelaki = Math.max(0, Math.floor(Number(lelakiEl.value || 0)));
+  let perempuan = Math.max(0, Math.floor(Number(perempuanEl.value || 0)));
+  if (lelaki + perempuan < 1) lelaki = 1;
+  if (lelaki + perempuan > maxRooms) {
+    const overflow = lelaki + perempuan - maxRooms;
+    if (document.activeElement === perempuanEl) lelaki = Math.max(0, lelaki - overflow);
+    else perempuan = Math.max(0, perempuan - overflow);
+  }
+  lelakiEl.max = String(maxRooms);
+  perempuanEl.max = String(maxRooms);
+  lelakiEl.value = String(lelaki);
+  perempuanEl.value = String(perempuan);
+  setText('adminCreateRoomTotal', lelaki + perempuan);
+  setText('adminCreateRoomLimit', `Maks. ${maxRooms} bilik`);
+  setText('adminCreateLelakiHint', `${lelaki} bilik`);
+  setText('adminCreatePerempuanHint', `${perempuan} bilik`);
+  return lelaki + perempuan;
+}
+
+function adjustAdminCreateAsramaRoom(side, delta) {
+  const input = document.getElementById(side === 'perempuan' ? 'adminBookingPerempuanRooms' : 'adminBookingLelakiRooms');
+  if (!input) return;
+  input.value = String(Number(input.value || 0) + delta);
+  normalizeAdminCreateRooms();
+}
+
+async function submitAdminCreateBooking(event) {
+  event.preventDefault();
+  const button = document.getElementById('adminCreateBookingButton');
+  const facility = getAdminCreateSelectedFacility();
+  const asrama = isAsramaRoomFacility(facility);
+  const roomCount = asrama ? normalizeAdminCreateRooms() : 1;
+  const data = {
+    full_name: document.getElementById('adminBookingName')?.value.trim() || '',
+    email: document.getElementById('adminBookingEmail')?.value.trim() || '',
+    phone: document.getElementById('adminBookingPhone')?.value.trim() || '',
+    facility_id: document.getElementById('adminBookingFacility')?.value || '',
+    booking_date: document.getElementById('adminBookingDate')?.value || '',
+    start_time: asrama ? '00:00' : (document.getElementById('adminBookingStart')?.value || ''),
+    end_time: asrama ? '' : (document.getElementById('adminBookingEnd')?.value || ''),
+    duration: String(Math.max(1, Math.floor(Number(document.getElementById('adminBookingDuration')?.value || 1)))),
+    duration_unit: asrama ? 'day' : (document.getElementById('adminBookingDurationUnit')?.value || 'hour'),
+    purpose: document.getElementById('adminBookingPurpose')?.value.trim() || '',
+    equipment_required: asrama ? '' : (document.getElementById('adminBookingEquipment')?.value.trim() || ''),
+    participant_count: asrama ? roomCount * Number(facility?.capacity || 1) : Number(document.getElementById('adminBookingParticipants')?.value || 0),
+    asrama_lelaki_rooms: asrama ? Number(document.getElementById('adminBookingLelakiRooms')?.value || 0) : 0,
+    asrama_perempuan_rooms: asrama ? Number(document.getElementById('adminBookingPerempuanRooms')?.value || 0) : 0,
+    room_count: roomCount,
+    setup_required: 'full',
+    status: 'approved',
+  };
+
+  if (!data.full_name || !data.email || !data.phone || !data.facility_id || !data.booking_date || !data.purpose) {
+    showToast('Sila lengkapkan maklumat tempahan.', 'error');
+    return;
+  }
+  if (!asrama && data.duration_unit === 'hour' && !data.end_time) {
+    showToast('Tempahan jam mesti tamat pada hari yang sama.', 'error');
+    return;
+  }
+
+  if (button) button.disabled = true;
+  try {
+    const result = await tryApi('bookings.php?action=admin-create', 'POST', data);
+    closeModal('bookingModal');
+    showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
+    await renderAdminDashboard();
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Tempahan gagal dicipta.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function renderFacilityManagement(facilities) {
   const grid = document.getElementById('facilityManageGrid');
   if (!grid) return;

@@ -58,6 +58,14 @@
   flex-wrap: wrap;
 }
 
+.admin-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .data-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -274,6 +282,113 @@
 .admin-password-reset-row input {
   width: 100%;
   min-width: 0;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.admin-create-booking-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-create-booking-form .span-2 {
+  grid-column: span 2;
+}
+
+.admin-create-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-create-room-summary,
+.admin-create-room-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.admin-create-room-summary {
+  grid-column: 1 / -1;
+  grid-template-columns: auto 72px 1fr;
+  align-items: center;
+  background: var(--surface-2);
+}
+
+.admin-create-room-summary span,
+.admin-create-room-card span {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-create-room-summary strong {
+  justify-self: center;
+  font-family: var(--display-font);
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.admin-create-room-summary small,
+.admin-create-room-card small {
+  justify-self: end;
+  color: var(--grey-4);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-create-room-card > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-create-equipment-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.admin-create-equipment-option {
+  min-height: 34px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  color: var(--grey-4);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  transition: var(--transition);
+}
+
+.admin-create-equipment-option:hover {
+  border-color: var(--gold);
+  color: var(--text-main);
+}
+
+.admin-create-equipment-option.is-active {
+  background: var(--gold-dim);
+  border-color: rgba(201,168,76,0.45);
+  color: var(--gold);
+}
+
+.admin-create-equipment-empty {
+  align-self: center;
+  color: var(--grey-3);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* Toast */
@@ -521,6 +636,25 @@
   .admin-equipment-add-row,
   .admin-equipment-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-toolbar-actions,
+  .admin-toolbar-actions .btn,
+  .admin-toolbar-actions .filter-tabs {
+    width: 100%;
+  }
+
+  .admin-create-booking-form,
+  .admin-create-room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-create-booking-form .span-2 {
+    grid-column: auto;
+  }
+
+  .admin-create-room-summary {
+    grid-template-columns: auto 56px 1fr;
   }
 }
 

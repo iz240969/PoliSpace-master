@@ -20,22 +20,33 @@
 .form-group.is-hidden-for-asrama { display: none; }
 .asrama-room-allocator {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  max-width: 640px;
 }
 .asrama-room-total,
 .asrama-room-side {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 14px;
+  gap: 12px;
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-1);
 }
 .asrama-room-total {
-  grid-template-columns: auto 1fr auto;
+  grid-column: 1 / -1;
+  grid-template-columns: auto 72px 1fr;
+  align-items: center;
   background: var(--surface-2);
+}
+.asrama-room-side {
+  align-content: start;
+}
+.asrama-room-side > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 .asrama-room-total span,
 .asrama-room-side span {
@@ -50,13 +61,14 @@
 }
 .asrama-room-total small,
 .asrama-room-side small {
+  justify-self: end;
   color: var(--grey-4);
   font-size: 12px;
   font-weight: 700;
 }
 .quantity-control.compact {
-  width: 190px;
-  min-width: 190px;
+  width: 100%;
+  min-width: 0;
 }
 .quantity-control.compact input {
   min-width: 56px;
@@ -959,6 +971,15 @@ textarea {
 .step-text { font-size: 13px; color: var(--grey-4); line-height: 1.5; padding-top: 3px; font-weight: 500; }
 
 @media (max-width: 560px) {
+  .asrama-room-allocator {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+
+  .asrama-room-total {
+    grid-template-columns: auto 56px 1fr;
+  }
+
   .booking-submit-actions,
   .booking-cart-item {
     grid-template-columns: 1fr;

@@ -57,6 +57,10 @@ try {
         uploadOwnReceipt($db, (string)$_GET['id']);
     }
 
+    if ($method === 'POST' && $action === 'admin-create') {
+        createBooking($db, true);
+    }
+
     if ($method === 'POST') {
         createBooking($db);
     }
@@ -201,23 +205,35 @@ function getBookingByRef(Database $db, string $ref): void
     jsonResponse(['success' => true, 'data' => formatBookingForFrontend($booking)]);
 }
 
-function createBooking(Database $db): void
+function createBooking(Database $db, bool $adminCreate = false): void
 {
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
+    if ($adminCreate) {
+        requireAdmin();
+    } elseif ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
     }
 
     $data = $_POST ?: jsonInput();
-    $user = $db->fetchOne("SELECT id, email, full_name, phone FROM users WHERE id = ? AND email = ? AND role = 'user'", [$userId, $userEmail]);
-    if (!$user) {
-        jsonResponse(['success' => false, 'error' => 'Valid user account required'], 401);
-    }
+    if ($adminCreate) {
+        $data['email'] = trim((string)($data['email'] ?? ''));
+        $data['full_name'] = trim((string)($data['full_name'] ?? ''));
+        $data['phone'] = trim((string)($data['phone'] ?? ''));
+        $matchedUser = filter_var((string)$data['email'], FILTER_VALIDATE_EMAIL)
+            ? $db->fetchOne("SELECT id FROM users WHERE email = ? AND role = 'user'", [$data['email']])
+            : null;
+        $userId = $matchedUser ? (int)$matchedUser['id'] : 0;
+    } else {
+        $user = $db->fetchOne("SELECT id, email, full_name, phone FROM users WHERE id = ? AND email = ? AND role = 'user'", [$userId, $userEmail]);
+        if (!$user) {
+            jsonResponse(['success' => false, 'error' => 'Valid user account required'], 401);
+        }
 
-    $data['email'] = (string)$user['email'];
-    $data['full_name'] = trim((string)($user['full_name'] ?? ''));
-    $data['phone'] = trim((string)($user['phone'] ?? ''));
+        $data['email'] = (string)$user['email'];
+        $data['full_name'] = trim((string)($user['full_name'] ?? ''));
+        $data['phone'] = trim((string)($user['phone'] ?? ''));
+    }
     $facility = null;
     if (!empty($data['facility_id']) && ctype_digit((string)$data['facility_id'])) {
         $facility = $db->fetchOne('SELECT name, capacity, price_per_hour, max_rooms, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
@@ -265,8 +281,8 @@ function createBooking(Database $db): void
     }
 
     $paymentFile = null;
-    $bookingStatus = 'unpaid';
-    $hasPaymentFile = !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
+    $bookingStatus = $adminCreate ? 'approved' : 'unpaid';
+    $hasPaymentFile = !$adminCreate && !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
     if ($hasPaymentFile && $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
         jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
     }
@@ -323,7 +339,7 @@ function createBooking(Database $db): void
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $ref,
-                    $userId,
+                    $userId > 0 ? $userId : null,
                     $data['facility_id'],
                     $data['full_name'],
                     $data['organization'] ?? '',
