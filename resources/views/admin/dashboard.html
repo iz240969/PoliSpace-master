@@ -25,7 +25,7 @@
       <div class="admin-sidebar">
         <div class="admin-menu-label">Utama</div>
         <button class="admin-menu-item active" onclick="showAdminPanel('dashboard', this)"><span class="menu-icon"><i class="bi bi-bar-chart"></i></span> Dashboard</button>
-        <button class="admin-menu-item" onclick="showAdminPanel('bookings', this)"><span class="menu-icon"><i class="bi bi-card-list"></i></span> Tempahan <span class="admin-badge" id="pendingBadge">0</span></button>
+        <button class="admin-menu-item" onclick="showAdminPanel('bookings', this)"><span class="menu-icon"><i class="bi bi-card-list"></i></span> Tempahan <span class="admin-badge" id="pendingBadge" hidden></span></button>
         <button class="admin-menu-item" onclick="showAdminPanel('messages', this)"><span class="menu-icon"><i class="bi bi-chat-dots"></i></span> Mesej</button>
         <div class="admin-menu-label">Pengurusan</div>
         <button class="admin-menu-item" onclick="showAdminPanel('clients', this)"><span class="menu-icon"><i class="bi bi-people"></i></span> Pelanggan</button>
@@ -93,19 +93,36 @@
           </div>
           <form class="admin-card admin-facility-form" id="adminFacilityForm" onsubmit="addFacility(event)">
             <div class="admin-card-header">
-              <div class="admin-card-title">Tambah Fasiliti</div>
+              <div class="admin-facility-form-heading">
+                <span><i class="bi bi-building-add"></i></span>
+                <div><div class="admin-card-title">Tambah Fasiliti</div><p>Lengkapkan maklumat fasiliti dan pegawai yang bertanggungjawab.</p></div>
+              </div>
             </div>
             <div class="admin-facility-form-body">
               <section class="admin-facility-section">
-                <div class="admin-facility-section-title">Maklumat Fasiliti</div>
+                <div class="admin-facility-section-heading"><span>01</span><div><div class="admin-facility-section-title">Maklumat Fasiliti</div><p>Butiran utama, kapasiti dan kemudahan yang disediakan.</p></div></div>
                 <div class="admin-facility-section-grid">
                   <div class="form-group">
                     <label for="facilityName">Nama Fasiliti *</label>
                     <input type="text" id="facilityName" name="name" maxlength="100" required placeholder="cth: Studio Rakaman">
                   </div>
                   <div class="form-group">
-                    <label for="facilityIcon">Ikon Bootstrap</label>
-                    <input type="text" id="facilityIcon" name="icon" maxlength="50" value="bi-building" placeholder="bi-building">
+                    <label for="facilityIcon">Ikon Fasiliti</label>
+                    <div class="admin-icon-select">
+                      <span class="admin-icon-preview" id="facilityIconPreview"><i class="bi bi-building"></i></span>
+                      <select id="facilityIcon" name="icon" onchange="updateFacilityIconPreview('facilityIcon', 'facilityIconPreview')">
+                        <option value="bi-building">Bangunan</option>
+                        <option value="bi-bank">Dewan / Auditorium</option>
+                        <option value="bi-door-open">Bilik</option>
+                        <option value="bi-easel">Bilik Mesyuarat</option>
+                        <option value="bi-pc-display">Makmal Komputer</option>
+                        <option value="bi-mortarboard">Bilik Kuliah</option>
+                        <option value="bi-people">Ruang Berkumpulan</option>
+                        <option value="bi-camera-video">Studio</option>
+                        <option value="bi-house-door">Asrama</option>
+                        <option value="bi-book">Perpustakaan</option>
+                      </select>
+                    </div>
                   </div>
                   <div class="form-group">
                     <label for="facilityCapacity">Kapasiti *</label>
@@ -141,7 +158,7 @@
                 </div>
               </section>
               <section class="admin-facility-section admin-facility-pic-section">
-                <div class="admin-facility-section-title">Maklumat PIC</div>
+                <div class="admin-facility-section-heading"><span>02</span><div><div class="admin-facility-section-title">Maklumat PIC</div><p>Maklumat pegawai untuk urusan dan pengesahan tempahan.</p></div></div>
                 <div class="admin-facility-section-grid admin-facility-pic-grid">
                   <div class="form-group">
                     <label for="facilityPicFullName">Nama Penuh PIC *</label>
@@ -200,7 +217,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260908-code-quality"></script>
+  <script src="/resources/js/script.js?v=20260908-pic-no-avatar"></script>
 </body>
 </html>
 

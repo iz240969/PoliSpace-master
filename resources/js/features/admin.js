@@ -36,7 +36,7 @@ async function renderAdminDashboard() {
     showToast(error.message || 'Data dashboard tidak dapat dimuatkan.', 'error');
   }
 
-  setText('pendingBadge', Number(stats.pending || 0));
+  updatePendingBookingBadge(stats.pending);
   dashDate.textContent = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   document.getElementById('adminStats').innerHTML = buildStatsHTML(stats);
   renderBookingsTable('recentBookingsTbody', bookings.slice(0, 5), true);
@@ -46,6 +46,16 @@ async function renderAdminDashboard() {
   renderCalendar(bookings, bookingCalendarDate);
   loadClients();
   loadMessages();
+}
+
+function updatePendingBookingBadge(value) {
+  const badge = document.getElementById('pendingBadge');
+  if (!badge) return;
+  const count = Math.max(0, Number.parseInt(value, 10) || 0);
+  badge.textContent = String(count);
+  badge.hidden = count === 0;
+  badge.setAttribute('aria-label', `${count} permohonan menunggu pengesahan`);
+  badge.title = count > 0 ? `${count} permohonan menunggu pengesahan` : '';
 }
 
 function buildStatsHTML(stats) {
@@ -123,8 +133,53 @@ function renderAdminReports(bookings) {
       </section>
     </div>
     <section class="admin-card report-receipts"><div class="report-card-head"><div><span>ARKIB BAYARAN</span><h3>Resit Terkini</h3></div><span class="report-count-badge">${receipts.length} resit</span></div>
-      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Rujukan</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Jumlah</th><th>Bukti</th></tr></thead><tbody>${receipts.length ? receipts.map((booking) => `<tr><td><span class="booking-id">${escapeHtml(booking.id)}</span></td><td>${escapeHtml(booking.name)}</td><td>${escapeHtml(booking.facilityName)}</td><td>${formatDate(booking.date)}</td><td><strong>RM${Number(booking.estimatedCost || 0).toFixed(2)}</strong></td><td>${booking.paymentFile ? receiptLinkHtml(booking.paymentFile) : '<span class="report-physical-label"><i class="bi bi-cash"></i> Fizikal</span>'}</td></tr>`).join('') : '<tr><td colspan="6"><div class="report-no-data">Belum ada resit untuk dicetak.</div></td></tr>'}</tbody></table></div>
+      <div class="data-table-wrap"><table class="data-table report-receipt-table"><thead><tr><th>Rujukan</th><th>Penyewa</th><th>Fasiliti & Masa</th><th>Jumlah</th><th>Bukti Bayaran</th><th aria-label="Tindakan"></th></tr></thead><tbody>${receipts.length ? receipts.map(adminReceiptArchiveRowHtml).join('') : '<tr><td colspan="6"><div class="report-no-data">Belum ada resit untuk dicetak.</div></td></tr>'}</tbody></table></div>
     </section>`;
+}
+
+function adminReceiptArchiveRowHtml(booking) {
+  const id = escapeAttr(booking.id);
+  const durationUnit = booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'hari' : 'jam';
+  const duration = `${booking.duration || 1} ${durationUnit}`;
+  const paymentProof = booking.paymentFile
+    ? `<a class="report-proof-link" href="${receiptFileUrl(booking.paymentFile)}" target="_blank" rel="noopener" title="${escapeAttr(booking.paymentFile)}"><i class="bi bi-file-earmark-check"></i><span><strong>Lihat bukti</strong><small>${escapeHtml(booking.paymentFile)}</small></span><i class="bi bi-box-arrow-up-right"></i></a>`
+    : '<span class="report-physical-label"><i class="bi bi-cash"></i> Bayaran fizikal</span>';
+
+  return `
+    <tr class="report-receipt-summary">
+      <td><div class="booking-id">${escapeHtml(booking.id)}</div><div class="report-cell-sub">${statusBadgeHtml(booking.status)}</div></td>
+      <td><strong>${escapeHtml(booking.name)}</strong><div class="report-cell-sub">${escapeHtml(booking.email || '-')}</div></td>
+      <td><strong>${escapeHtml(booking.facilityName)}</strong><div class="report-cell-sub"><i class="bi bi-calendar3"></i> ${formatDate(booking.date)} &middot; ${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</div></td>
+      <td><strong class="report-amount">RM${Number(booking.estimatedCost || 0).toFixed(2)}</strong></td>
+      <td>${paymentProof}</td>
+      <td><button class="btn btn-secondary btn-sm report-detail-toggle" type="button" aria-expanded="false" onclick="toggleAdminReceiptDetails('${id}', this)"><i class="bi bi-chevron-down"></i> Butiran</button></td>
+    </tr>
+    <tr class="report-receipt-detail" data-receipt-detail="${id}" hidden>
+      <td colspan="6">
+        <div class="report-detail-panel">
+          <div class="report-detail-grid">
+            <div><span>No. Telefon</span><strong>${escapeHtml(booking.phone || '-')}</strong></div>
+            <div><span>Tempoh</span><strong>${escapeHtml(duration)}</strong></div>
+            <div><span>Jumlah Pengguna</span><strong>${escapeHtml(booking.pax || '-')}</strong></div>
+            <div><span>Dihantar Pada</span><strong>${escapeHtml(formatDateTime(booking.createdAt))}</strong></div>
+            <div class="report-detail-wide"><span>Tujuan Penggunaan</span><strong>${escapeHtml(booking.purpose || '-')}</strong></div>
+            <div class="report-detail-wide"><span>Peralatan</span><strong>${escapeHtml(booking.equipment || 'Tiada peralatan')}</strong></div>
+            <div class="report-detail-wide"><span>Rekod Bayaran</span><strong>${booking.paymentFile ? receiptLinkHtml(booking.paymentFile) : 'Bayaran fizikal'}</strong></div>
+          </div>
+          <button class="btn btn-secondary btn-sm" type="button" onclick="viewBookingDetail('${id}')"><i class="bi bi-eye"></i> Lihat Tempahan Penuh</button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+function toggleAdminReceiptDetails(id, button) {
+  const detailRow = [...document.querySelectorAll('[data-receipt-detail]')]
+    .find((row) => row.dataset.receiptDetail === String(id));
+  if (!detailRow) return;
+  const willOpen = detailRow.hidden;
+  detailRow.hidden = !willOpen;
+  button?.setAttribute('aria-expanded', String(willOpen));
+  if (button) button.innerHTML = `<i class="bi bi-chevron-${willOpen ? 'up' : 'down'}"></i> ${willOpen ? 'Tutup' : 'Butiran'}`;
 }
 
 function printAllAdminReceipts() {
@@ -686,21 +741,29 @@ function renderPicManagement(facilities = facilitiesCache) {
   }
 
   grid.innerHTML = facilities.map((facility) => `
-    <div class="pic-manage-card">
-      <div class="pic-card-main">
-        <div class="pic-card-icon">${facilityIconHtml(facility)}</div>
+    <article class="pic-manage-card">
+      <header class="pic-card-facility">
+        <span class="pic-card-facility-icon">${facilityIconHtml(facility)}</span>
+        <span><small>Fasiliti</small><strong>${escapeHtml(facility.name)}</strong></span>
+        <i class="pic-card-availability ${facility.is_available ? 'is-active' : ''}" title="${facility.is_available ? 'Fasiliti aktif' : 'Fasiliti tidak tersedia'}"></i>
+      </header>
+      <div class="pic-card-profile">
         <div class="pic-card-copy">
-          <div class="pic-card-kicker">${escapeHtml(facility.name)}</div>
-          <div class="pic-card-name">${escapeHtml(facility.pic_full_name || '-')}</div>
-          <div class="pic-card-contact"><i class="bi bi-telephone"></i> ${escapeHtml(facility.pic_phone || '-')}</div>
-          <div class="pic-card-contact"><i class="bi bi-envelope"></i> ${escapeHtml(facility.pic_email || 'Belum ditetapkan')}</div>
+          <div class="pic-card-kicker">Pegawai Bertanggungjawab</div>
+          <div class="pic-card-name">${escapeHtml(facility.pic_full_name || 'Belum ditetapkan')}</div>
         </div>
       </div>
-      <div class="pic-card-actions">
-        <button class="btn btn-secondary btn-sm" type="button" onclick="openPicEditModal('${escapeAttr(facility.id)}')"><i class="bi bi-pencil-square"></i> Edit PIC</button>
-        <button class="btn btn-primary btn-sm" type="button" onclick="sendPicTrialEmail('${escapeAttr(facility.id)}')" ${facility.pic_email ? '' : 'disabled'}><i class="bi bi-send"></i> E-mel Trial</button>
+      <div class="pic-card-contacts">
+        <a class="pic-card-contact" href="tel:${escapeAttr(facility.pic_phone || '')}"><i class="bi bi-telephone"></i><span><small>No. Telefon</small><strong>${escapeHtml(facility.pic_phone || '-')}</strong></span></a>
+        ${facility.pic_email
+          ? `<a class="pic-card-contact" href="mailto:${escapeAttr(facility.pic_email)}"><i class="bi bi-envelope"></i><span><small>E-mel</small><strong>${escapeHtml(facility.pic_email)}</strong></span></a>`
+          : '<div class="pic-card-contact is-empty"><i class="bi bi-envelope"></i><span><small>E-mel</small><strong>Belum ditetapkan</strong></span></div>'}
       </div>
-    </div>
+      <footer class="pic-card-actions">
+        <button class="btn btn-secondary btn-sm" type="button" onclick="openPicEditModal('${escapeAttr(facility.id)}')"><i class="bi bi-pencil-square"></i> Edit PIC</button>
+        <button class="btn btn-primary btn-sm" type="button" onclick="openPicMessage('${escapeAttr(facility.id)}')"><i class="bi bi-chat-dots"></i> Mesej</button>
+      </footer>
+    </article>
   `).join('');
 }
 
@@ -788,6 +851,34 @@ function removeAdminEquipmentOption(inputId, name) {
   );
 }
 
+const ADMIN_FACILITY_ICONS = [
+  ['bi-building', 'Bangunan'],
+  ['bi-bank', 'Dewan / Auditorium'],
+  ['bi-door-open', 'Bilik'],
+  ['bi-easel', 'Bilik Mesyuarat'],
+  ['bi-pc-display', 'Makmal Komputer'],
+  ['bi-mortarboard', 'Bilik Kuliah'],
+  ['bi-people', 'Ruang Berkumpulan'],
+  ['bi-camera-video', 'Studio'],
+  ['bi-house-door', 'Asrama'],
+  ['bi-book', 'Perpustakaan'],
+];
+
+function adminFacilityIconOptionsHtml(selectedIcon = 'bi-building') {
+  const selected = String(selectedIcon || 'bi-building');
+  const options = [...ADMIN_FACILITY_ICONS];
+  if (!options.some(([value]) => value === selected)) options.unshift([selected, 'Ikon semasa']);
+  return options.map(([value, label]) => `<option value="${escapeAttr(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
+}
+
+function updateFacilityIconPreview(selectId, previewId) {
+  const select = document.getElementById(selectId);
+  const preview = document.getElementById(previewId);
+  if (!select || !preview) return;
+  const icon = String(select.value || 'bi-building').replace(/[^a-z0-9-]/gi, '') || 'bi-building';
+  preview.innerHTML = `<i class="bi ${escapeAttr(icon)}"></i>`;
+}
+
 async function addFacility(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -822,6 +913,7 @@ async function addFacility(event) {
     form.reset();
     const iconInput = document.getElementById('facilityIcon');
     if (iconInput) iconInput.value = 'bi-building';
+    updateFacilityIconPreview('facilityIcon', 'facilityIconPreview');
     const availableInput = document.getElementById('facilityAvailable');
     if (availableInput) availableInput.checked = true;
     setAdminEquipmentOptions('facilityEquipment', defaultAdminEquipmentOptions());
@@ -849,8 +941,11 @@ function openFacilityEditModal(id) {
             <input type="text" id="editFacilityName" maxlength="100" value="${escapeAttr(facility.name)}">
           </div>
           <div class="form-group">
-            <label for="editFacilityIcon">Ikon Bootstrap</label>
-            <input type="text" id="editFacilityIcon" maxlength="50" value="${escapeAttr(facility.icon || 'bi-building')}">
+            <label for="editFacilityIcon">Ikon Fasiliti</label>
+            <div class="admin-icon-select">
+              <span class="admin-icon-preview" id="editFacilityIconPreview"><i class="bi ${escapeAttr(facility.icon || 'bi-building')}"></i></span>
+              <select id="editFacilityIcon" onchange="updateFacilityIconPreview('editFacilityIcon', 'editFacilityIconPreview')">${adminFacilityIconOptionsHtml(facility.icon)}</select>
+            </div>
           </div>
           <div class="form-group">
             <label for="editFacilityCapacity">Kapasiti *</label>
@@ -1035,21 +1130,7 @@ async function updatePic(id) {
   }
 }
 
-async function sendPicTrialEmail(id) {
-  const facility = facilitiesCache.find((item) => String(item.id) === String(id));
-  if (!facility?.pic_email) {
-    showToast('Sila tetapkan e-mel PIC dahulu.', 'error');
-    return;
-  }
-
-  try {
-    await tryApi(`facilities.php?action=pic-email&id=${encodeURIComponent(id)}`, 'POST', {});
-    showToast(`E-mel trial dihantar kepada ${facility.pic_full_name || 'PIC'}.`, 'success');
-  } catch (error) {
-    if (handleAdminAuthorizationError(error)) return;
-    showToast(error.message || 'E-mel trial gagal dihantar.', 'error');
-  }
-}
+function openPicMessage() {}
 
 async function loadClients() {
   const tbody = document.getElementById('clientsTbody');
@@ -1366,11 +1447,15 @@ async function viewBookingDetail(id) {
     <div class="admin-detail-section">
       <div class="admin-facility-section-title">Maklumat Tempahan</div>
       <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
+      <div class="detail-row"><span class="detail-label">E-mel</span><span class="detail-value">${escapeHtml(booking.email || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
+      <div class="detail-row"><span class="detail-label">Tarikh & Masa</span><span class="detail-value">${formatDate(booking.date)}, ${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">Tempoh</span><span class="detail-value">${escapeHtml(String(booking.duration || 1))} ${booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'hari' : 'jam'}</span></div>
       <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
       ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">Jumlah Bayaran</span><span class="detail-value">RM${Number(booking.estimatedCost || 0).toFixed(2)}</span></div>
       <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
     </div>
     <div class="admin-detail-section">
