@@ -186,4 +186,32 @@ function assertBookingDatesAvailable(
         );
     }
 }
+
+function assertAsramaRoomInventoryAvailable(Database $db, int $facilityId, int $maleRooms, int $femaleRooms): void
+{
+    $tableExists = (int)($db->fetchOne(
+        "SELECT COUNT(*) AS count FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asrama_rooms'"
+    )['count'] ?? 0);
+    if ($tableExists < 1) {
+        return;
+    }
+
+    $inventory = $db->fetchAll(
+        'SELECT gender, COUNT(*) AS available_rooms FROM asrama_rooms WHERE facility_id = ? AND is_available = 1 GROUP BY gender',
+        [$facilityId]
+    );
+    if (!$inventory) {
+        return;
+    }
+    $available = ['male' => 0, 'female' => 0];
+    foreach ($inventory as $item) {
+        $available[(string)$item['gender']] = (int)$item['available_rooms'];
+    }
+    if ($maleRooms > $available['male']) {
+        throw new BookingAvailabilityException('Bilik asrama lelaki yang tersedia tidak mencukupi.', 409);
+    }
+    if ($femaleRooms > $available['female']) {
+        throw new BookingAvailabilityException('Bilik asrama perempuan yang tersedia tidak mencukupi.', 409);
+    }
+}
 ?>

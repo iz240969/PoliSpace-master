@@ -7,7 +7,7 @@
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260823-pic-admin-trial">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260908-asrama-visual-refresh">
 </head>
 <body>
   <nav id="main-nav">
@@ -32,6 +32,7 @@
         <button class="admin-menu-item" onclick="showAdminPanel('facilities', this)"><span class="menu-icon"><i class="bi bi-building"></i></span> Fasiliti</button>
         <button class="admin-menu-item" onclick="showAdminPanel('pic', this)"><span class="menu-icon"><i class="bi bi-person-badge"></i></span> PIC</button>
         <button class="admin-menu-item" onclick="showAdminPanel('calendar', this)"><span class="menu-icon"><i class="bi bi-calendar3"></i></span> Kalendar</button>
+        <button class="admin-menu-item" onclick="showAdminPanel('reports', this)"><span class="menu-icon"><i class="bi bi-bar-chart-line"></i></span> Laporan</button>
       </div>
 
       <div class="admin-content">
@@ -179,6 +180,14 @@
           <h2 style="margin-bottom:32px;">Kalendar Tempahan</h2>
           <div class="admin-card" style="padding:32px"><div id="calendarView"></div></div>
         </div>
+
+        <div class="admin-panel" id="panel-reports">
+          <div class="admin-panel-toolbar report-toolbar">
+            <div><h2>Laporan & Resit</h2><p class="admin-panel-subtitle">Ringkasan prestasi tempahan dan rekod bayaran fasiliti.</p></div>
+            <div class="admin-toolbar-actions"><button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminReports()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button><button class="btn btn-primary btn-sm" id="printAllReceiptsButton" type="button" onclick="printAllAdminReceipts()" disabled><i class="bi bi-printer"></i> Cetak Semua Resit</button></div>
+          </div>
+          <div id="adminReportContent"><div class="report-loading"><i class="bi bi-arrow-repeat"></i> Menyediakan laporan...</div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -191,7 +200,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260823-pic-admin-trial"></script>
+  <script src="/resources/js/script.js?v=20260908-admin-reports"></script>
 </body>
 </html>
 

@@ -138,11 +138,14 @@ Important behavior:
 1. Admin logs in from the same login page as clients.
 2. The system detects role by email/password through `auth.php?action=auto`.
 3. Admin dashboard loads bookings, facilities, calendar, and customers.
-4. Admin can approve pending bookings and reject unpaid, pending, or approved bookings.
-5. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
-6. Admin can set or reset a client password from the customer management flow.
-7. Admin can read customer messages and open an email reply from the message table.
-8. Admin can add and edit facilities from the `Fasiliti` page without editing SQL manually, including facility-specific equipment options.
+4. When creating a booking, admin must choose `Muat Naik Resit` or `Bayaran Fizikal`; physical payment generates a printable acknowledgement after the booking reference is created.
+5. Admin can approve pending bookings and reject unpaid, pending, or approved bookings.
+6. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
+7. Admin can set or reset a client password from the customer management flow.
+8. Admin can read customer messages and open an email reply from the message table.
+9. Admin can add and edit facilities from the `Fasiliti` page without editing SQL manually, including facility-specific equipment options.
+10. The `Asrama - Bilik` facility card has an `Urus Bilik` button that opens a minimalist availability page with five levels each for the male and female blocks. Room inventory remains internal; the page manages whole levels only.
+11. The admin `Laporan` section visualizes booking status, approved revenue, facility usage, and printable receipt records. `Cetak Semua Resit` creates one A4 receipt page per paid booking in a single print job.
 
 Default admin credentials:
 

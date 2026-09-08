@@ -17,6 +17,7 @@ async function init() {
   await renderBookingDatePicker();
   setMinDate();
   await renderAdminDashboard();
+  await loadAsramaRoomManagement();
 
   const startEl = document.getElementById('f-start');
   if (startEl) {

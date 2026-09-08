@@ -90,6 +90,19 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     FOREIGN KEY (replied_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS asrama_rooms (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT NOT NULL,
+    gender ENUM('male', 'female') NOT NULL,
+    floor_level TINYINT UNSIGNED NOT NULL,
+    room_number VARCHAR(20) NOT NULL,
+    is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_asrama_room (facility_id, gender, room_number),
+    INDEX idx_asrama_floor (facility_id, gender, floor_level),
+    FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
+);
+
 INSERT INTO users (email, password, full_name, role)
 VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb7rm40SpJI56', 'Administrator', 'admin')
 ON DUPLICATE KEY UPDATE

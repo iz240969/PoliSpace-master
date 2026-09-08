@@ -279,15 +279,21 @@ function createBooking(Database $db, bool $adminCreate = false): void
         $data['asrama_type'] = normalizeAsramaTypeFromRooms($data);
         $data['room_count'] = normalizeAsramaRoomCount($data['room_count'] ?? 1, (int)($facility['max_rooms'] ?? 10));
         $data['participant_count'] = $data['room_count'] * max(1, (int)$facility['capacity']);
+        assertAsramaRoomInventoryAvailable(
+            $db,
+            (int)$data['facility_id'],
+            (int)($data['asrama_lelaki_rooms'] ?? 0),
+            (int)($data['asrama_perempuan_rooms'] ?? 0)
+        );
     }
 
     $paymentFile = null;
     $bookingStatus = $adminCreate ? 'approved' : 'unpaid';
-    $hasPaymentFile = !$adminCreate && !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
+    $hasPaymentFile = !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
     if ($hasPaymentFile && $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
         jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
     }
-    if ($hasPaymentFile) $bookingStatus = 'pending';
+    if ($hasPaymentFile && !$adminCreate) $bookingStatus = 'pending';
 
     $requestedBookingDates = bookingBlockedDates(
         (string)$data['booking_date'],
@@ -318,6 +324,12 @@ function createBooking(Database $db, bool $adminCreate = false): void
         if (isAsramaRoomFacilityName((string)$latestFacility['name'])) {
             validateAsramaBookingMeta($data, (int)($latestFacility['max_rooms'] ?? 10));
             $data['asrama_type'] = normalizeAsramaTypeFromRooms($data);
+            assertAsramaRoomInventoryAvailable(
+                $db,
+                (int)$data['facility_id'],
+                (int)($data['asrama_lelaki_rooms'] ?? 0),
+                (int)($data['asrama_perempuan_rooms'] ?? 0)
+            );
         }
 
         assertBookingDatesAvailable($db, (int)$data['facility_id'], $requestedBookingDates);

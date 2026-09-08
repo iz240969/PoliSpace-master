@@ -85,6 +85,19 @@ CREATE TABLE IF NOT EXISTS contact_messages (
     FOREIGN KEY (replied_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS asrama_rooms (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    facility_id INT NOT NULL,
+    gender ENUM('male', 'female') NOT NULL,
+    floor_level TINYINT UNSIGNED NOT NULL,
+    room_number VARCHAR(20) NOT NULL,
+    is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_asrama_room (facility_id, gender, room_number),
+    INDEX idx_asrama_floor (facility_id, gender, floor_level),
+    FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
+);
+
 SET @contact_reply_column_exists := (
     SELECT COUNT(*)
     FROM information_schema.COLUMNS

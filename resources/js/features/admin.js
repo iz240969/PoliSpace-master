@@ -1,5 +1,8 @@
 ﻿// ==================== ADMIN ====================
 let adminMessagesCache = [];
+let adminCreatePaymentMode = '';
+let adminCreateReceiptFile = null;
+let adminReportBookings = [];
 
 function handleAdminAuthorizationError(error) {
   if (![401, 403].includes(error?.status)) return false;
@@ -54,6 +57,102 @@ function buildStatsHTML(stats) {
   `;
 }
 
+async function loadAdminReports() {
+  const content = document.getElementById('adminReportContent');
+  if (!content) return;
+  content.innerHTML = '<div class="report-loading"><i class="bi bi-arrow-repeat"></i> Menyediakan laporan...</div>';
+  try {
+    const result = await tryApi('bookings.php');
+    adminReportBookings = result.data || [];
+    renderAdminReports(adminReportBookings);
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    content.innerHTML = `<div class="report-empty"><i class="bi bi-exclamation-circle"></i><strong>Laporan tidak dapat dimuatkan</strong><span>${escapeHtml(error.message || 'Sila cuba lagi.')}</span></div>`;
+  }
+}
+
+function adminPrintableReceipts(bookings = adminReportBookings) {
+  return bookings.filter((booking) => booking.status === 'approved' || (booking.status === 'pending' && booking.paymentFile));
+}
+
+function renderAdminReports(bookings) {
+  const content = document.getElementById('adminReportContent');
+  const printButton = document.getElementById('printAllReceiptsButton');
+  if (!content) return;
+  const statusOrder = ['approved', 'pending', 'rejected', 'cancelled'];
+  const statusMeta = {
+    approved: { label: 'Diluluskan', color: '#2c8f53' },
+    pending: { label: 'Menunggu', color: '#d49a23' },
+    rejected: { label: 'Ditolak', color: '#c64141' },
+    cancelled: { label: 'Dibatalkan', color: '#8b8b8b' },
+  };
+  const counts = Object.fromEntries(statusOrder.map((status) => [status, bookings.filter((booking) => booking.status === status).length]));
+  const total = Math.max(1, bookings.length);
+  let cursor = 0;
+  const segments = statusOrder.map((status) => {
+    const start = cursor;
+    cursor += (counts[status] / total) * 100;
+    return `${statusMeta[status].color} ${start}% ${cursor}%`;
+  }).join(', ');
+  const approved = bookings.filter((booking) => booking.status === 'approved');
+  const revenue = approved.reduce((sum, booking) => sum + Number(booking.estimatedCost || 0), 0);
+  const receipts = adminPrintableReceipts(bookings);
+  const facilities = Object.values(bookings.reduce((items, booking) => {
+    const name = booking.facilityName || 'Fasiliti';
+    items[name] ||= { name, count: 0, revenue: 0 };
+    items[name].count += 1;
+    if (booking.status === 'approved') items[name].revenue += Number(booking.estimatedCost || 0);
+    return items;
+  }, {})).sort((a, b) => b.count - a.count);
+  const maxFacilityCount = Math.max(1, ...facilities.map((item) => item.count));
+  if (printButton) printButton.disabled = receipts.length === 0;
+
+  content.innerHTML = `
+    <div class="report-kpi-grid">
+      <div class="report-kpi"><span>Jumlah Tempahan</span><strong>${bookings.length}</strong><small>Semua rekod laporan</small></div>
+      <div class="report-kpi"><span>Hasil Diluluskan</span><strong>RM${revenue.toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><small>${approved.length} tempahan diluluskan</small></div>
+      <div class="report-kpi"><span>Resit Boleh Dicetak</span><strong>${receipts.length}</strong><small>Bayaran disahkan / menunggu</small></div>
+      <div class="report-kpi"><span>Kadar Kelulusan</span><strong>${Math.round((approved.length / total) * 100)}%</strong><small>Daripada jumlah tempahan</small></div>
+    </div>
+    <div class="report-visual-grid">
+      <section class="admin-card report-card"><div class="report-card-head"><div><span>STATUS TEMPAHAN</span><h3>Agihan Keseluruhan</h3></div><i class="bi bi-pie-chart"></i></div>
+        <div class="report-status-visual"><div class="report-donut" style="--report-segments:conic-gradient(${bookings.length ? segments : '#eceae5 0 100%'})"><div><strong>${bookings.length}</strong><span>Tempahan</span></div></div><div class="report-status-legend">${statusOrder.map((status) => `<div><i style="background:${statusMeta[status].color}"></i><span>${statusMeta[status].label}</span><strong>${counts[status]}</strong></div>`).join('')}</div></div>
+      </section>
+      <section class="admin-card report-card"><div class="report-card-head"><div><span>PRESTASI FASILITI</span><h3>Jumlah Tempahan</h3></div><i class="bi bi-bar-chart"></i></div>
+        <div class="report-bars">${facilities.length ? facilities.map((item) => `<div class="report-bar-row"><div><span>${escapeHtml(item.name)}</span><strong>${item.count}</strong></div><div class="report-bar-track"><i style="width:${Math.max(5, (item.count / maxFacilityCount) * 100)}%"></i></div></div>`).join('') : '<div class="report-no-data">Tiada data fasiliti.</div>'}</div>
+      </section>
+    </div>
+    <section class="admin-card report-receipts"><div class="report-card-head"><div><span>ARKIB BAYARAN</span><h3>Resit Terkini</h3></div><span class="report-count-badge">${receipts.length} resit</span></div>
+      <div class="data-table-wrap"><table class="data-table"><thead><tr><th>Rujukan</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Jumlah</th><th>Bukti</th></tr></thead><tbody>${receipts.length ? receipts.map((booking) => `<tr><td><span class="booking-id">${escapeHtml(booking.id)}</span></td><td>${escapeHtml(booking.name)}</td><td>${escapeHtml(booking.facilityName)}</td><td>${formatDate(booking.date)}</td><td><strong>RM${Number(booking.estimatedCost || 0).toFixed(2)}</strong></td><td>${booking.paymentFile ? receiptLinkHtml(booking.paymentFile) : '<span class="report-physical-label"><i class="bi bi-cash"></i> Fizikal</span>'}</td></tr>`).join('') : '<tr><td colspan="6"><div class="report-no-data">Belum ada resit untuk dicetak.</div></td></tr>'}</tbody></table></div>
+    </section>`;
+}
+
+function printAllAdminReceipts() {
+  const receipts = adminPrintableReceipts();
+  if (!receipts.length) {
+    showToast('Tiada resit untuk dicetak.', 'error');
+    return;
+  }
+  const printWindow = window.open('', 'polspace-all-receipts', 'width=900,height=760');
+  if (!printWindow) {
+    showToast('Pelayar menyekat tetingkap cetakan. Benarkan pop-up dan cuba lagi.', 'error');
+    return;
+  }
+  const pages = receipts.map((booking) => {
+    const filename = String(booking.paymentFile || '');
+    const isImage = /\.(jpe?g|png|gif)$/i.test(filename);
+    const proof = filename
+      ? isImage
+        ? `<div class="proof"><span>Bukti Bayaran</span><img src="/uploads/payments/${escapeAttr(filename)}" alt="Bukti bayaran ${escapeAttr(booking.id)}"></div>`
+        : `<div class="proof-file"><span>Bukti Bayaran PDF</span><strong>${escapeHtml(filename)}</strong></div>`
+      : '<div class="proof-file"><span>Kaedah Bayaran</span><strong>Bayaran Fizikal</strong></div>';
+    return `<article class="receipt-page"><header><div><h1>PoliSpace</h1><p>Resit Tempahan Fasiliti</p></div><div class="receipt-ref"><span>No. Rujukan</span><strong>${escapeHtml(booking.id)}</strong></div></header><div class="paid-stamp">REKOD BAYARAN</div><section class="receipt-details"><div><span>Nama Penyewa</span><strong>${escapeHtml(booking.name)}</strong></div><div><span>Fasiliti</span><strong>${escapeHtml(booking.facilityName)}</strong></div><div><span>Tarikh Tempahan</span><strong>${escapeHtml(formatDate(booking.date))}</strong></div><div><span>Status</span><strong>${booking.status === 'approved' ? 'Diluluskan' : 'Menunggu'}</strong></div><div><span>E-mel</span><strong>${escapeHtml(booking.email)}</strong></div><div><span>No. Telefon</span><strong>${escapeHtml(booking.phone)}</strong></div></section><div class="receipt-total"><span>Jumlah</span><strong>RM${Number(booking.estimatedCost || 0).toFixed(2)}</strong></div>${proof}<footer>Dicetak pada ${escapeHtml(new Date().toLocaleString('ms-MY'))}</footer></article>`;
+  }).join('');
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html><html lang="ms"><head><meta charset="utf-8"><title>Semua Resit PoliSpace</title><style>*{box-sizing:border-box}body{margin:0;background:#eee;color:#161616;font-family:Arial,sans-serif}.receipt-page{width:190mm;min-height:270mm;margin:10mm auto;padding:17mm;background:#fff;page-break-after:always}.receipt-page:last-child{page-break-after:auto}header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #1b1b1b}h1{margin:0;font-size:28px}header p{margin:5px 0 0;color:#666}.receipt-ref{text-align:right}.receipt-ref span{display:block;color:#777;font-size:11px}.receipt-ref strong{font-size:19px}.paid-stamp{display:inline-block;margin:22px 0;padding:7px 10px;border:1px solid #2c8f53;border-radius:20px;color:#2c8f53;font-size:11px;font-weight:700}.receipt-details{display:grid;grid-template-columns:1fr 1fr;gap:0 30px}.receipt-details div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #ddd;font-size:13px}.receipt-details span,.proof span,.proof-file span{color:#777}.receipt-details strong{text-align:right}.receipt-total{display:flex;justify-content:space-between;align-items:center;margin:24px 0;padding:17px;background:#f5f1e7}.receipt-total strong{font-size:24px}.proof{margin-top:18px}.proof span,.proof-file span{display:block;margin-bottom:8px;font-size:11px;font-weight:700;text-transform:uppercase}.proof img{display:block;max-width:100%;max-height:95mm;margin:auto;border:1px solid #ddd}.proof-file{padding:18px;border:1px dashed #bbb;text-align:center}footer{margin-top:24px;color:#888;font-size:10px;text-align:center}@page{size:A4;margin:0}@media print{body{background:#fff}.receipt-page{margin:0}}</style></head><body>${pages}<script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`);
+  printWindow.document.close();
+}
+
 function renderBookingsTable(tbodyId, bookings, isRecent = false) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
@@ -97,6 +196,8 @@ async function filterBookings(filter, btn) {
 }
 
 function openAdminCreateBookingModal() {
+  adminCreatePaymentMode = '';
+  adminCreateReceiptFile = null;
   setText('modalTitle', 'Tambah Tempahan');
   const minDate = typeof getMinimumBookingDateValue === 'function' ? getMinimumBookingDateValue() : '';
   document.getElementById('modalBody').innerHTML = `
@@ -163,15 +264,102 @@ function openAdminCreateBookingModal() {
         <label for="adminBookingPurpose">Tujuan Penggunaan *</label>
         <textarea id="adminBookingPurpose" maxlength="1000" required></textarea>
       </div>
+      <div class="admin-create-payment-options span-2 is-hidden" id="adminCreatePaymentOptions">
+        <div class="admin-create-payment-heading">
+          <strong>Pilih Kaedah Bayaran</strong>
+          <span>Muat naik bukti bayaran atau sediakan dokumen untuk bayaran fizikal.</span>
+        </div>
+        <div class="admin-create-payment-grid">
+          <button class="admin-create-payment-option" type="button" onclick="selectAdminCreatePaymentMode('receipt')">
+            <i class="bi bi-receipt"></i>
+            <span><strong>Muat Naik Resit</strong><small>JPG, PNG, GIF atau PDF (maks. 5MB)</small></span>
+          </button>
+          <button class="admin-create-payment-option" type="button" onclick="selectAdminCreatePaymentMode('physical')">
+            <i class="bi bi-printer"></i>
+            <span><strong>Bayaran Fizikal</strong><small>Cetak dokumen selepas tempahan dicipta</small></span>
+          </button>
+        </div>
+        <input id="adminBookingReceipt" type="file" accept=".jpg,.jpeg,.png,.gif,.pdf" class="is-hidden" onchange="handleAdminCreateReceiptChange()">
+        <div class="admin-create-payment-status" id="adminCreatePaymentStatus"></div>
+      </div>
       <input type="hidden" id="adminBookingEnd">
     </form>
   `;
   document.getElementById('modalFooter').innerHTML = `
     <button class="btn btn-secondary" type="button" onclick="closeModal('bookingModal')">Batal</button>
+    <button class="btn btn-secondary" id="adminCreatePaymentButton" type="button" onclick="toggleAdminCreatePaymentOptions()" aria-expanded="false"><i class="bi bi-wallet2"></i> Bayaran</button>
     <button class="btn btn-primary" id="adminCreateBookingButton" type="submit" form="adminCreateBookingForm"><i class="bi bi-plus-lg"></i> Cipta Tempahan</button>
   `;
   document.getElementById('bookingModal')?.classList.add('active');
   syncAdminCreateBookingFields();
+}
+
+function toggleAdminCreatePaymentOptions() {
+  const options = document.getElementById('adminCreatePaymentOptions');
+  const button = document.getElementById('adminCreatePaymentButton');
+  if (!options || !button) return;
+  const willOpen = options.classList.contains('is-hidden');
+  options.classList.toggle('is-hidden', !willOpen);
+  button.setAttribute('aria-expanded', String(willOpen));
+  if (willOpen) options.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function selectAdminCreatePaymentMode(mode) {
+  if (mode === 'receipt') {
+    const input = document.getElementById('adminBookingReceipt');
+    if (!input) return;
+    input.value = '';
+    input.click();
+    return;
+  }
+  adminCreatePaymentMode = 'physical';
+  adminCreateReceiptFile = null;
+  const input = document.getElementById('adminBookingReceipt');
+  if (input) input.value = '';
+  updateAdminCreatePaymentSelection();
+}
+
+function handleAdminCreateReceiptChange() {
+  const input = document.getElementById('adminBookingReceipt');
+  const file = input?.files?.[0] || null;
+  if (!file) return;
+  if (!isValidReceiptFile(file)) {
+    input.value = '';
+    adminCreatePaymentMode = '';
+    adminCreateReceiptFile = null;
+    updateAdminCreatePaymentSelection();
+    showToast('Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.', 'error');
+    return;
+  }
+  adminCreatePaymentMode = 'receipt';
+  adminCreateReceiptFile = file;
+  updateAdminCreatePaymentSelection();
+}
+
+function updateAdminCreatePaymentSelection() {
+  const options = document.getElementById('adminCreatePaymentOptions');
+  const button = document.getElementById('adminCreatePaymentButton');
+  const status = document.getElementById('adminCreatePaymentStatus');
+  document.querySelectorAll('.admin-create-payment-option').forEach((option, index) => {
+    const active = (index === 0 && adminCreatePaymentMode === 'receipt') || (index === 1 && adminCreatePaymentMode === 'physical');
+    option.classList.toggle('is-active', active);
+  });
+  if (button) {
+    button.innerHTML = adminCreatePaymentMode === 'receipt'
+      ? '<i class="bi bi-receipt-check"></i> Resit Dipilih'
+      : adminCreatePaymentMode === 'physical'
+        ? '<i class="bi bi-printer"></i> Bayaran Fizikal'
+        : '<i class="bi bi-wallet2"></i> Bayaran';
+    button.setAttribute('aria-expanded', 'false');
+  }
+  if (status) {
+    status.innerHTML = adminCreatePaymentMode === 'receipt'
+      ? `<i class="bi bi-check-circle"></i> ${escapeHtml(adminCreateReceiptFile?.name || 'Resit dipilih')}`
+      : adminCreatePaymentMode === 'physical'
+        ? '<i class="bi bi-check-circle"></i> Dokumen bayaran fizikal akan dibuka untuk cetakan selepas tempahan berjaya dicipta.'
+        : '';
+  }
+  options?.classList.add('is-hidden');
 }
 
 function adminCreateBookingFacilityOptions() {
@@ -297,6 +485,93 @@ function adjustAdminCreateAsramaRoom(side, delta) {
   normalizeAdminCreateRooms();
 }
 
+async function createAdminBookingRequest(data, receiptFile = null) {
+  const formData = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== '') formData.append(key, value);
+  });
+  if (receiptFile) formData.append('payment_file', receiptFile);
+
+  const response = await fetch(`${API_BASE}/bookings.php?action=admin-create`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.success === false) {
+    const error = new Error(result.error || 'Tempahan gagal dicipta.');
+    error.status = response.status;
+    throw error;
+  }
+  return result;
+}
+
+function openAdminPhysicalPaymentWindow() {
+  const printWindow = window.open('', 'polspace-physical-payment', 'width=860,height=720');
+  if (!printWindow) return null;
+  printWindow.document.open();
+  printWindow.document.write('<!doctype html><html lang="ms"><head><title>Menyediakan dokumen...</title></head><body style="font-family:Arial,sans-serif;padding:40px">Menyediakan dokumen bayaran fizikal...</body></html>');
+  printWindow.document.close();
+  return printWindow;
+}
+
+function printAdminPhysicalPayment(printWindow, bookingRef, data, facility) {
+  if (!printWindow || printWindow.closed) return;
+  const durationLabel = `${escapeHtml(data.duration)} ${data.duration_unit === 'day' ? 'hari' : 'jam'}`;
+  const timeLabel = data.duration_unit === 'day'
+    ? 'Sepanjang hari'
+    : `${escapeHtml(data.start_time)} - ${escapeHtml(data.end_time || '-')}`;
+  const roomMultiplier = isAsramaRoomFacility(facility) ? Math.max(1, Number(data.room_count || 1)) : 1;
+  const amount = Number(facility?.price_per_hour || 0) * Math.max(1, Number(data.duration || 1)) * roomMultiplier;
+  const createdAt = new Date().toLocaleString('ms-MY', { dateStyle: 'long', timeStyle: 'short' });
+  const html = `<!doctype html>
+    <html lang="ms">
+    <head>
+      <meta charset="utf-8">
+      <title>Bayaran Fizikal ${escapeHtml(bookingRef)}</title>
+      <style>
+        *{box-sizing:border-box} body{margin:0;background:#f2f2f2;color:#171717;font-family:Arial,sans-serif}
+        .sheet{width:190mm;min-height:260mm;margin:12mm auto;padding:18mm;background:#fff;border:1px solid #ddd}
+        .header{display:flex;justify-content:space-between;gap:24px;padding-bottom:20px;border-bottom:3px solid #171717}
+        h1{margin:0;font-size:28px} .subtitle{margin-top:7px;color:#555;font-size:14px}.ref{text-align:right}.ref strong{display:block;font-size:20px;margin-top:5px}
+        .badge{display:inline-block;margin:22px 0;padding:8px 12px;border:1px solid #171717;border-radius:20px;font-size:12px;font-weight:700;text-transform:uppercase}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 32px}.row{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-bottom:1px solid #ddd;font-size:14px}.row span{color:#666}.row strong{text-align:right}
+        .amount{display:flex;justify-content:space-between;align-items:center;margin:28px 0;padding:18px;background:#f4f1e8;border:1px solid #d8c992}.amount strong{font-size:25px}
+        .method{padding:16px;border:1px solid #bbb}.method-title{font-weight:700;margin-bottom:14px}.checks{display:flex;gap:28px;font-size:14px}.box{display:inline-block;width:17px;height:17px;margin-right:7px;border:1px solid #333;vertical-align:middle}
+        .signatures{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:70px}.signature{padding-top:9px;border-top:1px solid #333;font-size:13px}.signature small{display:block;margin-top:7px;color:#666}
+        .footer{margin-top:40px;color:#777;font-size:11px;text-align:center}
+        @page{size:A4;margin:0}@media print{body{background:#fff}.sheet{margin:0;border:0;width:auto;min-height:auto}}
+      </style>
+    </head>
+    <body>
+      <main class="sheet">
+        <div class="header"><div><h1>PoliSpace</h1><div class="subtitle">Dokumen Bayaran Fizikal Tempahan Fasiliti</div></div><div class="ref"><span>No. Rujukan</span><strong>${escapeHtml(bookingRef)}</strong></div></div>
+        <div class="badge">Untuk Bayaran Fizikal</div>
+        <div class="grid">
+          <div class="row"><span>Nama Penyewa</span><strong>${escapeHtml(data.full_name)}</strong></div>
+          <div class="row"><span>No. Telefon</span><strong>${escapeHtml(data.phone)}</strong></div>
+          <div class="row"><span>E-mel</span><strong>${escapeHtml(data.email)}</strong></div>
+          <div class="row"><span>Fasiliti</span><strong>${escapeHtml(facility?.name || '-')}</strong></div>
+          <div class="row"><span>Tarikh Tempahan</span><strong>${escapeHtml(formatDate(data.booking_date))}</strong></div>
+          <div class="row"><span>Masa</span><strong>${timeLabel}</strong></div>
+          <div class="row"><span>Tempoh</span><strong>${durationLabel}</strong></div>
+          <div class="row"><span>Tarikh Dicipta</span><strong>${escapeHtml(createdAt)}</strong></div>
+        </div>
+        <div class="row"><span>Tujuan</span><strong>${escapeHtml(data.purpose)}</strong></div>
+        <div class="amount"><span>Jumlah Bayaran</span><strong>RM${amount.toFixed(2)}</strong></div>
+        <div class="method"><div class="method-title">Kaedah bayaran diterima</div><div class="checks"><span><i class="box"></i>Tunai</span><span><i class="box"></i>Kad</span><span><i class="box"></i>Lain-lain: __________________</span></div></div>
+        <div class="signatures"><div class="signature">Tandatangan Penyewa<small>Nama / Tarikh</small></div><div class="signature">Diterima Oleh<small>Nama Admin / Tarikh</small></div></div>
+        <div class="footer">Simpan dokumen ini sebagai rekod bayaran fizikal bagi tempahan ${escapeHtml(bookingRef)}.</div>
+      </main>
+    </body>
+    </html>`;
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => printWindow.print(), 300);
+}
+
 async function submitAdminCreateBooking(event) {
   event.preventDefault();
   const button = document.getElementById('adminCreateBookingButton');
@@ -331,14 +606,32 @@ async function submitAdminCreateBooking(event) {
     showToast('Tempahan jam mesti tamat pada hari yang sama.', 'error');
     return;
   }
+  if (!adminCreatePaymentMode) {
+    showToast('Sila pilih sama ada muat naik resit atau bayaran fizikal.', 'error');
+    toggleAdminCreatePaymentOptions();
+    return;
+  }
+  if (adminCreatePaymentMode === 'receipt' && !adminCreateReceiptFile) {
+    showToast('Sila pilih fail resit.', 'error');
+    toggleAdminCreatePaymentOptions();
+    return;
+  }
+
+  const printWindow = adminCreatePaymentMode === 'physical' ? openAdminPhysicalPaymentWindow() : null;
+  if (adminCreatePaymentMode === 'physical' && !printWindow) {
+    showToast('Pelayar menyekat tetingkap cetakan. Benarkan pop-up dan cuba lagi.', 'error');
+    return;
+  }
 
   if (button) button.disabled = true;
   try {
-    const result = await tryApi('bookings.php?action=admin-create', 'POST', data);
+    const result = await createAdminBookingRequest(data, adminCreatePaymentMode === 'receipt' ? adminCreateReceiptFile : null);
+    if (printWindow) printAdminPhysicalPayment(printWindow, result.booking_ref || '-', data, facility);
     closeModal('bookingModal');
     showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
     await renderAdminDashboard();
   } catch (error) {
+    if (printWindow && !printWindow.closed) printWindow.close();
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Tempahan gagal dicipta.', 'error');
   } finally {
@@ -365,7 +658,7 @@ function renderFacilityManagement(facilities) {
       ${f.pic_email ? `<div class="fmc-pic-email"><i class="bi bi-envelope"></i> ${escapeHtml(f.pic_email)}</div>` : ''}
       <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
       <div class="fmc-footer">
-        <button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button>
+        <div class="fmc-actions">${isAsramaRoomFacility(f) ? `<button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminAsrama"><i class="bi bi-grid-3x3-gap"></i> Urus Bilik</button>` : ''}<button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button></div>
         <div class="fmc-availability"><span>${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
       </div>
     </div>
@@ -1037,6 +1330,7 @@ function showAdminPanel(name, btn) {
   if (name === 'clients') loadClients();
   if (name === 'pic') loadFacilities().then(renderPicManagement);
   if (name === 'calendar') renderAdminDashboard();
+  if (name === 'reports') loadAdminReports();
 }
 
 async function viewBookingDetail(id) {
