@@ -8,6 +8,7 @@ const ROUTES = {
   signup: `${APP_ROOT}/resources/views/auth/signup.html`,
   dashboard: `${APP_ROOT}/resources/views/dashboard/index.html`,
   adminDashboard: `${APP_ROOT}/resources/views/admin/dashboard.html`,
+  adminCreateBooking: `${APP_ROOT}/resources/views/admin/create-booking.html`,
   adminAsrama: `${APP_ROOT}/resources/views/admin/asrama.html`,
   adminLogin: `${APP_ROOT}/resources/views/admin/login.html`,
 };

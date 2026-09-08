@@ -12,6 +12,11 @@ $db = Database::getInstance();
 $input = $_POST ?: jsonInput();
 $action = $_GET['action'] ?? '';
 
+if (in_array($action, ['auto', 'signup', 'login', 'user', 'logout'], true)
+    && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);
+}
+
 function establishAdminSession(array $user): void
 {
     session_regenerate_id(true);

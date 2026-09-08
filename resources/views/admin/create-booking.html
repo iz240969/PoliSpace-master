@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PoliSpace - Tambah Tempahan</title>
+  <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260908-code-quality">
+</head>
+<body>
+  <nav id="main-nav">
+    <div class="nav-logo nav-logo-static"><div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div></div>
+    <div class="nav-links"><span class="nav-mode-label">Admin Mode</span></div>
+    <div class="nav-actions"></div>
+  </nav>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <main id="admin" class="admin-create-page">
+    <div id="adminCreateBookingPage">
+      <a class="admin-create-back" href="/resources/views/admin/dashboard.html"><i class="bi bi-arrow-left"></i> Kembali ke Tempahan</a>
+      <header class="admin-create-page-header">
+        <div><div class="admin-create-eyebrow">TEMPAHAN PENTADBIR</div><h1>Tambah Tempahan</h1><p>Lengkapkan maklumat penyewa, fasiliti dan kaedah bayaran dalam satu halaman.</p></div>
+        <div class="admin-create-header-mark"><i class="bi bi-calendar2-plus"></i></div>
+      </header>
+
+      <div class="admin-create-page-layout">
+        <article class="admin-create-form-card">
+          <div class="admin-create-form-intro"><div><span>01</span><div><strong id="modalTitle">Butiran Tempahan</strong><small>Maklumat bertanda * wajib diisi</small></div></div><i class="bi bi-pencil-square"></i></div>
+          <div class="admin-create-page-body" id="modalBody"></div>
+          <div class="admin-create-page-actions" id="modalFooter"></div>
+        </article>
+
+        <aside class="admin-create-sidebar">
+          <section class="admin-create-help-card accent"><i class="bi bi-stars"></i><div><strong>Tempahan Segera</strong><p>Tempahan yang dicipta oleh admin akan terus diluluskan selepas kaedah bayaran dipilih.</p></div></section>
+          <section class="admin-create-help-card"><div class="admin-create-help-title">Sebelum mencipta</div><ul><li><i class="bi bi-check2"></i> Semak kapasiti fasiliti</li><li><i class="bi bi-check2"></i> Pastikan tarikh dan tempoh betul</li><li><i class="bi bi-check2"></i> Pilih resit atau bayaran fizikal</li></ul></section>
+          <section class="admin-create-help-card"><div class="admin-create-help-title">Kaedah Bayaran</div><div class="admin-create-method"><i class="bi bi-receipt"></i><span><strong>Resit Digital</strong><small>JPG, PNG, GIF atau PDF</small></span></div><div class="admin-create-method"><i class="bi bi-printer"></i><span><strong>Bayaran Fizikal</strong><small>Dokumen A4 akan dijana</small></span></div></section>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <script src="/resources/js/script.js?v=20260908-code-quality"></script>
+</body>
+</html>

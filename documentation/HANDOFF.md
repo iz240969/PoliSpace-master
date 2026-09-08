@@ -54,6 +54,7 @@ backend/config.php          Loads .env and session/config values
 backend/db.php              PDO connection helper
 backend/api/auth.php        Login/signup/session plus current-user profile update
 backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar endpoints
+backend/api/receipts.php    Secure receipt viewing for authenticated admins and receipt owners
 backend/api/facilities.php  Facility list/admin create/admin availability update endpoint
 backend/api/messages.php    Contact message endpoint
 backend/api/users.php       Admin customer list/detail/password reset endpoint
@@ -138,7 +139,7 @@ Important behavior:
 1. Admin logs in from the same login page as clients.
 2. The system detects role by email/password through `auth.php?action=auto`.
 3. Admin dashboard loads bookings, facilities, calendar, and customers.
-4. When creating a booking, admin must choose `Muat Naik Resit` or `Bayaran Fizikal`; physical payment generates a printable acknowledgement after the booking reference is created.
+4. `Tambah Tempahan` opens a dedicated, spacious admin page. Admin must choose `Muat Naik Resit` or `Bayaran Fizikal`; physical payment generates a printable acknowledgement after the booking reference is created.
 5. Admin can approve pending bookings and reject unpaid, pending, or approved bookings.
 6. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
 7. Admin can set or reset a client password from the customer management flow.
@@ -194,6 +195,12 @@ Run these after changes:
 ```powershell
 Get-ChildItem -Recurse resources/js -Filter *.js | ForEach-Object { node --check $_.FullName }
 Get-ChildItem -Recurse backend -Filter *.php | ForEach-Object { php -l $_.FullName }
+```
+
+The consolidated smoke suite also checks key pages, public APIs, JavaScript/PHP syntax, cross-origin mutation rejection, and HTTP method enforcement:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests/smoke.ps1
 ```
 
 Quick Laragon checks:
@@ -289,7 +296,7 @@ root redirect HTML files
 - `resources/js/core/fallback.js` reads legacy local booking data only for public calendar fallbacks. Mutating and authenticated workflows never report local-only data as successfully saved.
 - `APP_ROOT` is hardcoded to ''.
 - There is no `.env.example` in this checkout; keep local database settings in `.env`.
-- Production hardening is still needed: CSRF protection, HTTPS-only cookies, and changing default admin credentials.
+- State-changing browser requests enforce same-origin checks. Production hardening still needs HTTPS-only cookies, changing default admin credentials, and optional synchronizer CSRF tokens for defense-in-depth.
 - MySQL named locks plus backend date-range conflict checks protect simultaneous paid bookings for the same facility/date range. The `uniq_blocking_facility_date` index still protects duplicate starts for the same facility/date.
 
 

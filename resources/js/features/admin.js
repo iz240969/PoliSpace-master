@@ -143,7 +143,7 @@ function printAllAdminReceipts() {
     const isImage = /\.(jpe?g|png|gif)$/i.test(filename);
     const proof = filename
       ? isImage
-        ? `<div class="proof"><span>Bukti Bayaran</span><img src="/uploads/payments/${escapeAttr(filename)}" alt="Bukti bayaran ${escapeAttr(booking.id)}"></div>`
+        ? `<div class="proof"><span>Bukti Bayaran</span><img src="${receiptFileUrl(filename)}" alt="Bukti bayaran ${escapeAttr(booking.id)}"></div>`
         : `<div class="proof-file"><span>Bukti Bayaran PDF</span><strong>${escapeHtml(filename)}</strong></div>`
       : '<div class="proof-file"><span>Kaedah Bayaran</span><strong>Bayaran Fizikal</strong></div>';
     return `<article class="receipt-page"><header><div><h1>PoliSpace</h1><p>Resit Tempahan Fasiliti</p></div><div class="receipt-ref"><span>No. Rujukan</span><strong>${escapeHtml(booking.id)}</strong></div></header><div class="paid-stamp">REKOD BAYARAN</div><section class="receipt-details"><div><span>Nama Penyewa</span><strong>${escapeHtml(booking.name)}</strong></div><div><span>Fasiliti</span><strong>${escapeHtml(booking.facilityName)}</strong></div><div><span>Tarikh Tempahan</span><strong>${escapeHtml(formatDate(booking.date))}</strong></div><div><span>Status</span><strong>${booking.status === 'approved' ? 'Diluluskan' : 'Menunggu'}</strong></div><div><span>E-mel</span><strong>${escapeHtml(booking.email)}</strong></div><div><span>No. Telefon</span><strong>${escapeHtml(booking.phone)}</strong></div></section><div class="receipt-total"><span>Jumlah</span><strong>RM${Number(booking.estimatedCost || 0).toFixed(2)}</strong></div>${proof}<footer>Dicetak pada ${escapeHtml(new Date().toLocaleString('ms-MY'))}</footer></article>`;
@@ -196,6 +196,7 @@ async function filterBookings(filter, btn) {
 }
 
 function openAdminCreateBookingModal() {
+  const standalonePage = Boolean(document.getElementById('adminCreateBookingPage'));
   adminCreatePaymentMode = '';
   adminCreateReceiptFile = null;
   setText('modalTitle', 'Tambah Tempahan');
@@ -286,12 +287,18 @@ function openAdminCreateBookingModal() {
     </form>
   `;
   document.getElementById('modalFooter').innerHTML = `
-    <button class="btn btn-secondary" type="button" onclick="closeModal('bookingModal')">Batal</button>
+    <button class="btn btn-secondary" type="button" onclick="${standalonePage ? 'window.location.href=ROUTES.adminDashboard' : "closeModal('bookingModal')"}"><i class="bi bi-arrow-left"></i> Batal</button>
     <button class="btn btn-secondary" id="adminCreatePaymentButton" type="button" onclick="toggleAdminCreatePaymentOptions()" aria-expanded="false"><i class="bi bi-wallet2"></i> Bayaran</button>
     <button class="btn btn-primary" id="adminCreateBookingButton" type="submit" form="adminCreateBookingForm"><i class="bi bi-plus-lg"></i> Cipta Tempahan</button>
   `;
-  document.getElementById('bookingModal')?.classList.add('active');
+  if (!standalonePage) document.getElementById('bookingModal')?.classList.add('active');
   syncAdminCreateBookingFields();
+}
+
+async function renderAdminCreateBookingPage() {
+  if (!document.getElementById('adminCreateBookingPage')) return;
+  await loadFacilities();
+  openAdminCreateBookingModal();
 }
 
 function toggleAdminCreatePaymentOptions() {
@@ -627,9 +634,14 @@ async function submitAdminCreateBooking(event) {
   try {
     const result = await createAdminBookingRequest(data, adminCreatePaymentMode === 'receipt' ? adminCreateReceiptFile : null);
     if (printWindow) printAdminPhysicalPayment(printWindow, result.booking_ref || '-', data, facility);
-    closeModal('bookingModal');
-    showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
-    await renderAdminDashboard();
+    if (document.getElementById('adminCreateBookingPage')) {
+      showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
+      window.setTimeout(() => { window.location.href = ROUTES.adminDashboard; }, 700);
+    } else {
+      closeModal('bookingModal');
+      showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
+      await renderAdminDashboard();
+    }
   } catch (error) {
     if (printWindow && !printWindow.closed) printWindow.close();
     if (handleAdminAuthorizationError(error)) return;
@@ -1440,7 +1452,11 @@ document.addEventListener('click', (event) => {
 function receiptLinkHtml(paymentFile) {
   if (!paymentFile) return '-';
   const filename = String(paymentFile);
-  return `<a href="/uploads/payments/${escapeAttr(filename)}" target="_blank" rel="noopener">${escapeHtml(filename)}</a>`;
+  return `<a href="${receiptFileUrl(filename)}" target="_blank" rel="noopener">${escapeHtml(filename)}</a>`;
+}
+
+function receiptFileUrl(filename) {
+  return `${API_BASE}/receipts.php?file=${encodeURIComponent(String(filename || ''))}`;
 }
 
 

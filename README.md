@@ -32,6 +32,12 @@ Get-ChildItem -Recurse resources/js -Filter *.js | ForEach-Object { node --check
 Get-ChildItem -Recurse backend -Filter *.php | ForEach-Object { php -l $_.FullName }
 ```
 
+Run the repeatable application smoke checks while Laragon is active:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests/smoke.ps1
+```
+
 Import a fresh database:
 
 ```powershell

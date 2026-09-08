@@ -9,6 +9,20 @@ async function init() {
     window.location.href = ROUTES.login;
     return;
   }
+
+  if (document.getElementById('adminCreateBookingPage')) {
+    await renderAdminCreateBookingPage();
+    return;
+  }
+  if (document.getElementById('asramaBuildings')) {
+    await loadAsramaRoomManagement();
+    return;
+  }
+  if (document.getElementById('dashDate')) {
+    await renderAdminDashboard();
+    return;
+  }
+
   await renderFacilities();
   await renderLandingCalendar();
   await renderPublicCalendarView();
@@ -16,9 +30,6 @@ async function init() {
   await initBookingPage();
   await renderBookingDatePicker();
   setMinDate();
-  await renderAdminDashboard();
-  await loadAsramaRoomManagement();
-
   const startEl = document.getElementById('f-start');
   if (startEl) {
     startEl.addEventListener('change', updateEndTime);

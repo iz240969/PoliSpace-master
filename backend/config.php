@@ -62,12 +62,21 @@ session_start();
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: same-origin');
+header("Content-Security-Policy: frame-ancestors 'self'");
 if (!empty($_SERVER['HTTP_ORIGIN'])) {
     $origin = (string)$_SERVER['HTTP_ORIGIN'];
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $requestOrigin = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '');
-    $allowedOrigins = array_filter([$requestOrigin, rtrim(APP_URL, '/')]);
-    if (in_array(rtrim($origin, '/'), $allowedOrigins, true)) {
+    $sameOrigin = rtrim($origin, '/') === rtrim($requestOrigin, '/');
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true) && !$sameOrigin) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Cross-origin request rejected']);
+        exit;
+    }
+    if ($sameOrigin) {
         header('Access-Control-Allow-Origin: ' . $origin);
         header('Access-Control-Allow-Credentials: true');
         header('Vary: Origin');

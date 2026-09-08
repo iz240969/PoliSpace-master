@@ -279,5 +279,5 @@ Invoke-WebRequest -UseBasicParsing http://localhost/backend/api/facilities.php
 Before production use:
 
 - Change the default admin password.
-- Add CSRF protection.
+- Same-origin checks protect state-changing browser requests; consider synchronizer CSRF tokens as additional production defense-in-depth.
 - Use HTTPS-only cookies.

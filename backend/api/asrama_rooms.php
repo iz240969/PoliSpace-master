@@ -41,13 +41,11 @@ function getAsramaFacility(Database $db): array
 function seedAsramaRooms(Database $db, int $facilityId): void
 {
     $roomsPerFloor = [2, 2, 2, 2, 2];
-    $expectedRoomNumbers = [];
     foreach (['male' => 'L', 'female' => 'P'] as $gender => $prefix) {
         foreach ($roomsPerFloor as $floor => $roomCount) {
             for ($room = 1; $room <= $roomCount; $room += 1) {
                 $floorCode = $floor === 0 ? 'G' : (string)$floor;
                 $roomNumber = sprintf('%s-%s%02d', $prefix, $floorCode, $room);
-                $expectedRoomNumbers[] = $roomNumber;
                 $db->query(
                     'INSERT IGNORE INTO asrama_rooms (facility_id, gender, floor_level, room_number) VALUES (?, ?, ?, ?)',
                     [$facilityId, $gender, $floor, $roomNumber]
@@ -55,11 +53,6 @@ function seedAsramaRooms(Database $db, int $facilityId): void
             }
         }
     }
-    $placeholders = implode(',', array_fill(0, count($expectedRoomNumbers), '?'));
-    $db->query(
-        "DELETE FROM asrama_rooms WHERE facility_id = ? AND room_number NOT IN ({$placeholders})",
-        array_merge([$facilityId], $expectedRoomNumbers)
-    );
 }
 
 try {
