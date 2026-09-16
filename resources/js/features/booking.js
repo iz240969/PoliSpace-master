@@ -963,7 +963,8 @@ async function submitBookingCart() {
       .filter((item) => submittedIds.includes(item.id))
       .map((item) => facilitiesCache.find((facility) => String(facility.id) === String(item.facility_id)))
       .filter(Boolean);
-    showBookingSuccess(references.join(', '), submittedFacilities);
+    const successRef = references.length > 1 ? cartGroupRef : (references[0] || cartGroupRef);
+    showBookingSuccess(successRef, submittedFacilities);
     return;
   }
 

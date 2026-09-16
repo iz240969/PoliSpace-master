@@ -396,14 +396,27 @@
 .dashboard-booking-child-row td {
   padding-top: 0;
   padding-bottom: 0;
+  line-height: 0;
+  font-size: 0;
   background: var(--surface);
   border-bottom-color: transparent;
-  transition: padding 220ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 220ms ease, background 160ms ease;
+  transition: padding 220ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 220ms ease, background 160ms ease, line-height 220ms ease, font-size 220ms ease;
 }
 
 .dashboard-booking-child-row {
-  visibility: hidden;
-  transition: visibility 0s linear 220ms;
+  display: none;
+}
+
+.dashboard-booking-child-row.is-visible {
+  display: table-row;
+}
+
+.dashboard-booking-child-row.is-visible td {
+  padding-top: 18px;
+  padding-bottom: 18px;
+  line-height: normal;
+  font-size: 13px;
+  border-bottom-color: var(--border-light);
 }
 
 .dashboard-booking-child-row .dashboard-booking-cell-content {
@@ -414,19 +427,8 @@
   transition: max-height 220ms cubic-bezier(0.2, 0.8, 0.2, 1), transform 180ms ease, opacity 140ms ease;
 }
 
-.dashboard-booking-child-row.is-visible {
-  visibility: visible;
-  transition-delay: 0s;
-}
-
-.dashboard-booking-child-row.is-visible td {
-  padding-top: 18px;
-  padding-bottom: 18px;
-  border-bottom-color: var(--border-light);
-}
-
 .dashboard-booking-child-row.is-visible .dashboard-booking-cell-content {
-  max-height: 48px;
+  max-height: 120px;
   transform: translateY(0);
   opacity: 1;
 }

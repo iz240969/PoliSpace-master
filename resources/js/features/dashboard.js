@@ -156,9 +156,13 @@ function groupStatusBadgeHtml(bookings) {
   const pendingCount = bookings.filter((booking) => booking.status === 'pending').length;
   const approvedCount = bookings.filter((booking) => booking.status === 'approved').length;
   const unpaidCount = bookings.filter((booking) => booking.status === 'unpaid').length;
+  const rejectedCount = bookings.filter((booking) => booking.status === 'rejected').length;
+  const cancelledCount = bookings.filter((booking) => booking.status === 'cancelled').length;
   if (pendingCount) return `<span class="status-badge status-pending">${pendingCount} Menunggu</span>`;
   if (approvedCount) return `<span class="status-badge status-approved">${approvedCount} Diluluskan</span>`;
   if (unpaidCount) return `<span class="status-badge status-unpaid">${unpaidCount} Belum Bayar</span>`;
+  if (rejectedCount) return `<span class="status-badge status-rejected">${rejectedCount} Ditolak</span>`;
+  if (cancelledCount) return `<span class="status-badge status-cancelled">${cancelledCount} Dibatalkan</span>`;
   return `<span class="status-badge">${statuses.length} Status</span>`;
 }
 
@@ -214,10 +218,9 @@ function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
       <td>
         <div class="dashboard-booking-cell-content">
           <div class="booking-row-actions">
-            ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
-            ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
-            ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
+            ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
+            ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button><button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
           </div>
         </div>
       </td>
@@ -233,9 +236,10 @@ function bookingGroupRowHtml(group) {
   const dateSummary = dates.length === 1 ? formatDate(dates[0]) : `${dates.length} tarikh`;
   const timeSummary = dashboardBookingGroupTimeLabel(group.bookings);
   return `
-    <tr class="dashboard-booking-group-row${expanded ? ' is-expanded' : ''}" data-booking-group="${escapeAttr(group.groupRef)}">
+    <tr class="dashboard-booking-group-row${expanded ? ' is-expanded' : ''}" data-booking-group="${escapeAttr(group.groupRef)}" onclick="toggleDashboardBookingGroup('${escapeAttr(group.groupRef)}', event)" style="cursor: pointer;">
       <td>
         <div class="dashboard-booking-group-id">
+          <span class="dashboard-booking-group-icon"><i class="bi bi-collection"></i></span>
           <span class="booking-id">${escapeHtml(group.groupRef)}</span>
         </div>
       </td>
@@ -253,7 +257,7 @@ function bookingGroupRowHtml(group) {
       <td>${groupStatusBadgeHtml(group.bookings)}</td>
       <td>
         <div class="booking-row-actions">
-          <button class="btn btn-secondary btn-sm dashboard-booking-group-action" type="button" onclick="toggleDashboardBookingGroup('${escapeAttr(group.groupRef)}')" aria-expanded="${expanded ? 'true' : 'false'}" title="${expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan'}" aria-label="${expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan'}">
+          <button class="btn btn-secondary btn-sm dashboard-booking-group-action" type="button" onclick="toggleDashboardBookingGroup('${escapeAttr(group.groupRef)}', event)" aria-expanded="${expanded ? 'true' : 'false'}" title="${expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan'}" aria-label="${expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan'}">
             <i class="bi ${expanded ? 'bi-chevron-up' : 'bi-chevron-down'}"></i>
           </button>
         </div>
@@ -267,7 +271,13 @@ function bookingGroupRowHtml(group) {
   `;
 }
 
-function toggleDashboardBookingGroup(groupRef) {
+function toggleDashboardBookingGroup(groupRef, event = null) {
+  if (event) {
+    if (event.target.closest('button, a, input, select, textarea') && !event.target.closest('.dashboard-booking-group-action')) {
+      return;
+    }
+    event.stopPropagation();
+  }
   const expanded = !psExpandedBookingGroups.has(groupRef);
   if (expanded) psExpandedBookingGroups.add(groupRef);
   else psExpandedBookingGroups.delete(groupRef);
@@ -287,7 +297,19 @@ function toggleDashboardBookingGroup(groupRef) {
 
   document.querySelectorAll('.dashboard-booking-child-row[data-booking-group]').forEach((row) => {
     if (row.dataset.bookingGroup !== groupRef) return;
-    row.classList.toggle('is-visible', expanded);
+    if (expanded) {
+      row.style.display = 'table-row';
+      // Force reflow
+      void row.offsetHeight;
+      row.classList.add('is-visible');
+    } else {
+      row.classList.remove('is-visible');
+      setTimeout(() => {
+        if (!row.classList.contains('is-visible')) {
+          row.style.display = 'none';
+        }
+      }, 220); // wait for CSS transition
+    }
     row.setAttribute('aria-hidden', String(!expanded));
     row.inert = !expanded;
   });
@@ -302,32 +324,13 @@ function renderUserBookings(bookings, container, totalCount = bookings.length, c
       : `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Tiada Tempahan</div><div class="empty-sub">Anda belum membuat sebarang tempahan dengan e-mel ini.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan Sekarang</button></div>`;
     return;
   }
+  const rows = dashboardBookingGroups(bookings, comparator);
   container.innerHTML = `
     <div class="dash-table-wrap">
-      <table class="data-table dash-bookings-table">
+      <table class="data-table dash-bookings-table dashboard-booking-table">
         <thead><tr><th>Rujukan</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead>
         <tbody>
-          ${bookings.map((b) => `
-            <tr>
-              <td><span class="booking-id">${escapeHtml(b.id)}</span></td>
-              <td>
-                <div class="dashboard-facility-cell">
-                  <span class="dashboard-facility-icon">${b.facilityIcon || '<i class="bi bi-building"></i>'}</span>
-                  <span>${escapeHtml(b.facilityName || '-')}</span>
-                </div>
-              </td>
-              <td>${formatDate(b.date)}</td>
-              <td>${dashboardBookingDurationLabel(b)}</td>
-              <td>${statusBadgeHtml(b.status)}</td>
-              <td>
-                <div class="booking-row-actions">
-                  <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
-                  ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
-                  ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button><button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
-                </div>
-              </td>
-            </tr>
-          `).join('')}
+          ${rows.map((row) => row.type === 'group' ? bookingGroupRowHtml(row) : bookingRowHtml(row.booking)).join('')}
         </tbody>
       </table>
     </div>
@@ -365,6 +368,40 @@ async function viewUserBookingDetail(id) {
     const booking = await getUserBookingForDashboard(id);
     if (!booking) {
       showToast('Tempahan tidak dijumpai.', 'error');
+      return;
+    }
+
+    if (booking.type === 'group') {
+      const groupBookings = booking.bookings || [];
+      const total = groupBookings.reduce((sum, b) => sum + Number(b.estimatedCost || 0), 0);
+      setText('userBookingModalTitle', `Kumpulan Tempahan - ${booking.id || booking.cartGroupRef}`);
+      document.getElementById('userBookingModalBody').innerHTML = `
+        <div class="user-booking-summary">
+          <div class="user-booking-icon"><i class="bi bi-collection"></i></div>
+          <div>
+            <div class="user-booking-name">${groupBookings.length} Tempahan Troli</div>
+            <div class="user-booking-ref">${escapeHtml(booking.id || booking.cartGroupRef || '-')}</div>
+          </div>
+          ${groupStatusBadgeHtml(groupBookings)}
+        </div>
+        <div class="detail-row"><span class="detail-label">Jumlah Anggaran Kos</span><span class="detail-value" style="color:var(--gold);font-weight:700;">RM${escapeHtml(String(total))}</span></div>
+        <div style="margin-top:16px;display:grid;gap:12px;">
+          ${groupBookings.map((b) => `
+            <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span class="booking-id">${escapeHtml(b.id || b.booking_ref)}</span>
+                ${statusBadgeHtml(b.status)}
+              </div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:4px;">${b.facilityIcon || ''} ${escapeHtml(b.facilityName || '-')}</div>
+              <div style="font-size:12px;color:var(--grey-4);">${formatDate(b.date)} &bull; ${dashboardBookingDurationLabel(b)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      document.getElementById('userBookingModalFooter').innerHTML = `
+        <button class="btn btn-primary" onclick="closeModal('userBookingModal')">Tutup</button>
+      `;
+      document.getElementById('userBookingModal')?.classList.add('active');
       return;
     }
 
