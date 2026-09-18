@@ -53,8 +53,8 @@ function applyBookingFilters() {
 
   const query = (document.getElementById('bookingSearchInput')?.value || '').trim().toLowerCase();
   const status = document.querySelector('.dash-filter-chip.active')?.dataset.status || 'all';
-  const sortMode = document.getElementById('bookingSortSelect')?.value || 'recent-application';
-  const comparator = sortMode === 'closest-date' ? compareBookingsByClosestUpcomingDate : compareBookingsByMostRecentApplication;
+  const sortMode = document.getElementById('bookingSortSelect')?.value || 'recent';
+  const comparator = getDashboardBookingComparator(sortMode);
   const bookings = psDashboardBookings
     .filter((booking) => {
       if (status !== 'all' && booking.status !== status) return false;
@@ -72,36 +72,12 @@ function setBookingStatusFilter(button) {
   applyBookingFilters();
 }
 
-function compareBookingsByMostRecentApplication(a, b) {
-  const createdA = Date.parse(a.createdAt || a.created_at || '') || 0;
-  const createdB = Date.parse(b.createdAt || b.created_at || '') || 0;
-  const dateA = `${a.date || ''} ${a.start || ''}`;
-  const dateB = `${b.date || ''} ${b.start || ''}`;
-
-  if (createdA || createdB) return createdB - createdA;
-  return dateB.localeCompare(dateA);
-}
-
-function compareBookingsByMostRecent(a, b) {
-  return compareBookingsByMostRecentApplication(a, b);
-}
-
-function compareBookingsByClosestUpcomingDate(a, b) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const timeA = bookingDateTime(a);
-  const timeB = bookingDateTime(b);
-  const upcomingA = timeA >= today.getTime();
-  const upcomingB = timeB >= today.getTime();
-
-  if (upcomingA !== upcomingB) return upcomingA ? -1 : 1;
-  if (upcomingA && upcomingB) return timeA - timeB || compareBookingsByMostRecentApplication(a, b);
-  return timeB - timeA || compareBookingsByMostRecentApplication(a, b);
-}
-
-function bookingDateTime(booking) {
-  const bookingDate = Date.parse(`${booking.date || ''}T${booking.start || '00:00'}`);
-  return Number.isNaN(bookingDate) ? Number.MAX_SAFE_INTEGER : bookingDate;
+function getDashboardBookingComparator(sortMode = 'recent') {
+  return createDateSortComparator(
+    sortMode,
+    (booking) => booking.createdAt || booking.created_at || '',
+    (booking) => `${booking.date || ''}T${booking.start || '00:00'}`
+  );
 }
 
 function bookingMatchesDashboardQuery(booking, query) {
@@ -119,7 +95,7 @@ function bookingMatchesDashboardQuery(booking, query) {
   ].some((value) => String(value || '').toLowerCase().includes(query));
 }
 
-function dashboardBookingGroups(bookings, comparator = compareBookingsByMostRecentApplication) {
+function dashboardBookingGroups(bookings, comparator = getDashboardBookingComparator()) {
   const grouped = new Map();
   const rows = [];
 
@@ -315,7 +291,7 @@ function toggleDashboardBookingGroup(groupRef, event = null) {
   });
 }
 
-function renderUserBookings(bookings, container, totalCount = bookings.length, comparator = compareBookingsByMostRecentApplication) {
+function renderUserBookings(bookings, container, totalCount = bookings.length, comparator = getDashboardBookingComparator()) {
   setText('bookingCountLabel', totalCount === bookings.length ? `${bookings.length} tempahan` : `${bookings.length} / ${totalCount} tempahan`);
   if (bookings.length === 0) {
     const hasFilters = totalCount > 0;

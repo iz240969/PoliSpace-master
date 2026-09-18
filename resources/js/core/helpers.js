@@ -45,6 +45,33 @@ function formatLocalDateValue(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function dateSortTimestamp(value) {
+  const normalized = String(value || '').trim().replace(' ', 'T');
+  if (!normalized) return null;
+  const timestamp = Date.parse(normalized);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function createDateSortComparator(mode, getRecentValue, getDateValue = getRecentValue) {
+  const useRecentValue = mode === 'recent';
+  const getPrimaryValue = useRecentValue ? getRecentValue : getDateValue;
+  const direction = mode === 'date-asc' ? 1 : -1;
+
+  return (a, b) => {
+    const timeA = dateSortTimestamp(getPrimaryValue(a));
+    const timeB = dateSortTimestamp(getPrimaryValue(b));
+    if (timeA === null && timeB !== null) return 1;
+    if (timeA !== null && timeB === null) return -1;
+    if (timeA !== null && timeB !== null && timeA !== timeB) return (timeA - timeB) * direction;
+
+    const recentA = dateSortTimestamp(getRecentValue(a));
+    const recentB = dateSortTimestamp(getRecentValue(b));
+    if (recentA === null && recentB !== null) return 1;
+    if (recentA !== null && recentB === null) return -1;
+    return recentA !== null && recentB !== null ? recentB - recentA : 0;
+  };
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }

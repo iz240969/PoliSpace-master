@@ -30,6 +30,9 @@ try {
             getPublicStats($db);
         } elseif ($action === 'calendar') {
             getPublicCalendarBookings($db);
+        } elseif ($action === 'report') {
+            requireAdmin();
+            getAdminReport($db, (string)($_GET['period'] ?? 'all'));
         } elseif ($action === 'stats') {
             requireAdmin();
             getDashboardStats($db);
@@ -109,6 +112,79 @@ function getAllBookings(Database $db, mixed $status = null): void
     $sql .= ' ORDER BY b.created_at DESC';
     $bookings = array_map('formatBookingForFrontend', $db->fetchAll($sql, $params));
     jsonResponse(['success' => true, 'data' => $bookings]);
+}
+
+function getAdminReport(Database $db, string $period): void
+{
+    if (!in_array($period, ['all', 'month', 'year'], true)) {
+        jsonResponse(['success' => false, 'error' => 'Invalid report period'], 400);
+    }
+
+    $where = '';
+    $params = [];
+    $periodStart = null;
+    $periodEnd = null;
+    $now = new DateTimeImmutable('now');
+
+    if ($period === 'month') {
+        $start = $now->modify('first day of this month')->setTime(0, 0);
+        $end = $start->modify('+1 month');
+        $periodStart = $start->format('Y-m-d');
+        $periodEnd = $end->format('Y-m-d');
+    } elseif ($period === 'year') {
+        $start = $now->setDate((int)$now->format('Y'), 1, 1)->setTime(0, 0);
+        $end = $start->modify('+1 year');
+        $periodStart = $start->format('Y-m-d');
+        $periodEnd = $end->format('Y-m-d');
+    }
+
+    if ($periodStart !== null && $periodEnd !== null) {
+        $where = ' WHERE b.created_at >= ? AND b.created_at < ?';
+        $params = [$periodStart, $periodEnd];
+    }
+
+    $summary = $db->fetchOne(
+        "SELECT COUNT(*) AS total,
+                SUM(CASE WHEN b.status = 'unpaid' THEN 1 ELSE 0 END) AS unpaid,
+                SUM(CASE WHEN b.status = 'pending' THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN b.status = 'approved' THEN 1 ELSE 0 END) AS approved,
+                SUM(CASE WHEN b.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+                SUM(CASE WHEN b.status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
+                SUM(CASE WHEN b.status IN ('pending', 'approved') THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN b.payment_file IS NOT NULL AND b.payment_file <> '' THEN 1 ELSE 0 END) AS evidence_count,
+                SUM(CASE WHEN b.status = 'approved' AND (b.payment_file IS NULL OR b.payment_file = '') THEN 1 ELSE 0 END) AS approved_without_evidence,
+                COALESCE(SUM(CASE WHEN b.status = 'approved' THEN b.estimated_cost ELSE 0 END), 0) AS approved_estimated_value,
+                COALESCE(SUM(CASE WHEN b.status = 'pending' THEN b.estimated_cost ELSE 0 END), 0) AS pending_estimated_value
+         FROM bookings b" . $where,
+        $params
+    ) ?: [];
+
+    $countFields = ['total', 'unpaid', 'pending', 'approved', 'rejected', 'cancelled', 'active', 'evidence_count', 'approved_without_evidence'];
+    foreach ($countFields as $field) {
+        $summary[$field] = (int)($summary[$field] ?? 0);
+    }
+    $summary['approved_estimated_value'] = (string)($summary['approved_estimated_value'] ?? '0.00');
+    $summary['pending_estimated_value'] = (string)($summary['pending_estimated_value'] ?? '0.00');
+
+    $bookings = $db->fetchAll(
+        "SELECT b.*, f.name AS facility_name, f.icon, f.pic_full_name, f.pic_phone
+         FROM bookings b
+         LEFT JOIN facilities f ON b.facility_id = f.id" . $where . '
+         ORDER BY b.created_at DESC',
+        $params
+    );
+
+    jsonResponse([
+        'success' => true,
+        'data' => [
+            'period' => $period,
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
+            'generated_at' => date(DATE_ATOM),
+            'summary' => $summary,
+            'bookings' => array_map('formatBookingForFrontend', $bookings),
+        ],
+    ]);
 }
 
 function getUserBookings(Database $db, string $email = ''): void

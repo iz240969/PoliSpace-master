@@ -47,6 +47,13 @@ try {
     if ([int]$_.Exception.Response.StatusCode -ne 405) { $failures.Add("GET logout returned $([int]$_.Exception.Response.StatusCode), expected 405") }
 }
 
+try {
+    Invoke-WebRequest -UseBasicParsing -Uri "$BaseUrl/backend/api/bookings.php?action=report&period=all" -TimeoutSec 10 | Out-Null
+    $failures.Add('Admin report was accessible without authentication')
+} catch {
+    if ([int]$_.Exception.Response.StatusCode -ne 401) { $failures.Add("Admin report returned $([int]$_.Exception.Response.StatusCode), expected 401") }
+}
+
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Error $_ }
     exit 1

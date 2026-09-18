@@ -3,11 +3,11 @@
 @import url('./components/buttons.css');
 @import url('./pages/landing.css?v=20260823-pic-admin-trial');
 @import url('./pages/booking.css?v=20260823-pic-admin-trial');
-@import url('./pages/dashboard.css?v=20260823-pic-admin-trial');
+@import url('./pages/dashboard.css?v=20260917-table-sort');
 @import url('./pages/status.css?v=20260823-pic-admin-trial');
 @import url('./pages/asrama-admin.css?v=20260908-asrama-visual-refresh');
 @import url('./pages/admin-create-booking.css?v=20260908-admin-create-page');
-@import url('./components/admin.css?v=20260908-pic-no-avatar');
+@import url('./components/admin.css?v=20260917-report-redesign');
 @import url('./components/calendar.css');
 @import url('./components/success.css?v=20260823-pic-admin-trial');
 @import url('./base/responsive.css');

@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         $bookings = $db->fetchAll(
-            "SELECT b.booking_ref, b.booking_date, b.start_time, b.end_time, b.status, b.purpose,
+            "SELECT b.booking_ref, b.booking_date, b.start_time, b.end_time, b.status, b.purpose, b.created_at,
                     f.name AS facility_name
              FROM bookings b
              LEFT JOIN facilities f ON b.facility_id = f.id

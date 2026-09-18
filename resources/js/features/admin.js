@@ -1,8 +1,60 @@
 ﻿// ==================== ADMIN ====================
 let adminMessagesCache = [];
+let adminRecentBookingsCache = [];
+let adminBookingsCache = [];
+let adminClientsCache = [];
+let adminClientDetailBookings = [];
 let adminCreatePaymentMode = '';
 let adminCreateReceiptFile = null;
 let adminReportBookings = [];
+let adminReportSummary = {};
+let adminReportMeta = {};
+
+function tableSortMode(selectId) {
+  return document.getElementById(selectId)?.value || 'recent';
+}
+
+function sortAdminRecords(records, selectId, getRecentValue, getDateValue = getRecentValue) {
+  return [...records].sort(createDateSortComparator(
+    tableSortMode(selectId),
+    getRecentValue,
+    getDateValue
+  ));
+}
+
+function adminBookingCreatedValue(booking) {
+  return booking.createdAt || booking.created_at || '';
+}
+
+function adminBookingDateValue(booking) {
+  const date = booking.date || booking.booking_date || '';
+  const start = booking.start || String(booking.start_time || '').slice(0, 5) || '00:00';
+  return date ? `${date}T${start}` : '';
+}
+
+function sortedAdminBookings(bookings, selectId) {
+  return sortAdminRecords(bookings, selectId, adminBookingCreatedValue, adminBookingDateValue);
+}
+
+function renderAdminRecentBookings() {
+  renderBookingsTable('recentBookingsTbody', sortedAdminBookings(adminRecentBookingsCache, 'recentBookingsSortSelect').slice(0, 5), true);
+}
+
+function renderAdminBookings() {
+  renderBookingsTable('allBookingsTbody', sortedAdminBookings(adminBookingsCache, 'adminBookingsSortSelect'), false);
+}
+
+function renderAdminClients() {
+  renderClientsTable(adminClientsCache);
+}
+
+function renderAdminMessages() {
+  renderMessagesTable(adminMessagesCache);
+}
+
+function renderSortedAdminReports() {
+  renderAdminReports(adminReportBookings);
+}
 
 function handleAdminAuthorizationError(error) {
   if (![401, 403].includes(error?.status)) return false;
@@ -39,8 +91,10 @@ async function renderAdminDashboard() {
   updatePendingBookingBadge(stats.pending);
   dashDate.textContent = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   document.getElementById('adminStats').innerHTML = buildStatsHTML(stats);
-  renderBookingsTable('recentBookingsTbody', bookings.slice(0, 5), true);
-  renderBookingsTable('allBookingsTbody', bookings, false);
+  adminRecentBookingsCache = bookings;
+  adminBookingsCache = bookings;
+  renderAdminRecentBookings();
+  renderAdminBookings();
   renderFacilityManagement(facilities);
   renderPicManagement(facilities);
   renderCalendar(bookings, bookingCalendarDate);
@@ -72,8 +126,16 @@ async function loadAdminReports() {
   if (!content) return;
   content.innerHTML = '<div class="report-loading"><i class="bi bi-arrow-repeat"></i> Menyediakan laporan...</div>';
   try {
-    const result = await tryApi('bookings.php');
-    adminReportBookings = result.data || [];
+    const period = document.getElementById('reportPeriodSelect')?.value || 'all';
+    const result = await tryApi(`bookings.php?action=report&period=${encodeURIComponent(period)}`);
+    adminReportBookings = result.data?.bookings || [];
+    adminReportSummary = result.data?.summary || {};
+    adminReportMeta = {
+      period: result.data?.period || period,
+      periodStart: result.data?.period_start || '',
+      periodEnd: result.data?.period_end || '',
+      generatedAt: result.data?.generated_at || '',
+    };
     renderAdminReports(adminReportBookings);
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
@@ -81,90 +143,124 @@ async function loadAdminReports() {
   }
 }
 
-function adminPrintableReceipts(bookings = adminReportBookings) {
-  return bookings.filter((booking) => booking.status === 'approved' || (booking.status === 'pending' && booking.paymentFile));
+function adminPaymentEvidenceRecords(bookings = adminReportBookings) {
+  return bookings.filter((booking) => Boolean(booking.paymentFile));
+}
+
+function reportCurrency(value) {
+  return `RM${Number(value || 0).toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function reportPeriodLabel() {
+  if (adminReportMeta.period === 'month') return 'Bulan Ini';
+  if (adminReportMeta.period === 'year') return 'Tahun Ini';
+  return 'Semua Masa';
 }
 
 function renderAdminReports(bookings) {
   const content = document.getElementById('adminReportContent');
-  const printButton = document.getElementById('printAllReceiptsButton');
+  const printButton = document.getElementById('printAdminReportButton');
   if (!content) return;
-  const statusOrder = ['approved', 'pending', 'rejected', 'cancelled'];
+  const summary = adminReportSummary;
+  const statusOrder = ['unpaid', 'pending', 'approved', 'rejected', 'cancelled'];
   const statusMeta = {
+    unpaid: { label: 'Belum Bayar', color: '#64748b' },
+    pending: { label: 'Menunggu Semakan', color: '#d49a23' },
     approved: { label: 'Diluluskan', color: '#2c8f53' },
-    pending: { label: 'Menunggu', color: '#d49a23' },
     rejected: { label: 'Ditolak', color: '#c64141' },
     cancelled: { label: 'Dibatalkan', color: '#8b8b8b' },
   };
-  const counts = Object.fromEntries(statusOrder.map((status) => [status, bookings.filter((booking) => booking.status === status).length]));
-  const total = Math.max(1, bookings.length);
-  let cursor = 0;
-  const segments = statusOrder.map((status) => {
-    const start = cursor;
-    cursor += (counts[status] / total) * 100;
-    return `${statusMeta[status].color} ${start}% ${cursor}%`;
-  }).join(', ');
-  const approved = bookings.filter((booking) => booking.status === 'approved');
-  const revenue = approved.reduce((sum, booking) => sum + Number(booking.estimatedCost || 0), 0);
-  const receipts = adminPrintableReceipts(bookings);
+  const counts = Object.fromEntries(statusOrder.map((status) => [status, Number(summary[status] || 0)]));
+  const total = Number(summary.total || 0);
+  const decisionTotal = counts.approved + counts.rejected;
+  const approvalRate = decisionTotal ? Math.round((counts.approved / decisionTotal) * 100) : 0;
+  const evidenceRecords = sortedAdminBookings(adminPaymentEvidenceRecords(bookings), 'reportEvidenceSortSelect');
   const facilities = Object.values(bookings.reduce((items, booking) => {
+    const key = String(booking.facilityId || booking.facilityName || 'unknown');
     const name = booking.facilityName || 'Fasiliti';
-    items[name] ||= { name, count: 0, revenue: 0 };
-    items[name].count += 1;
-    if (booking.status === 'approved') items[name].revenue += Number(booking.estimatedCost || 0);
+    items[key] ||= { name, count: 0, approved: 0, approvedValue: 0 };
+    items[key].count += 1;
+    if (booking.status === 'approved') {
+      items[key].approved += 1;
+      items[key].approvedValue += Number(booking.estimatedCost || 0);
+    }
     return items;
   }, {})).sort((a, b) => b.count - a.count);
   const maxFacilityCount = Math.max(1, ...facilities.map((item) => item.count));
-  if (printButton) printButton.disabled = receipts.length === 0;
+  const generatedLabel = adminReportMeta.generatedAt ? formatDateTime(adminReportMeta.generatedAt) : '-';
+  if (printButton) printButton.disabled = false;
 
   content.innerHTML = `
-    <div class="report-kpi-grid">
-      <div class="report-kpi"><span>Jumlah Tempahan</span><strong>${bookings.length}</strong><small>Semua rekod laporan</small></div>
-      <div class="report-kpi"><span>Hasil Diluluskan</span><strong>RM${revenue.toLocaleString('ms-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><small>${approved.length} tempahan diluluskan</small></div>
-      <div class="report-kpi"><span>Resit Boleh Dicetak</span><strong>${receipts.length}</strong><small>Bayaran disahkan / menunggu</small></div>
-      <div class="report-kpi"><span>Kadar Kelulusan</span><strong>${Math.round((approved.length / total) * 100)}%</strong><small>Daripada jumlah tempahan</small></div>
+    <section class="report-v2-hero">
+      <div><span class="report-v2-eyebrow">LAPORAN PERMOHONAN</span><h3>${reportPeriodLabel()}</h3><p>Tempoh dikira berdasarkan tarikh permohonan dicipta.</p></div>
+      <div class="report-v2-hero-meta"><span><i class="bi bi-database-check"></i> ${total} rekod ditemui</span><span><i class="bi bi-clock-history"></i> Dijana ${escapeHtml(generatedLabel)}</span></div>
+    </section>
+
+    <div class="report-v2-note"><i class="bi bi-info-circle"></i><div><strong>Takrif laporan</strong><span>Nilai wang ialah anggaran caj tempahan, bukan jumlah bayaran yang telah diterima. Fail yang dimuat naik dipaparkan sebagai bukti bayaran, bukan resit rasmi.</span></div></div>
+
+    <div class="report-v2-kpi-grid">
+      <article class="report-v2-kpi"><span class="report-v2-kpi-icon"><i class="bi bi-journal-text"></i></span><div><small>Jumlah Rekod</small><strong>${total}</strong><p>Semua lima status tempahan</p></div></article>
+      <article class="report-v2-kpi"><span class="report-v2-kpi-icon is-green"><i class="bi bi-calendar-check"></i></span><div><small>Tempahan Aktif</small><strong>${Number(summary.active || 0)}</strong><p>Menunggu + diluluskan</p></div></article>
+      <article class="report-v2-kpi"><span class="report-v2-kpi-icon is-amber"><i class="bi bi-hourglass-split"></i></span><div><small>Menunggu Semakan</small><strong>${counts.pending}</strong><p>Perlu keputusan pentadbir</p></div></article>
+      <article class="report-v2-kpi"><span class="report-v2-kpi-icon is-ink"><i class="bi bi-percent"></i></span><div><small>Kadar Keputusan</small><strong>${approvalRate}%</strong><p>${counts.approved} lulus daripada ${decisionTotal} keputusan</p></div></article>
     </div>
-    <div class="report-visual-grid">
-      <section class="admin-card report-card"><div class="report-card-head"><div><span>STATUS TEMPAHAN</span><h3>Agihan Keseluruhan</h3></div><i class="bi bi-pie-chart"></i></div>
-        <div class="report-status-visual"><div class="report-donut" style="--report-segments:conic-gradient(${bookings.length ? segments : '#eceae5 0 100%'})"><div><strong>${bookings.length}</strong><span>Tempahan</span></div></div><div class="report-status-legend">${statusOrder.map((status) => `<div><i style="background:${statusMeta[status].color}"></i><span>${statusMeta[status].label}</span><strong>${counts[status]}</strong></div>`).join('')}</div></div>
+
+    <section class="report-v2-value-panel">
+      <div class="report-v2-section-heading"><div><span>NILAI & BUKTI</span><h3>Semakan Rekod Kewangan</h3></div><p>Angka ini tidak mengesahkan penerimaan wang.</p></div>
+      <div class="report-v2-value-grid">
+        <div><span>Nilai Anggaran Diluluskan</span><strong>${reportCurrency(summary.approved_estimated_value)}</strong><small>${counts.approved} tempahan</small></div>
+        <div><span>Nilai Menunggu Semakan</span><strong>${reportCurrency(summary.pending_estimated_value)}</strong><small>${counts.pending} tempahan</small></div>
+        <div><span>Rekod Dengan Fail Bukti</span><strong>${Number(summary.evidence_count || 0)}</strong><small>Semua status</small></div>
+        <div class="${Number(summary.approved_without_evidence || 0) ? 'needs-attention' : ''}"><span>Diluluskan Tanpa Fail Bukti</span><strong>${Number(summary.approved_without_evidence || 0)}</strong><small>Kaedah bayaran perlu disemak</small></div>
+      </div>
+    </section>
+
+    <div class="report-v2-insight-grid">
+      <section class="report-v2-panel">
+        <div class="report-v2-section-heading"><div><span>STATUS TEMPAHAN</span><h3>Agihan Keseluruhan</h3></div><strong>${total}</strong></div>
+        <div class="report-v2-status-list">${statusOrder.map((status) => {
+          const percentage = total ? Math.round((counts[status] / total) * 100) : 0;
+          return `<div class="report-v2-status-row"><div><i style="background:${statusMeta[status].color}"></i><span>${statusMeta[status].label}</span><strong>${counts[status]}</strong><small>${percentage}%</small></div><div class="report-v2-track"><i style="width:${percentage}%;background:${statusMeta[status].color}"></i></div></div>`;
+        }).join('')}</div>
       </section>
-      <section class="admin-card report-card"><div class="report-card-head"><div><span>PRESTASI FASILITI</span><h3>Jumlah Tempahan</h3></div><i class="bi bi-bar-chart"></i></div>
-        <div class="report-bars">${facilities.length ? facilities.map((item) => `<div class="report-bar-row"><div><span>${escapeHtml(item.name)}</span><strong>${item.count}</strong></div><div class="report-bar-track"><i style="width:${Math.max(5, (item.count / maxFacilityCount) * 100)}%"></i></div></div>`).join('') : '<div class="report-no-data">Tiada data fasiliti.</div>'}</div>
+      <section class="report-v2-panel">
+        <div class="report-v2-section-heading"><div><span>FASILITI</span><h3>Permohonan Mengikut Fasiliti</h3></div><i class="bi bi-buildings"></i></div>
+        <div class="report-v2-facility-list">${facilities.length ? facilities.slice(0, 7).map((item, index) => `<div class="report-v2-facility-row"><span>${String(index + 1).padStart(2, '0')}</span><div><strong>${escapeHtml(item.name)}</strong><small>${item.approved} diluluskan &middot; ${reportCurrency(item.approvedValue)} nilai anggaran</small><div class="report-v2-track"><i style="width:${Math.max(4, (item.count / maxFacilityCount) * 100)}%"></i></div></div><b>${item.count}</b></div>`).join('') : '<div class="report-no-data">Tiada data fasiliti untuk tempoh ini.</div>'}</div>
       </section>
     </div>
-    <section class="admin-card report-receipts"><div class="report-card-head"><div><span>ARKIB BAYARAN</span><h3>Resit Terkini</h3></div><span class="report-count-badge">${receipts.length} resit</span></div>
-      <div class="data-table-wrap"><table class="data-table report-receipt-table"><thead><tr><th>Rujukan</th><th>Penyewa</th><th>Fasiliti & Masa</th><th>Jumlah</th><th>Bukti Bayaran</th><th aria-label="Tindakan"></th></tr></thead><tbody>${receipts.length ? receipts.map(adminReceiptArchiveRowHtml).join('') : '<tr><td colspan="6"><div class="report-no-data">Belum ada resit untuk dicetak.</div></td></tr>'}</tbody></table></div>
+
+    <section class="report-v2-panel report-v2-evidence">
+      <div class="report-v2-section-heading"><div><span>BUKTI BAYARAN</span><h3>Fail Dimuat Naik</h3><p>Termasuk rekod menunggu, diluluskan, ditolak atau dibatalkan.</p></div><span class="report-count-badge">${evidenceRecords.length} rekod</span></div>
+      <div class="data-table-wrap"><table class="data-table report-evidence-table"><thead><tr><th>Rujukan & Status</th><th>Penyewa</th><th>Fasiliti & Tarikh</th><th>Nilai Anggaran</th><th>Fail Bukti</th><th aria-label="Tindakan"></th></tr></thead><tbody>${evidenceRecords.length ? evidenceRecords.map(adminPaymentEvidenceRowHtml).join('') : '<tr><td colspan="6"><div class="report-no-data">Tiada fail bukti bayaran untuk tempoh ini.</div></td></tr>'}</tbody></table></div>
     </section>`;
 }
 
-function adminReceiptArchiveRowHtml(booking) {
+function adminPaymentEvidenceRowHtml(booking) {
   const id = escapeAttr(booking.id);
   const durationUnit = booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'hari' : 'jam';
   const duration = `${booking.duration || 1} ${durationUnit}`;
-  const paymentProof = booking.paymentFile
-    ? `<a class="report-proof-link" href="${receiptFileUrl(booking.paymentFile)}" target="_blank" rel="noopener" title="${escapeAttr(booking.paymentFile)}"><i class="bi bi-file-earmark-check"></i><span><strong>Lihat bukti</strong><small>${escapeHtml(booking.paymentFile)}</small></span><i class="bi bi-box-arrow-up-right"></i></a>`
-    : '<span class="report-physical-label"><i class="bi bi-cash"></i> Bayaran fizikal</span>';
+  const paymentProof = `<a class="report-proof-link" href="${receiptFileUrl(booking.paymentFile)}" target="_blank" rel="noopener" title="${escapeAttr(booking.paymentFile)}"><i class="bi bi-file-earmark-check"></i><span><strong>Lihat fail bukti</strong><small>${escapeHtml(booking.paymentFile)}</small></span><i class="bi bi-box-arrow-up-right"></i></a>`;
 
   return `
-    <tr class="report-receipt-summary">
+    <tr class="report-evidence-summary">
       <td><div class="booking-id">${escapeHtml(booking.id)}</div><div class="report-cell-sub">${statusBadgeHtml(booking.status)}</div></td>
       <td><strong>${escapeHtml(booking.name)}</strong><div class="report-cell-sub">${escapeHtml(booking.email || '-')}</div></td>
       <td><strong>${escapeHtml(booking.facilityName)}</strong><div class="report-cell-sub"><i class="bi bi-calendar3"></i> ${formatDate(booking.date)} &middot; ${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</div></td>
-      <td><strong class="report-amount">RM${Number(booking.estimatedCost || 0).toFixed(2)}</strong></td>
+      <td><strong class="report-amount">${reportCurrency(booking.estimatedCost)}</strong><div class="report-cell-sub">Anggaran tempahan</div></td>
       <td>${paymentProof}</td>
-      <td><button class="btn btn-secondary btn-sm report-detail-toggle" type="button" aria-expanded="false" onclick="toggleAdminReceiptDetails('${id}', this)"><i class="bi bi-chevron-down"></i> Butiran</button></td>
+      <td><button class="btn btn-secondary btn-sm report-detail-toggle" type="button" aria-expanded="false" onclick="toggleAdminEvidenceDetails('${id}', this)"><i class="bi bi-chevron-down"></i> Butiran</button></td>
     </tr>
-    <tr class="report-receipt-detail" data-receipt-detail="${id}" hidden>
+    <tr class="report-evidence-detail" data-evidence-detail="${id}" hidden>
       <td colspan="6">
         <div class="report-detail-panel">
           <div class="report-detail-grid">
             <div><span>No. Telefon</span><strong>${escapeHtml(booking.phone || '-')}</strong></div>
             <div><span>Tempoh</span><strong>${escapeHtml(duration)}</strong></div>
             <div><span>Jumlah Pengguna</span><strong>${escapeHtml(booking.pax || '-')}</strong></div>
-            <div><span>Dihantar Pada</span><strong>${escapeHtml(formatDateTime(booking.createdAt))}</strong></div>
+            <div><span>Permohonan Dicipta</span><strong>${escapeHtml(formatDateTime(booking.createdAt))}</strong></div>
             <div class="report-detail-wide"><span>Tujuan Penggunaan</span><strong>${escapeHtml(booking.purpose || '-')}</strong></div>
             <div class="report-detail-wide"><span>Peralatan</span><strong>${escapeHtml(booking.equipment || 'Tiada peralatan')}</strong></div>
-            <div class="report-detail-wide"><span>Rekod Bayaran</span><strong>${booking.paymentFile ? receiptLinkHtml(booking.paymentFile) : 'Bayaran fizikal'}</strong></div>
+            <div class="report-detail-wide"><span>Fail Bukti Bayaran</span><strong>${receiptLinkHtml(booking.paymentFile)}</strong></div>
           </div>
           <button class="btn btn-secondary btn-sm" type="button" onclick="viewBookingDetail('${id}')"><i class="bi bi-eye"></i> Lihat Tempahan Penuh</button>
         </div>
@@ -172,9 +268,9 @@ function adminReceiptArchiveRowHtml(booking) {
     </tr>`;
 }
 
-function toggleAdminReceiptDetails(id, button) {
-  const detailRow = [...document.querySelectorAll('[data-receipt-detail]')]
-    .find((row) => row.dataset.receiptDetail === String(id));
+function toggleAdminEvidenceDetails(id, button) {
+  const detailRow = [...document.querySelectorAll('[data-evidence-detail]')]
+    .find((row) => row.dataset.evidenceDetail === String(id));
   if (!detailRow) return;
   const willOpen = detailRow.hidden;
   detailRow.hidden = !willOpen;
@@ -182,30 +278,8 @@ function toggleAdminReceiptDetails(id, button) {
   if (button) button.innerHTML = `<i class="bi bi-chevron-${willOpen ? 'up' : 'down'}"></i> ${willOpen ? 'Tutup' : 'Butiran'}`;
 }
 
-function printAllAdminReceipts() {
-  const receipts = adminPrintableReceipts();
-  if (!receipts.length) {
-    showToast('Tiada resit untuk dicetak.', 'error');
-    return;
-  }
-  const printWindow = window.open('', 'polspace-all-receipts', 'width=900,height=760');
-  if (!printWindow) {
-    showToast('Pelayar menyekat tetingkap cetakan. Benarkan pop-up dan cuba lagi.', 'error');
-    return;
-  }
-  const pages = receipts.map((booking) => {
-    const filename = String(booking.paymentFile || '');
-    const isImage = /\.(jpe?g|png|gif)$/i.test(filename);
-    const proof = filename
-      ? isImage
-        ? `<div class="proof"><span>Bukti Bayaran</span><img src="${receiptFileUrl(filename)}" alt="Bukti bayaran ${escapeAttr(booking.id)}"></div>`
-        : `<div class="proof-file"><span>Bukti Bayaran PDF</span><strong>${escapeHtml(filename)}</strong></div>`
-      : '<div class="proof-file"><span>Kaedah Bayaran</span><strong>Bayaran Fizikal</strong></div>';
-    return `<article class="receipt-page"><header><div><h1>PoliSpace</h1><p>Resit Tempahan Fasiliti</p></div><div class="receipt-ref"><span>No. Rujukan</span><strong>${escapeHtml(booking.id)}</strong></div></header><div class="paid-stamp">REKOD BAYARAN</div><section class="receipt-details"><div><span>Nama Penyewa</span><strong>${escapeHtml(booking.name)}</strong></div><div><span>Fasiliti</span><strong>${escapeHtml(booking.facilityName)}</strong></div><div><span>Tarikh Tempahan</span><strong>${escapeHtml(formatDate(booking.date))}</strong></div><div><span>Status</span><strong>${booking.status === 'approved' ? 'Diluluskan' : 'Menunggu'}</strong></div><div><span>E-mel</span><strong>${escapeHtml(booking.email)}</strong></div><div><span>No. Telefon</span><strong>${escapeHtml(booking.phone)}</strong></div></section><div class="receipt-total"><span>Jumlah</span><strong>RM${Number(booking.estimatedCost || 0).toFixed(2)}</strong></div>${proof}<footer>Dicetak pada ${escapeHtml(new Date().toLocaleString('ms-MY'))}</footer></article>`;
-  }).join('');
-  printWindow.document.open();
-  printWindow.document.write(`<!doctype html><html lang="ms"><head><meta charset="utf-8"><title>Semua Resit PoliSpace</title><style>*{box-sizing:border-box}body{margin:0;background:#eee;color:#161616;font-family:Arial,sans-serif}.receipt-page{width:190mm;min-height:270mm;margin:10mm auto;padding:17mm;background:#fff;page-break-after:always}.receipt-page:last-child{page-break-after:auto}header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #1b1b1b}h1{margin:0;font-size:28px}header p{margin:5px 0 0;color:#666}.receipt-ref{text-align:right}.receipt-ref span{display:block;color:#777;font-size:11px}.receipt-ref strong{font-size:19px}.paid-stamp{display:inline-block;margin:22px 0;padding:7px 10px;border:1px solid #2c8f53;border-radius:20px;color:#2c8f53;font-size:11px;font-weight:700}.receipt-details{display:grid;grid-template-columns:1fr 1fr;gap:0 30px}.receipt-details div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid #ddd;font-size:13px}.receipt-details span,.proof span,.proof-file span{color:#777}.receipt-details strong{text-align:right}.receipt-total{display:flex;justify-content:space-between;align-items:center;margin:24px 0;padding:17px;background:#f5f1e7}.receipt-total strong{font-size:24px}.proof{margin-top:18px}.proof span,.proof-file span{display:block;margin-bottom:8px;font-size:11px;font-weight:700;text-transform:uppercase}.proof img{display:block;max-width:100%;max-height:95mm;margin:auto;border:1px solid #ddd}.proof-file{padding:18px;border:1px dashed #bbb;text-align:center}footer{margin-top:24px;color:#888;font-size:10px;text-align:center}@page{size:A4;margin:0}@media print{body{background:#fff}.receipt-page{margin:0}}</style></head><body>${pages}<script>window.onload=()=>setTimeout(()=>window.print(),400)<\/script></body></html>`);
-  printWindow.document.close();
+function printAdminReport() {
+  window.print();
 }
 
 function renderBookingsTable(tbodyId, bookings, isRecent = false) {
@@ -247,7 +321,8 @@ async function filterBookings(filter, btn) {
     showToast(error.message || 'Senarai tempahan tidak dapat dimuatkan.', 'error');
     return;
   }
-  renderBookingsTable('allBookingsTbody', bookings, false);
+  adminBookingsCache = bookings;
+  renderAdminBookings();
 }
 
 function openAdminCreateBookingModal() {
@@ -1138,10 +1213,12 @@ async function loadClients() {
 
   try {
     const result = await tryApi('users.php');
-    renderClientsTable(result.data || []);
+    adminClientsCache = result.data || [];
+    renderClientsTable(adminClientsCache);
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
-    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
+    adminClientsCache = [];
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
   }
 }
 
@@ -1150,14 +1227,21 @@ function renderClientsTable(clients) {
   if (!tbody) return;
 
   if (!clients.length) {
-    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
     return;
   }
 
-  tbody.innerHTML = clients.map((client) => `
+  const sortedClients = sortAdminRecords(
+    clients,
+    'clientsSortSelect',
+    (client) => client.created_at || '',
+    (client) => client.created_at || ''
+  );
+  tbody.innerHTML = sortedClients.map((client) => `
     <tr>
       <td><span class="table-email" title="${escapeAttr(client.email)}">${escapeHtml(client.email)}</span></td>
       <td class="table-phone">${escapeHtml(client.phone || '-')}</td>
+      <td class="table-date">${formatDate(String(client.created_at || '').slice(0, 10))}</td>
       <td class="table-status"><span class="status-badge status-pending">${Number(client.booking_count || 0)} tempahan</span></td>
       <td>
         <div class="table-actions">
@@ -1173,6 +1257,7 @@ async function viewClientDetail(id) {
     const result = await tryApi(`users.php?action=detail&id=${encodeURIComponent(id)}`);
     const user = result.data.user;
     const bookings = result.data.bookings || [];
+    adminClientDetailBookings = bookings;
     setText('modalTitle', `Butiran Pelanggan - ${user.full_name || user.email}`);
     document.getElementById('modalBody').innerHTML = `
       <div class="detail-row"><span class="detail-label">Nama</span><span class="detail-value">${escapeHtml(user.full_name || '-')}</span></div>
@@ -1188,31 +1273,42 @@ async function viewClientDetail(id) {
         </div>
       </div>
       <div style="margin-top:24px">
-        <div class="admin-card-title" style="margin-bottom:12px">Tempahan Pelanggan</div>
+        <div class="admin-client-bookings-header">
+          <div class="admin-card-title">Tempahan Pelanggan</div>
+          ${bookings.length ? `<div class="table-sort"><i class="bi bi-sort-down"></i><select id="clientBookingsSortSelect" aria-label="Susun tempahan pelanggan" onchange="renderClientBookingsTable()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div>` : ''}
+        </div>
         ${bookings.length ? `
           <div style="overflow-x:auto">
             <table class="data-table admin-client-bookings-table">
               <thead><tr><th>Rujukan</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th></tr></thead>
-              <tbody>${bookings.map((booking) => `
-                <tr>
-                  <td><div class="booking-id">${escapeHtml(booking.booking_ref)}</div></td>
-                  <td>${escapeHtml(booking.facility_name || '-')}</td>
-                  <td>${formatDate(booking.booking_date)}</td>
-                  <td>${escapeHtml(String(booking.start_time || '').slice(0, 5))} - ${escapeHtml(String(booking.end_time || '').slice(0, 5) || '-')}</td>
-                  <td>${statusBadgeHtml(booking.status)}</td>
-                </tr>
-              `).join('')}</tbody>
+              <tbody id="clientBookingsTbody"></tbody>
             </table>
           </div>
         ` : '<div class="empty-state"><div class="empty-state-title">Tiada Tempahan</div></div>'}
       </div>
     `;
+    renderClientBookingsTable();
     document.getElementById('modalFooter').innerHTML = `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
     document.getElementById('bookingModal')?.classList.add('active');
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Butiran pelanggan gagal dimuatkan.', 'error');
   }
+}
+
+function renderClientBookingsTable() {
+  const tbody = document.getElementById('clientBookingsTbody');
+  if (!tbody) return;
+  const bookings = sortedAdminBookings(adminClientDetailBookings, 'clientBookingsSortSelect');
+  tbody.innerHTML = bookings.map((booking) => `
+    <tr>
+      <td><div class="booking-id">${escapeHtml(booking.booking_ref)}</div></td>
+      <td>${escapeHtml(booking.facility_name || '-')}</td>
+      <td>${formatDate(booking.booking_date)}</td>
+      <td>${escapeHtml(String(booking.start_time || '').slice(0, 5))} - ${escapeHtml(String(booking.end_time || '').slice(0, 5) || '-')}</td>
+      <td>${statusBadgeHtml(booking.status)}</td>
+    </tr>
+  `).join('');
 }
 
 async function updateClientPassword(id) {
@@ -1261,7 +1357,13 @@ function renderMessagesTable(messages) {
     return;
   }
 
-  tbody.innerHTML = messages.map((message) => {
+  const sortedMessages = sortAdminRecords(
+    messages,
+    'messagesSortSelect',
+    (message) => message.created_at || '',
+    (message) => message.created_at || ''
+  );
+  tbody.innerHTML = sortedMessages.map((message) => {
     const hasReply = Boolean(message.admin_reply);
     const replyStatus = hasReply
       ? `<div class="admin-message-reply"><span class="admin-message-reply-label">Dibalas</span>${escapeHtml(message.admin_reply)}</div>`

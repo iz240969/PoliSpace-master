@@ -7,7 +7,7 @@
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260908-code-quality">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260917-report-redesign">
 </head>
 <body>
   <nav id="main-nav">
@@ -42,8 +42,11 @@
           <div class="stats-grid" id="adminStats"></div>
           <div class="admin-card">
             <div class="admin-card-header">
-              <div class="admin-card-title">Tempahan Terbaru</div>
-              <button class="btn btn-ghost btn-sm" onclick="showAdminPanel('bookings', document.querySelectorAll('.admin-menu-item')[1])">Lihat Semua <i class="bi bi-arrow-right"></i></button>
+              <div class="admin-card-title">Ringkasan Tempahan</div>
+              <div class="admin-toolbar-actions">
+                <div class="table-sort"><i class="bi bi-sort-down"></i><select id="recentBookingsSortSelect" aria-label="Susun ringkasan tempahan" onchange="renderAdminRecentBookings()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div>
+                <button class="btn btn-ghost btn-sm" onclick="showAdminPanel('bookings', document.querySelectorAll('.admin-menu-item')[1])">Lihat Semua <i class="bi bi-arrow-right"></i></button>
+              </div>
             </div>
             <div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-recent"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="recentBookingsTbody"></tbody></table></div>
           </div>
@@ -54,6 +57,7 @@
             <h2>Pengurusan Tempahan</h2>
             <div class="admin-toolbar-actions">
               <button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminCreateBooking"><i class="bi bi-plus-lg"></i> Tambah Tempahan</button>
+              <div class="table-sort"><i class="bi bi-sort-down"></i><select id="adminBookingsSortSelect" aria-label="Susun tempahan" onchange="renderAdminBookings()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div>
               <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
             </div>
           </div>
@@ -63,7 +67,7 @@
         <div class="admin-panel" id="panel-messages">
           <div class="admin-panel-toolbar">
             <h2>Mesej Pelanggan</h2>
-            <button class="btn btn-secondary btn-sm" type="button" onclick="loadMessages()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
+            <div class="admin-toolbar-actions"><div class="table-sort"><i class="bi bi-sort-down"></i><select id="messagesSortSelect" aria-label="Susun mesej" onchange="renderAdminMessages()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div><button class="btn btn-secondary btn-sm" type="button" onclick="loadMessages()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
           </div>
           <div class="admin-card">
             <div class="data-table-wrap"><table class="data-table admin-messages-table">
@@ -76,11 +80,11 @@
         <div class="admin-panel" id="panel-clients">
           <div class="admin-panel-toolbar">
             <h2>Pengurusan Pelanggan</h2>
-            <button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
+            <div class="admin-toolbar-actions"><div class="table-sort"><i class="bi bi-sort-down"></i><select id="clientsSortSelect" aria-label="Susun pelanggan" onchange="renderAdminClients()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div><button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
           </div>
           <div class="admin-card">
             <div class="data-table-wrap"><table class="data-table admin-clients-table">
-              <thead><tr><th>E-mel</th><th>No Telefon</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
+              <thead><tr><th>E-mel</th><th>No Telefon</th><th>Tarikh Daftar</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
               <tbody id="clientsTbody"></tbody>
             </table></div>
           </div>
@@ -200,8 +204,13 @@
 
         <div class="admin-panel" id="panel-reports">
           <div class="admin-panel-toolbar report-toolbar">
-            <div><h2>Laporan & Resit</h2><p class="admin-panel-subtitle">Ringkasan prestasi tempahan dan rekod bayaran fasiliti.</p></div>
-            <div class="admin-toolbar-actions"><button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminReports()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button><button class="btn btn-primary btn-sm" id="printAllReceiptsButton" type="button" onclick="printAllAdminReceipts()" disabled><i class="bi bi-printer"></i> Cetak Semua Resit</button></div>
+            <div><h2>Laporan Tempahan</h2><p class="admin-panel-subtitle">Ringkasan semua status, nilai anggaran dan fail bukti bayaran.</p></div>
+            <div class="admin-toolbar-actions report-toolbar-actions">
+              <label class="report-filter" for="reportPeriodSelect"><span>Tempoh Permohonan</span><select id="reportPeriodSelect" onchange="loadAdminReports()"><option value="all">Semua Masa</option><option value="month">Bulan Ini</option><option value="year">Tahun Ini</option></select></label>
+              <label class="report-filter" for="reportEvidenceSortSelect"><span>Susun Bukti</span><select id="reportEvidenceSortSelect" onchange="renderSortedAdminReports()"><option value="recent">Permohonan Terkini</option><option value="date-asc">Tarikh Tempahan: Awal</option><option value="date-desc">Tarikh Tempahan: Akhir</option></select></label>
+              <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminReports()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
+              <button class="btn btn-primary btn-sm" id="printAdminReportButton" type="button" onclick="printAdminReport()" disabled><i class="bi bi-printer"></i> Cetak Laporan</button>
+            </div>
           </div>
           <div id="adminReportContent"><div class="report-loading"><i class="bi bi-arrow-repeat"></i> Menyediakan laporan...</div></div>
         </div>
@@ -217,7 +226,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260908-pic-no-avatar"></script>
+  <script src="/resources/js/script.js?v=20260917-report-redesign"></script>
 </body>
 </html>
 

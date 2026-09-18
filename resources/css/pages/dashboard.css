@@ -162,13 +162,15 @@
   box-shadow: 0 0 0 4px rgba(201,168,76,0.15);
 }
 
-.dash-sort {
+.dash-sort,
+.table-sort {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-.dash-sort i {
+.dash-sort i,
+.table-sort i {
   position: absolute;
   left: 12px;
   color: var(--grey-3);
@@ -176,7 +178,8 @@
   pointer-events: none;
 }
 
-.dash-sort select {
+.dash-sort select,
+.table-sort select {
   height: 38px;
   min-width: 150px;
   padding: 0 34px 0 34px;
@@ -191,7 +194,8 @@
   font-weight: 800;
 }
 
-.dash-sort::after {
+.dash-sort::after,
+.table-sort::after {
   content: '\F282';
   position: absolute;
   right: 12px;
@@ -201,7 +205,8 @@
   pointer-events: none;
 }
 
-.dash-sort select:focus {
+.dash-sort select:focus,
+.table-sort select:focus {
   border-color: var(--gold);
   outline: none;
   box-shadow: 0 0 0 4px rgba(201,168,76,0.15);
@@ -767,6 +772,8 @@
   .dash-search input,
   .dash-sort,
   .dash-sort select,
+  .table-sort,
+  .table-sort select,
   .dash-filter-chips {
     width: 100%;
   }

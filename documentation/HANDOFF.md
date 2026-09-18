@@ -146,7 +146,7 @@ Important behavior:
 8. Admin can read customer messages and open an email reply from the message table.
 9. Admin can add and edit facilities from the `Fasiliti` page without editing SQL manually, including facility-specific equipment options.
 10. The `Asrama - Bilik` facility card has an `Urus Bilik` button that opens a minimalist availability page with five levels each for the male and female blocks. Room inventory remains internal; the page manages whole levels only.
-11. The admin `Laporan` section visualizes booking status, approved revenue, facility usage, and printable receipt records. `Cetak Semua Resit` creates one A4 receipt page per paid booking in a single print job.
+11. The admin `Laporan` section includes all five booking statuses and can be limited to the current month or year by application date. Money is labelled as estimated booking value, uploaded files are labelled as payment evidence rather than official receipts, and `Cetak Laporan` prints the current report view.
 
 Default admin credentials:
 
