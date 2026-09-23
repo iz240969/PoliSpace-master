@@ -15,7 +15,26 @@ function initDashboard() {
     window.location.href = ROUTES.login;
     return;
   }
+  const accountLabel = document.getElementById('dashboardAccountType');
+  if (accountLabel) {
+    const user = psAuthState.user || {};
+    const verification = user.accountType === 'staff'
+      ? (user.staffVerificationStatus === 'verified' ? 'Disahkan' : user.staffVerificationStatus === 'rejected' ? 'Pengesahan Ditolak' : 'Menunggu Pengesahan')
+      : '';
+    accountLabel.textContent = `Jenis Akaun: ${user.accountType === 'staff' ? 'Kakitangan' : 'Orang Awam'}${verification ? ` · ${verification}` : ''}`;
+  }
   loadUserBookings();
+}
+
+function bookingNeedsPayment(booking) {
+  return booking.paymentRequired !== false && booking.payment_required !== false;
+}
+
+function dashboardStatusBadgeHtml(booking) {
+  if (!bookingNeedsPayment(booking) && booking.status === 'pending') {
+    return '<span class="status-badge status-pending">Menunggu Kelulusan</span>';
+  }
+  return statusBadgeHtml(booking.status);
 }
 
 async function loadUserBookings() {
@@ -128,7 +147,7 @@ function dashboardBookingGroups(bookings, comparator = getDashboardBookingCompar
 
 function groupStatusBadgeHtml(bookings) {
   const statuses = [...new Set(bookings.map((booking) => booking.status))];
-  if (statuses.length === 1) return statusBadgeHtml(statuses[0]);
+  if (statuses.length === 1) return dashboardStatusBadgeHtml(bookings[0]);
   const pendingCount = bookings.filter((booking) => booking.status === 'pending').length;
   const approvedCount = bookings.filter((booking) => booking.status === 'approved').length;
   const unpaidCount = bookings.filter((booking) => booking.status === 'unpaid').length;
@@ -190,12 +209,12 @@ function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
       </td>
       <td><div class="dashboard-booking-cell-content">${formatDate(b.date)}</div></td>
       <td><div class="dashboard-booking-cell-content">${dashboardBookingDurationLabel(b)}</div></td>
-      <td><div class="dashboard-booking-cell-content">${statusBadgeHtml(b.status)}</div></td>
+      <td><div class="dashboard-booking-cell-content">${dashboardStatusBadgeHtml(b)}</div></td>
       <td>
         <div class="dashboard-booking-cell-content">
           <div class="booking-row-actions">
             <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
-            ${b.status === 'unpaid' ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
+            ${b.status === 'unpaid' && bookingNeedsPayment(b) ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
             ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button><button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button>` : ''}
           </div>
         </div>
@@ -206,7 +225,7 @@ function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
 
 function bookingGroupRowHtml(group) {
   const expanded = psExpandedBookingGroups.has(group.groupRef);
-  const total = group.bookings.reduce((sum, booking) => sum + Number(booking.estimatedCost || 0), 0);
+  const total = group.bookings.reduce((sum, booking) => sum + (bookingNeedsPayment(booking) ? Number(booking.estimatedCost || 0) : 0), 0);
   const facilityNames = group.bookings.map((booking) => booking.facilityName || 'Fasiliti').join(', ');
   const dates = [...new Set(group.bookings.map((booking) => booking.date).filter(Boolean))];
   const dateSummary = dates.length === 1 ? formatDate(dates[0]) : `${dates.length} tarikh`;
@@ -223,7 +242,7 @@ function bookingGroupRowHtml(group) {
         <div class="dashboard-booking-group-summary">
           <div class="dashboard-booking-group-summary-main">
             <strong>${group.bookings.length} tempahan</strong>
-            <span class="dashboard-booking-group-price">RM${escapeHtml(String(total))}</span>
+            <span class="dashboard-booking-group-price">${group.bookings.every((booking) => !bookingNeedsPayment(booking)) ? 'Tiada Bayaran' : `RM${escapeHtml(String(total))}`}</span>
           </div>
           <div class="dashboard-booking-group-facilities" title="${escapeAttr(facilityNames)}">${escapeHtml(facilityNames)}</div>
         </div>
@@ -366,7 +385,7 @@ async function viewUserBookingDetail(id) {
             <div style="padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <span class="booking-id">${escapeHtml(b.id || b.booking_ref)}</span>
-                ${statusBadgeHtml(b.status)}
+                ${dashboardStatusBadgeHtml(b)}
               </div>
               <div style="font-size:13px;font-weight:600;margin-bottom:4px;">${b.facilityIcon || ''} ${escapeHtml(b.facilityName || '-')}</div>
               <div style="font-size:12px;color:var(--grey-4);">${formatDate(b.date)} &bull; ${dashboardBookingDurationLabel(b)}</div>
@@ -389,11 +408,13 @@ async function viewUserBookingDetail(id) {
           <div class="user-booking-name">${escapeHtml(booking.facilityName || '-')}</div>
           <div class="user-booking-ref">${escapeHtml(booking.id || booking.booking_ref || '-')}</div>
         </div>
-        ${statusBadgeHtml(booking.status)}
+        ${dashboardStatusBadgeHtml(booking)}
       </div>
       <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
       <div class="detail-row"><span class="detail-label">${isDayBooking(booking) ? 'Tempoh' : 'Masa'}</span><span class="detail-value">${dashboardBookingDurationLabel(booking)}</span></div>
       <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
+      <div class="detail-row"><span class="detail-label">Jenis Pemohon</span><span class="detail-value">${escapeHtml(booking.accountTypeLabel || (booking.accountType === 'staff' ? 'Kakitangan' : 'Orang Awam'))}</span></div>
+      <div class="detail-row"><span class="detail-label">Bayaran</span><span class="detail-value">${bookingNeedsPayment(booking) ? `Diperlukan (RM${Number(booking.estimatedCost || 0).toFixed(2)})` : 'Tidak diperlukan'}</span></div>
       <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">No Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
       ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
@@ -403,7 +424,7 @@ async function viewUserBookingDetail(id) {
       ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
     `;
     document.getElementById('userBookingModalFooter').innerHTML = `
-      ${booking.status === 'unpaid' ? `<button class="btn btn-primary" onclick="openReceiptUploadModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-receipt"></i> Muat Naik Resit</button>` : ''}
+      ${booking.status === 'unpaid' && bookingNeedsPayment(booking) ? `<button class="btn btn-primary" onclick="openReceiptUploadModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-receipt"></i> Muat Naik Resit</button>` : ''}
       ${['unpaid', 'pending'].includes(booking.status) ? `<button class="btn btn-secondary" onclick="openEditBookingModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-pencil-square"></i> Edit</button>` : ''}
       <button class="btn btn-primary" onclick="closeModal('userBookingModal')">Tutup</button>
     `;
@@ -610,6 +631,11 @@ async function submitUserBookingEdit(id) {
 }
 
 function openReceiptUploadModal(id) {
+  const booking = psDashboardBookings.find((item) => item.id === id || item.booking_ref === id);
+  if (!booking || !bookingNeedsPayment(booking) || booking.status !== 'unpaid') {
+    showToast('Bukti pembayaran tidak diperlukan untuk permohonan ini.', 'error');
+    return;
+  }
   pendingReceiptBookingId = id;
   setText('receiptBookingRef', id);
   const input = document.getElementById('dashboardReceiptInput');

@@ -3,107 +3,160 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/booking_availability.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
 }
 
-requireAdmin();
 $db = Database::getInstance();
+$action = (string)($_GET['action'] ?? '');
 
-function ensureAsramaRoomsTable(Database $db): void
+function getAsramaFacilityForCapacity(Database $db): array
 {
-    $db->query(
-        "CREATE TABLE IF NOT EXISTS asrama_rooms (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            facility_id INT NOT NULL,
-            gender ENUM('male', 'female') NOT NULL,
-            floor_level TINYINT UNSIGNED NOT NULL,
-            room_number VARCHAR(20) NOT NULL,
-            is_available BOOLEAN NOT NULL DEFAULT TRUE,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uniq_asrama_room (facility_id, gender, room_number),
-            INDEX idx_asrama_floor (facility_id, gender, floor_level),
-            FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    $facility = $db->fetchOne(
+        "SELECT id, name, is_available
+         FROM facilities
+         WHERE LOWER(name) LIKE '%asrama%'
+           AND LOWER(name) LIKE '%bilik%'
+         ORDER BY id
+         LIMIT 1"
     );
-}
-
-function getAsramaFacility(Database $db): array
-{
-    $facility = $db->fetchOne("SELECT id, name, max_rooms, is_available FROM facilities WHERE LOWER(name) = 'asrama - bilik' LIMIT 1");
     if (!$facility) {
         jsonResponse(['success' => false, 'error' => 'Fasiliti Asrama - Bilik tidak dijumpai.'], 404);
     }
     return $facility;
 }
 
-function seedAsramaRooms(Database $db, int $facilityId): void
+function normalizeAsramaSettingsDate(mixed $value, string $label, bool $required): ?string
 {
-    $roomsPerFloor = [2, 2, 2, 2, 2];
-    foreach (['male' => 'L', 'female' => 'P'] as $gender => $prefix) {
-        foreach ($roomsPerFloor as $floor => $roomCount) {
-            for ($room = 1; $room <= $roomCount; $room += 1) {
-                $floorCode = $floor === 0 ? 'G' : (string)$floor;
-                $roomNumber = sprintf('%s-%s%02d', $prefix, $floorCode, $room);
-                $db->query(
-                    'INSERT IGNORE INTO asrama_rooms (facility_id, gender, floor_level, room_number) VALUES (?, ?, ?, ?)',
-                    [$facilityId, $gender, $floor, $roomNumber]
-                );
-            }
+    $date = trim((string)($value ?? ''));
+    if ($date === '') {
+        if ($required) {
+            jsonResponse(['success' => false, 'error' => "{$label} diperlukan apabila Mod Cuti Panjang diaktifkan."], 422);
         }
+        return null;
     }
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+    if (!$parsed || $parsed->format('Y-m-d') !== $date) {
+        jsonResponse(['success' => false, 'error' => "{$label} tidak sah."], 422);
+    }
+    return $date;
+}
+
+function normalizeAsramaLimit(array $input, string $field, int $maximum, string $label): int
+{
+    if (!array_key_exists($field, $input)) {
+        jsonResponse(['success' => false, 'error' => "{$label} diperlukan."], 422);
+    }
+    $value = filter_var($input[$field], FILTER_VALIDATE_INT);
+    if ($value === false || $value < 0 || $value > $maximum) {
+        jsonResponse(['success' => false, 'error' => "{$label} mesti antara 0 hingga {$maximum} bilik."], 422);
+    }
+    return (int)$value;
 }
 
 try {
-    ensureAsramaRoomsTable($db);
-    $facility = getAsramaFacility($db);
+    $facility = getAsramaFacilityForCapacity($db);
     $facilityId = (int)$facility['id'];
-    seedAsramaRooms($db, $facilityId);
+
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'availability') {
+        $bookingDate = trim((string)($_GET['date'] ?? ''));
+        $duration = filter_var($_GET['duration'] ?? 1, FILTER_VALIDATE_INT);
+        $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $bookingDate);
+        if (!$parsed || $parsed->format('Y-m-d') !== $bookingDate || $duration === false || $duration < 1 || $duration > 30) {
+            jsonResponse(['success' => false, 'error' => 'Tarikh atau tempoh asrama tidak sah.'], 422);
+        }
+        $dates = bookingBlockedDates($bookingDate, (string)$duration, 'day');
+        jsonResponse(['success' => true, 'data' => getAsramaCapacitySnapshot($db, $facilityId, $dates)]);
+    }
+
+    requireAdmin();
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $rooms = $db->fetchAll(
-            'SELECT id, gender, floor_level, room_number, is_available, updated_at FROM asrama_rooms WHERE facility_id = ? ORDER BY gender DESC, floor_level ASC, room_number ASC',
-            [$facilityId]
-        );
-        jsonResponse(['success' => true, 'data' => ['facility' => $facility, 'rooms' => $rooms]]);
+        $today = date('Y-m-d');
+        $snapshot = getAsramaCapacitySnapshot($db, $facilityId, [$today]);
+        jsonResponse([
+            'success' => true,
+            'data' => [
+                'facility' => $facility,
+                'settings' => $snapshot['settings'],
+                'today' => $snapshot['dates'][$today],
+                'today_date' => $today,
+            ],
+        ]);
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $input = jsonInput();
-        $action = (string)($_GET['action'] ?? 'room');
-        $isAvailable = (int)(bool)($input['is_available'] ?? false);
+        $normalMale = normalizeAsramaLimit($input, 'normal_male_limit', ASRAMA_NORMAL_ROOM_LIMIT_MAX, 'Had biasa Blok Lelaki');
+        $normalFemale = normalizeAsramaLimit($input, 'normal_female_limit', ASRAMA_NORMAL_ROOM_LIMIT_MAX, 'Had biasa Blok Perempuan');
+        $holidayMale = normalizeAsramaLimit($input, 'holiday_male_limit', ASRAMA_HOLIDAY_ROOM_LIMIT_MAX, 'Had Cuti Panjang Blok Lelaki');
+        $holidayFemale = normalizeAsramaLimit($input, 'holiday_female_limit', ASRAMA_HOLIDAY_ROOM_LIMIT_MAX, 'Had Cuti Panjang Blok Perempuan');
+        $holidayEnabled = filter_var($input['holiday_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $holidayStart = normalizeAsramaSettingsDate($input['holiday_start_date'] ?? null, 'Tarikh mula', $holidayEnabled);
+        $holidayEnd = normalizeAsramaSettingsDate($input['holiday_end_date'] ?? null, 'Tarikh tamat', $holidayEnabled);
+        if ($holidayStart !== null && $holidayEnd !== null && $holidayEnd < $holidayStart) {
+            jsonResponse(['success' => false, 'error' => 'Tarikh tamat mesti pada atau selepas tarikh mula.'], 422);
+        }
 
-        if ($action === 'level') {
-            $gender = (string)($input['gender'] ?? '');
-            $floor = filter_var($input['floor_level'] ?? null, FILTER_VALIDATE_INT);
-            if (!in_array($gender, ['male', 'female'], true) || $floor === false || $floor < 0 || $floor > 4) {
-                jsonResponse(['success' => false, 'error' => 'Maklumat aras tidak sah.'], 422);
-            }
-            $db->update(
-                'UPDATE asrama_rooms SET is_available = ? WHERE facility_id = ? AND gender = ? AND floor_level = ?',
-                [$isAvailable, $facilityId, $gender, $floor]
+        withFacilityAvailabilityLock($db, $facilityId, function () use (
+            $db,
+            $facilityId,
+            $normalMale,
+            $normalFemale,
+            $holidayEnabled,
+            $holidayStart,
+            $holidayEnd,
+            $holidayMale,
+            $holidayFemale
+        ): void {
+            ensureAsramaCapacitySettingsTable($db);
+            $db->query(
+                'INSERT INTO asrama_capacity_settings (
+                    facility_id, normal_male_limit, normal_female_limit, holiday_enabled,
+                    holiday_start_date, holiday_end_date, holiday_male_limit, holiday_female_limit
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    normal_male_limit = VALUES(normal_male_limit),
+                    normal_female_limit = VALUES(normal_female_limit),
+                    holiday_enabled = VALUES(holiday_enabled),
+                    holiday_start_date = VALUES(holiday_start_date),
+                    holiday_end_date = VALUES(holiday_end_date),
+                    holiday_male_limit = VALUES(holiday_male_limit),
+                    holiday_female_limit = VALUES(holiday_female_limit)',
+                [
+                    $facilityId,
+                    $normalMale,
+                    $normalFemale,
+                    (int)$holidayEnabled,
+                    $holidayStart,
+                    $holidayEnd,
+                    $holidayMale,
+                    $holidayFemale,
+                ]
             );
-            jsonResponse(['success' => true, 'message' => 'Ketersediaan aras berjaya dikemas kini.']);
-        }
+        });
 
-        $roomId = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT);
-        if ($roomId === false || $roomId <= 0) {
-            jsonResponse(['success' => false, 'error' => 'Bilik tidak sah.'], 422);
-        }
-        $updated = $db->update(
-            'UPDATE asrama_rooms SET is_available = ? WHERE id = ? AND facility_id = ?',
-            [$isAvailable, $roomId, $facilityId]
-        );
-        if ($updated < 1) {
-            jsonResponse(['success' => false, 'error' => 'Bilik tidak dijumpai atau tiada perubahan.'], 404);
-        }
-        jsonResponse(['success' => true, 'message' => 'Ketersediaan bilik berjaya dikemas kini.']);
+        $today = date('Y-m-d');
+        $snapshot = getAsramaCapacitySnapshot($db, $facilityId, [$today]);
+        jsonResponse([
+            'success' => true,
+            'message' => 'Tetapan kapasiti asrama berjaya disimpan.',
+            'data' => [
+                'facility' => $facility,
+                'settings' => $snapshot['settings'],
+                'today' => $snapshot['dates'][$today],
+                'today_date' => $today,
+            ],
+        ]);
     }
 
     jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);
+} catch (BookingAvailabilityException $e) {
+    jsonResponse(['success' => false, 'error' => $e->getMessage()], $e->httpStatus());
 } catch (Throwable $e) {
-    $message = defined('APP_DEBUG') && APP_DEBUG ? $e->getMessage() : 'Pengurusan bilik asrama gagal.';
+    $message = defined('APP_DEBUG') && APP_DEBUG ? $e->getMessage() : 'Pengurusan kapasiti asrama gagal.';
     jsonResponse(['success' => false, 'error' => $message], 500);
 }
 ?>

@@ -3,12 +3,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/account_types.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
 }
 
 $db = Database::getInstance();
+ensureAccountTypeSchema($db);
 $input = $_POST ?: jsonInput();
 $action = $_GET['action'] ?? '';
 
@@ -95,6 +97,23 @@ if ($action === 'signup') {
     $confirm = (string)($input['password_confirm'] ?? '');
     $fullName = trim((string)($input['full_name'] ?? ''));
     $phone = trim((string)($input['phone'] ?? ''));
+    $accountType = (string)($input['account_type'] ?? ACCOUNT_TYPE_PUBLIC);
+    $staffNumber = trim((string)($input['staff_number'] ?? ''));
+
+    if (!in_array($accountType, [ACCOUNT_TYPE_PUBLIC, ACCOUNT_TYPE_STAFF], true)) {
+        jsonResponse(['success' => false, 'error' => 'Invalid account type'], 400);
+    }
+
+    if ($accountType === ACCOUNT_TYPE_STAFF
+        && (strlen($staffNumber) < 2
+            || strlen($staffNumber) > 50
+            || !preg_match('/^[A-Za-z0-9._\/-]+$/', $staffNumber))) {
+        jsonResponse(['success' => false, 'error' => 'Staff number is required for staff registration'], 400);
+    }
+
+    if ($accountType === ACCOUNT_TYPE_PUBLIC) {
+        $staffNumber = '';
+    }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100) {
         jsonResponse(['success' => false, 'error' => 'Valid email required'], 400);
@@ -128,14 +147,36 @@ if ($action === 'signup') {
     $hash = password_hash($password, PASSWORD_DEFAULT);
     if ($user) {
         $db->update(
-            "UPDATE users SET password = ?, full_name = COALESCE(NULLIF(?, ''), full_name), phone = COALESCE(NULLIF(?, ''), phone), role = 'user' WHERE id = ?",
-            [$hash, $fullName, $phone, $user['id']]
+            "UPDATE users
+             SET password = ?, full_name = COALESCE(NULLIF(?, ''), full_name),
+                 phone = COALESCE(NULLIF(?, ''), phone), role = 'user', account_type = ?,
+                 staff_number = ?, staff_verification_status = ?
+             WHERE id = ?",
+            [
+                $hash,
+                $fullName,
+                $phone,
+                $accountType,
+                $staffNumber !== '' ? $staffNumber : null,
+                $accountType === ACCOUNT_TYPE_STAFF ? STAFF_VERIFICATION_PENDING : null,
+                $user['id'],
+            ]
         );
         $userId = (int)$user['id'];
     } else {
         $userId = (int)$db->insert(
-            'INSERT INTO users (email, password, full_name, phone, role) VALUES (?, ?, ?, ?, ?)',
-            [$email, $hash, $fullName, $phone, 'user']
+            'INSERT INTO users (email, password, full_name, phone, role, account_type, staff_number, staff_verification_status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $email,
+                $hash,
+                $fullName,
+                $phone,
+                'user',
+                $accountType,
+                $staffNumber !== '' ? $staffNumber : null,
+                $accountType === ACCOUNT_TYPE_STAFF ? STAFF_VERIFICATION_PENDING : null,
+            ]
         );
     }
 
@@ -147,6 +188,8 @@ if ($action === 'signup') {
         'role' => 'user',
         'redirect' => 'booking.html',
         'email' => $email,
+        'account_type' => $accountType,
+        'staff_verification_status' => $accountType === ACCOUNT_TYPE_STAFF ? STAFF_VERIFICATION_PENDING : null,
     ]);
 }
 
@@ -158,7 +201,11 @@ if ($action === 'me') {
     }
 
     if (!empty($_SESSION['user_id'])) {
-        $user = $db->fetchOne("SELECT id, email, full_name, phone, role FROM users WHERE id = ? AND role = 'user'", [$_SESSION['user_id']]);
+        $user = $db->fetchOne(
+            "SELECT id, email, full_name, phone, role, account_type, staff_number, staff_verification_status
+             FROM users WHERE id = ? AND role = 'user'",
+            [$_SESSION['user_id']]
+        );
         if ($user) {
             jsonResponse([
                 'success' => true,
@@ -168,6 +215,13 @@ if ($action === 'me') {
                     'email' => $user['email'],
                     'name' => $user['full_name'],
                     'phone' => $user['phone'],
+                    'accountType' => normalizedAccountType($user['account_type'] ?? ''),
+                    'account_type' => normalizedAccountType($user['account_type'] ?? ''),
+                    'staffNumber' => $user['staff_number'],
+                    'staff_number' => $user['staff_number'],
+                    'staffVerificationStatus' => $user['staff_verification_status'],
+                    'staff_verification_status' => $user['staff_verification_status'],
+                    'paymentExempt' => isVerifiedStaffAccount($user),
                 ],
             ]);
         }
@@ -207,7 +261,8 @@ if ($action === 'profile') {
     );
 
     $user = $db->fetchOne(
-        "SELECT id, email, full_name, phone FROM users WHERE id = ? AND role = 'user'",
+        "SELECT id, email, full_name, phone, account_type, staff_number, staff_verification_status
+         FROM users WHERE id = ? AND role = 'user'",
         [$userId]
     );
     if (!$user) {
@@ -222,6 +277,13 @@ if ($action === 'profile') {
             'email' => $user['email'],
             'name' => $user['full_name'],
             'phone' => $user['phone'],
+            'accountType' => normalizedAccountType($user['account_type'] ?? ''),
+            'account_type' => normalizedAccountType($user['account_type'] ?? ''),
+            'staffNumber' => $user['staff_number'],
+            'staff_number' => $user['staff_number'],
+            'staffVerificationStatus' => $user['staff_verification_status'],
+            'staff_verification_status' => $user['staff_verification_status'],
+            'paymentExempt' => isVerifiedStaffAccount($user),
         ],
     ]);
 }

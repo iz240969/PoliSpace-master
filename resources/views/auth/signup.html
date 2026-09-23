@@ -7,7 +7,7 @@
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/resources/css/style.css?v=20260823-pic-admin-trial">
+    <link rel="stylesheet" href="/resources/css/style.css?v=20260923-account-types">
   <style>
     .signup-page {
       min-height: 100vh;
@@ -77,6 +77,30 @@
       gap: 14px;
     }
 
+    .account-type-options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .account-type-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .account-type-option:has(input:checked) {
+      border-color: var(--gold);
+      background: color-mix(in srgb, var(--gold) 10%, transparent);
+    }
+
+    .account-type-option input { accent-color: var(--gold); }
+
     .signup-card .btn-primary {
       width: 100%;
       justify-content: center;
@@ -137,6 +161,18 @@
             <input type="tel" id="signup-phone" autocomplete="tel">
           </div>
           <div class="form-group">
+            <label>Jenis Akaun</label>
+            <div class="account-type-options" role="radiogroup" aria-label="Jenis Akaun">
+              <label class="account-type-option"><input type="radio" name="signup-account-type" value="public" checked onchange="toggleSignupAccountType()"> Orang Awam</label>
+              <label class="account-type-option"><input type="radio" name="signup-account-type" value="staff" onchange="toggleSignupAccountType()"> Kakitangan</label>
+            </div>
+          </div>
+          <div class="form-group" id="signupStaffNumberGroup" hidden>
+            <label>No. Kakitangan</label>
+            <input type="text" id="signup-staff-number" minlength="2" maxlength="50" pattern="[A-Za-z0-9._/-]+" autocomplete="off" placeholder="Masukkan nombor kakitangan">
+            <small>Permohonan akaun kakitangan perlu disahkan oleh pentadbir.</small>
+          </div>
+          <div class="form-group">
             <label>Alamat E-mel</label>
             <input type="email" id="signup-email" autocomplete="username">
           </div>
@@ -156,6 +192,6 @@
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260823-pic-admin-trial"></script>
+  <script src="/resources/js/script.js?v=20260923-account-types"></script>
 </body>
 </html>

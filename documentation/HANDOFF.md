@@ -128,9 +128,9 @@ unpaid, rejected, cancelled
 Important behavior:
 
 - `unpaid` bookings are history records only until payment is made. They do not reserve the facility.
-- Uploading a receipt changes `unpaid` to `pending`. This reserves that facility for the selected date range, unless another `pending` or `approved` booking already reserves an overlapping date for the same facility.
+- Uploading a receipt changes `unpaid` to `pending`. Normal facilities reserve the selected date range exclusively. Asrama bookings reserve their requested male/female room quantities against the quota on every covered date.
 - A reservation never disables a different facility on the same date.
-- Day-based bookings block every date in their duration. For example, a 2-day Asrama booking blocks both dates for Asrama.
+- Day-based Asrama bookings consume capacity on every date in their duration.
 - `approved` bookings remain reserved.
 - Admin can reject pending bookings. Admins can cancel an approved booking with a required cancellation reason; the cancelled record remains in history and releases the slot.
 - A successful `pending -> approved` transition emails the assigned facility PIC. A successful admin `approved -> cancelled` transition sends the PIC a cancellation email. Missing PIC contact details or mail delivery failure never roll back the booking status.
@@ -148,7 +148,7 @@ Important behavior:
 7. Admin can set or reset a client password from the customer management flow.
 8. Admin can read customer messages and open an email reply from the message table.
 9. Admin can add and edit facilities from the `Fasiliti` page without editing SQL manually, including facility-specific equipment options.
-10. The `Asrama - Bilik` facility card has an `Urus Bilik` button that opens a minimalist availability page with five levels each for the male and female blocks. Room inventory remains internal; the page manages whole levels only.
+10. The `Asrama - Bilik` facility card has an `Urus Bilik` button for male/female booking quotas. Normal limits are 0–30 rooms per block. `Mod Cuti Panjang` adds a configurable date range with limits up to 100 per block. The PIC handles actual room and floor allocation outside PoliSpace.
 11. The admin `Laporan` section includes all five booking statuses and can be limited to the current month or year by application date. Money is labelled as estimated booking value, uploaded files are labelled as payment evidence rather than official receipts, and `Cetak Laporan` prints the current report view.
 
 Default admin credentials:

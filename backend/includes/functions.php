@@ -21,6 +21,9 @@ function jsonInput(): array
 
 function formatBookingForFrontend(array $booking): array
 {
+    $accountType = ($booking['account_type'] ?? 'public') === 'staff' ? 'staff' : 'public';
+    $paymentRequired = !array_key_exists('payment_required', $booking) || (bool)$booking['payment_required'];
+
     return [
         'dbId' => (int)$booking['id'],
         'id' => $booking['booking_ref'],
@@ -55,6 +58,11 @@ function formatBookingForFrontend(array $booking): array
         'room_count' => (int)($booking['room_count'] ?? 1),
         'pax' => $booking['participant_count'],
         'status' => $booking['status'],
+        'accountType' => $accountType,
+        'account_type' => $accountType,
+        'accountTypeLabel' => $accountType === 'staff' ? 'Kakitangan' : 'Orang Awam',
+        'paymentRequired' => $paymentRequired,
+        'payment_required' => $paymentRequired,
         'adminNote' => $booking['admin_note'],
         'cancellationReason' => $booking['cancellation_reason'] ?? '',
         'cancellation_reason' => $booking['cancellation_reason'] ?? '',

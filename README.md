@@ -71,8 +71,8 @@ cancelled  = Dibatalkan
 
 An unpaid booking does not reserve the date. The date is secured only when a receipt is uploaded and the booking becomes `pending`, unless another `pending` or `approved` booking already reserves that same facility and date range. Other facilities remain available on that date.
 
-Day-based bookings, such as `Asrama - Bilik`, block every date in their selected duration. For example, a 2-day Asrama booking blocks both selected dates for that facility.
+Day-based Asrama bookings consume the requested male/female room quantities on every date in their selected duration. Only `pending` and `approved` bookings count toward this quota.
 
 PICs are stored independently and assigned to facilities. One PIC can manage several facilities, while each facility has at most one current PIC. Users still see the assigned PIC's full name and phone number. Admins can add, edit, delete, reassign, and send a manual trial email from the PIC page. Approving a pending booking and cancelling a previously approved booking also notify the assigned PIC without rolling back the status change if mail delivery fails.
 
-Admins can open the dedicated `Urus Bilik` page from the `Asrama - Bilik` facility card to manage whole-level availability across five levels in both the male and female blocks.
+Admins can open the dedicated `Urus Bilik` page from the `Asrama - Bilik` facility card to set normal male/female limits up to 30 rooms per block. An optional date-based `Mod Cuti Panjang` allows up to 100 rooms per block; the PIC remains responsible for actual room and floor allocation.

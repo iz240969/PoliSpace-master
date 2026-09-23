@@ -48,6 +48,20 @@ function renderAdminBookings() {
 
 function renderAdminClients() {
   renderClientsTable(adminClientsCache);
+  renderStaffVerificationRequests(adminClientsCache);
+}
+
+function adminAccountTypeLabel(value) {
+  return value === 'staff' ? 'Kakitangan' : 'Orang Awam';
+}
+
+function adminVerificationLabel(value) {
+  return value === 'verified' ? 'Disahkan' : value === 'rejected' ? 'Ditolak' : 'Menunggu';
+}
+
+function adminVerificationBadge(value) {
+  const statusClass = value === 'verified' ? 'status-approved' : value === 'rejected' ? 'status-rejected' : 'status-pending';
+  return `<span class="status-badge ${statusClass}">${adminVerificationLabel(value)}</span>`;
 }
 
 function renderAdminMessages() {
@@ -147,7 +161,7 @@ async function loadAdminReports() {
 }
 
 function adminPaymentEvidenceRecords(bookings = adminReportBookings) {
-  return bookings.filter((booking) => Boolean(booking.paymentFile));
+  return bookings.filter((booking) => booking.paymentRequired !== false && Boolean(booking.paymentFile));
 }
 
 function reportCurrency(value) {
@@ -241,7 +255,7 @@ function renderAdminReports(bookings) {
     items[key].count += 1;
     if (booking.status === 'approved') {
       items[key].approved += 1;
-      items[key].approvedValue += Number(booking.estimatedCost || 0);
+      if (booking.paymentRequired !== false) items[key].approvedValue += Number(booking.estimatedCost || 0);
     }
     return items;
   }, {})).sort((a, b) => b.count - a.count);
@@ -250,7 +264,8 @@ function renderAdminReports(bookings) {
   const activity = reportActivitySeries(bookings);
   const maxActivity = Math.max(1, ...activity.series.map((item) => item.value));
   const statusGradient = reportStatusGradient(statusOrder, statusMeta, counts, total);
-  const evidenceRate = total ? Math.round((Number(summary.evidence_count || 0) / total) * 100) : 0;
+  const paymentRequiredCount = Number(summary.payment_required_count || 0);
+  const evidenceRate = paymentRequiredCount ? Math.round((Number(summary.evidence_count || 0) / paymentRequiredCount) * 100) : 0;
   if (printButton) printButton.disabled = false;
 
   content.innerHTML = `
@@ -271,7 +286,7 @@ function renderAdminReports(bookings) {
       <article class="report-v3-kpi"><span><i class="bi bi-collection"></i></span><div><small>Jumlah Tempahan</small><strong>${total}</strong><p>${Number(summary.active || 0)} masih aktif</p></div></article>
       <article class="report-v3-kpi is-attention"><span><i class="bi bi-hourglass-split"></i></span><div><small>Perlu Tindakan</small><strong>${counts.pending}</strong><p>Menunggu semakan admin</p></div></article>
       <article class="report-v3-kpi is-success"><span><i class="bi bi-check2-circle"></i></span><div><small>Kadar Kelulusan</small><strong>${approvalRate}%</strong><p>${counts.approved} daripada ${decisionTotal} keputusan</p></div></article>
-      <article class="report-v3-kpi"><span><i class="bi bi-file-earmark-check"></i></span><div><small>Liputan Bukti</small><strong>${evidenceRate}%</strong><p>${Number(summary.evidence_count || 0)} rekod mempunyai fail</p></div></article>
+      <article class="report-v3-kpi"><span><i class="bi bi-file-earmark-check"></i></span><div><small>Liputan Bukti</small><strong>${evidenceRate}%</strong><p>${Number(summary.evidence_count || 0)} daripada ${paymentRequiredCount} tempahan berbayar</p></div></article>
     </div>
 
     <div class="report-v3-visual-grid">
@@ -302,10 +317,10 @@ function renderAdminReports(bookings) {
       <section class="report-v3-panel report-v3-finance-panel">
         <div class="report-v3-section-heading"><div><span>NILAI & BUKTI</span><h3>Ringkasan Kewangan</h3><p>Nilai anggaran, bukan bayaran diterima.</p></div><i class="bi bi-wallet2"></i></div>
         <div class="report-v3-finance-list">
-          <div><span>Anggaran diluluskan</span><strong>${reportCurrency(summary.approved_estimated_value)}</strong><small>${counts.approved} tempahan</small></div>
+          <div><span>Anggaran diluluskan</span><strong>${reportCurrency(summary.approved_estimated_value)}</strong><small>Tempahan berbayar sahaja</small></div>
           <div><span>Anggaran menunggu</span><strong>${reportCurrency(summary.pending_estimated_value)}</strong><small>${counts.pending} tempahan</small></div>
-          <div><span>Fail bukti diterima</span><strong>${Number(summary.evidence_count || 0)}</strong><small>${evidenceRate}% daripada semua rekod</small></div>
-          <div class="${Number(summary.approved_without_evidence || 0) ? 'needs-attention' : ''}"><span>Lulus tanpa fail bukti</span><strong>${Number(summary.approved_without_evidence || 0)}</strong><small>Perlu semakan</small></div>
+          <div><span>Fail bukti diterima</span><strong>${Number(summary.evidence_count || 0)}</strong><small>${evidenceRate}% tempahan yang memerlukan bayaran</small></div>
+          <div><span>Jenis pemohon</span><strong>${Number(summary.public_count || 0)} / ${Number(summary.staff_count || 0)}</strong><small>Orang Awam / Kakitangan</small></div>
         </div>
       </section>
     </div>
@@ -327,7 +342,7 @@ function adminPaymentEvidenceRowHtml(booking) {
   return `
     <tr class="report-evidence-summary">
       <td><div class="booking-id">${escapeHtml(booking.id)}</div><div class="report-cell-sub">${statusBadgeHtml(booking.status)}</div></td>
-      <td><strong>${escapeHtml(booking.name)}</strong><div class="report-cell-sub">${escapeHtml(booking.email || '-')}</div></td>
+      <td><strong>${escapeHtml(booking.name)}</strong><div class="report-cell-sub">${escapeHtml(booking.email || '-')} &middot; ${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))}</div></td>
       <td><strong>${escapeHtml(booking.facilityName)}</strong><div class="report-cell-sub"><i class="bi bi-calendar3"></i> ${formatDate(booking.date)} &middot; ${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</div></td>
       <td><strong class="report-amount">${reportCurrency(booking.estimatedCost)}</strong><div class="report-cell-sub">Anggaran tempahan</div></td>
       <td>${paymentProof}</td>
@@ -340,6 +355,7 @@ function adminPaymentEvidenceRowHtml(booking) {
             <div><span>No. Telefon</span><strong>${escapeHtml(booking.phone || '-')}</strong></div>
             <div><span>Tempoh</span><strong>${escapeHtml(duration)}</strong></div>
             <div><span>Jumlah Pengguna</span><strong>${escapeHtml(booking.pax || '-')}</strong></div>
+            <div><span>Jenis Pemohon</span><strong>${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))}</strong></div>
             <div><span>Permohonan Dicipta</span><strong>${escapeHtml(formatDateTime(booking.createdAt))}</strong></div>
             <div class="report-detail-wide"><span>Tujuan Penggunaan</span><strong>${escapeHtml(booking.purpose || '-')}</strong></div>
             <div class="report-detail-wide"><span>Peralatan</span><strong>${escapeHtml(booking.equipment || 'Tiada peralatan')}</strong></div>
@@ -407,12 +423,12 @@ function adminBookingRowHtml(booking, isRecent, childGroupRef = '') {
   return `
     <tr class="${rowClass}" ${rowAttributes}>
       <td>${cell(`<div class="booking-id" title="${escapeAttr(booking.id)}">${escapeHtml(booking.id)}</div>`)}</td>
-      <td>${cell(`<div class="tenant-name">${escapeHtml(booking.name)}</div>${booking.org ? `<div class="tenant-org">${escapeHtml(booking.org)}</div>` : ''}`)}</td>
+      <td>${cell(`<div class="tenant-name">${escapeHtml(booking.name)}</div><div class="tenant-org">${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))} &middot; ${booking.paymentRequired === false ? 'Bayaran tidak diperlukan' : 'Bayaran diperlukan'}</div>${booking.org ? `<div class="tenant-org">${escapeHtml(booking.org)}</div>` : ''}`)}</td>
       <td>${cell(`<span class="table-facility">${booking.facilityIcon || ''}<span>${escapeHtml(booking.facilityName)}</span></span>`)}</td>
       <td class="table-date">${cell(formatDate(booking.date))}</td>
       ${!isRecent ? `<td class="table-time">${cell(`${escapeHtml(booking.start)} - ${escapeHtml(booking.end || '?')}`)}</td>` : ''}
       <td class="table-status">${cell(statusBadgeHtml(booking.status))}</td>
-      <td>${cell(`<div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(booking.id)}')" title="Terima tempahan" aria-label="Terima tempahan ${escapeAttr(booking.id)}"><i class="bi bi-check-lg"></i> Terima</button>` : ''}${canReject && !canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(booking.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}${canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="cancelApprovedBookingPrompt('${escapeAttr(booking.id)}')" title="Batalkan tempahan yang diluluskan"><i class="bi bi-x-circle"></i> Batal</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(booking.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(booking.id)}"><i class="bi bi-eye"></i></button></div>`)}</td>
+      <td>${cell(`<div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(booking.id)}')" title="${booking.paymentRequired === false ? 'Lulus permohonan' : 'Sahkan bayaran dan luluskan'}" aria-label="Luluskan tempahan ${escapeAttr(booking.id)}"><i class="bi bi-check-lg"></i> ${booking.paymentRequired === false ? 'Lulus Permohonan' : 'Sahkan & Lulus'}</button>` : ''}${canReject && !canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(booking.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}${canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="cancelApprovedBookingPrompt('${escapeAttr(booking.id)}')" title="Batalkan tempahan yang diluluskan"><i class="bi bi-x-circle"></i> Batal</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(booking.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(booking.id)}"><i class="bi bi-eye"></i></button></div>`)}</td>
     </tr>`;
 }
 
@@ -544,7 +560,7 @@ function openAdminCreateBookingModal() {
       </div>
       <div class="form-group">
         <label for="adminBookingDate">Tarikh Tempahan *</label>
-        <input type="date" id="adminBookingDate" ${minDate ? `min="${escapeAttr(minDate)}"` : ''} required>
+        <input type="date" id="adminBookingDate" ${minDate ? `min="${escapeAttr(minDate)}"` : ''} required onchange="normalizeAdminCreateRooms()">
       </div>
       <div class="form-group" data-admin-create-time>
         <label for="adminBookingStart">Masa Mula *</label>
@@ -552,7 +568,7 @@ function openAdminCreateBookingModal() {
       </div>
       <div class="form-group">
         <label for="adminBookingDuration">Tempoh *</label>
-        <input type="number" id="adminBookingDuration" min="1" max="24" step="1" value="1" required oninput="syncAdminCreateBookingEndTime()" onchange="syncAdminCreateBookingEndTime()">
+        <input type="number" id="adminBookingDuration" min="1" max="24" step="1" value="1" required oninput="syncAdminCreateBookingEndTime();normalizeAdminCreateRooms()" onchange="syncAdminCreateBookingEndTime();normalizeAdminCreateRooms()">
       </div>
       <div class="form-group">
         <label for="adminBookingDurationUnit">Unit Tempoh *</label>
@@ -564,14 +580,14 @@ function openAdminCreateBookingModal() {
       <div class="form-group span-2 admin-create-asrama is-hidden">
         <label>Bilangan Bilik *</label>
         <div class="admin-create-room-grid">
-          <div class="admin-create-room-summary"><span>Jumlah</span><strong id="adminCreateRoomTotal">1</strong><small id="adminCreateRoomLimit">Maks. 10 bilik</small></div>
+          <div class="admin-create-room-summary"><span>Jumlah</span><strong id="adminCreateRoomTotal">1</strong><small id="adminCreateRoomLimit">Had mengikut tarikh</small></div>
           <div class="admin-create-room-card">
             <div><span>Asrama Lelaki</span><small id="adminCreateLelakiHint">1 bilik</small></div>
-            <div class="quantity-control compact"><button type="button" onclick="adjustAdminCreateAsramaRoom('lelaki', -1)" aria-label="Kurangkan bilik asrama lelaki"><i class="bi bi-dash-lg"></i></button><input type="number" id="adminBookingLelakiRooms" min="0" max="10" step="1" value="1" oninput="normalizeAdminCreateRooms()"><button type="button" onclick="adjustAdminCreateAsramaRoom('lelaki', 1)" aria-label="Tambah bilik asrama lelaki"><i class="bi bi-plus-lg"></i></button></div>
+            <div class="quantity-control compact"><button type="button" onclick="adjustAdminCreateAsramaRoom('lelaki', -1)" aria-label="Kurangkan bilik asrama lelaki"><i class="bi bi-dash-lg"></i></button><input type="number" id="adminBookingLelakiRooms" min="0" max="30" step="1" value="1" oninput="normalizeAdminCreateRooms()"><button type="button" onclick="adjustAdminCreateAsramaRoom('lelaki', 1)" aria-label="Tambah bilik asrama lelaki"><i class="bi bi-plus-lg"></i></button></div>
           </div>
           <div class="admin-create-room-card">
             <div><span>Asrama Perempuan</span><small id="adminCreatePerempuanHint">0 bilik</small></div>
-            <div class="quantity-control compact"><button type="button" onclick="adjustAdminCreateAsramaRoom('perempuan', -1)" aria-label="Kurangkan bilik asrama perempuan"><i class="bi bi-dash-lg"></i></button><input type="number" id="adminBookingPerempuanRooms" min="0" max="10" step="1" value="0" oninput="normalizeAdminCreateRooms()"><button type="button" onclick="adjustAdminCreateAsramaRoom('perempuan', 1)" aria-label="Tambah bilik asrama perempuan"><i class="bi bi-plus-lg"></i></button></div>
+            <div class="quantity-control compact"><button type="button" onclick="adjustAdminCreateAsramaRoom('perempuan', -1)" aria-label="Kurangkan bilik asrama perempuan"><i class="bi bi-dash-lg"></i></button><input type="number" id="adminBookingPerempuanRooms" min="0" max="30" step="1" value="0" oninput="normalizeAdminCreateRooms()"><button type="button" onclick="adjustAdminCreateAsramaRoom('perempuan', 1)" aria-label="Tambah bilik asrama perempuan"><i class="bi bi-plus-lg"></i></button></div>
           </div>
         </div>
       </div>
@@ -785,26 +801,32 @@ function syncAdminCreateBookingEndTime() {
 
 function normalizeAdminCreateRooms() {
   const facility = getAdminCreateSelectedFacility();
-  const maxRooms = Math.max(1, Number(facility?.max_rooms || 10));
+  if (!isAsramaRoomFacility(facility)) return 1;
+  const limits = asramaConfiguredLimitsForDates(
+    facility,
+    document.getElementById('adminBookingDate')?.value || '',
+    document.getElementById('adminBookingDuration')?.value || '1'
+  );
+  const maxRooms = limits.male + limits.female;
   const lelakiEl = document.getElementById('adminBookingLelakiRooms');
   const perempuanEl = document.getElementById('adminBookingPerempuanRooms');
   if (!lelakiEl || !perempuanEl) return 1;
   let lelaki = Math.max(0, Math.floor(Number(lelakiEl.value || 0)));
   let perempuan = Math.max(0, Math.floor(Number(perempuanEl.value || 0)));
-  if (lelaki + perempuan < 1) lelaki = 1;
-  if (lelaki + perempuan > maxRooms) {
-    const overflow = lelaki + perempuan - maxRooms;
-    if (document.activeElement === perempuanEl) lelaki = Math.max(0, lelaki - overflow);
-    else perempuan = Math.max(0, perempuan - overflow);
+  lelaki = Math.min(lelaki, limits.male);
+  perempuan = Math.min(perempuan, limits.female);
+  if (lelaki + perempuan < 1 && maxRooms > 0) {
+    if (limits.male > 0) lelaki = 1;
+    else perempuan = 1;
   }
-  lelakiEl.max = String(maxRooms);
-  perempuanEl.max = String(maxRooms);
+  lelakiEl.max = String(limits.male);
+  perempuanEl.max = String(limits.female);
   lelakiEl.value = String(lelaki);
   perempuanEl.value = String(perempuan);
   setText('adminCreateRoomTotal', lelaki + perempuan);
-  setText('adminCreateRoomLimit', `Maks. ${maxRooms} bilik`);
-  setText('adminCreateLelakiHint', `${lelaki} bilik`);
-  setText('adminCreatePerempuanHint', `${perempuan} bilik`);
+  setText('adminCreateRoomLimit', `Had tarikh: ${limits.male} lelaki + ${limits.female} perempuan`);
+  setText('adminCreateLelakiHint', `${lelaki} / ${limits.male} bilik`);
+  setText('adminCreatePerempuanHint', `${perempuan} / ${limits.female} bilik`);
   return lelaki + perempuan;
 }
 
@@ -988,12 +1010,12 @@ function renderFacilityManagement(facilities) {
     <div class="facility-manage-card">
       <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
-      <div class="fmc-cap">Kapasiti: ${escapeHtml(f.capacity)} orang${isAsramaRoomFacility(f) && f.max_rooms ? ` - Had ${escapeHtml(f.max_rooms)} bilik` : ''} - RM${escapeHtml(f.price_per_hour)}</div>
+      <div class="fmc-cap">${isAsramaRoomFacility(f) ? `Kapasiti: ${escapeHtml(f.capacity)} orang setiap bilik - had mengikut tarikh` : `Kapasiti: ${escapeHtml(f.capacity)} orang`} - RM${escapeHtml(f.price_per_hour)}</div>
       <div class="fmc-pic"><i class="bi bi-person-badge"></i> <strong>${escapeHtml(f.pic_full_name || '-')}</strong><span>${escapeHtml(f.pic_phone || '-')}</span></div>
       ${f.pic_email ? `<div class="fmc-pic-email"><i class="bi bi-envelope"></i> ${escapeHtml(f.pic_email)}</div>` : ''}
       <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
       <div class="fmc-footer">
-        <div class="fmc-actions">${isAsramaRoomFacility(f) ? `<button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminAsrama"><i class="bi bi-grid-3x3-gap"></i> Urus Bilik</button>` : ''}<button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button></div>
+        <div class="fmc-actions">${isAsramaRoomFacility(f) ? `<button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminAsrama"><i class="bi bi-sliders"></i> Urus Bilik</button>` : ''}<button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button></div>
         <div class="fmc-availability"><span>${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
       </div>
     </div>
@@ -1254,10 +1276,7 @@ function openFacilityEditModal(id) {
             <label for="editFacilityPrice">Harga (RM) *</label>
             <input type="number" id="editFacilityPrice" min="0" max="999999.99" step="0.01" value="${escapeAttr(String(facility.price_per_hour || 0))}">
           </div>
-          <div class="form-group">
-            <label for="editFacilityMaxRooms">Had Bilik</label>
-            <input type="number" id="editFacilityMaxRooms" min="1" max="500" value="${escapeAttr(String(facility.max_rooms || ''))}" placeholder="10">
-          </div>
+          ${isAsramaRoomFacility(facility) ? '<div class="form-group"><label>Had Bilik</label><div class="admin-field-note"><i class="bi bi-sliders"></i> Diurus melalui halaman Urus Bilik.</div><input type="hidden" id="editFacilityMaxRooms" value="' + escapeAttr(String(facility.max_rooms || '')) + '"></div>' : `<div class="form-group"><label for="editFacilityMaxRooms">Had Bilik</label><input type="number" id="editFacilityMaxRooms" min="1" max="500" value="${escapeAttr(String(facility.max_rooms || ''))}" placeholder="10"></div>`}
           <label class="admin-facility-check">
             <input type="checkbox" id="editFacilityAvailable" ${facility.is_available ? 'checked' : ''}>
             <span>Tersedia untuk tempahan</span>
@@ -1472,11 +1491,11 @@ async function loadClients() {
   try {
     const result = await tryApi('users.php');
     adminClientsCache = result.data || [];
-    renderClientsTable(adminClientsCache);
+    renderAdminClients();
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
     adminClientsCache = [];
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
   }
 }
 
@@ -1485,7 +1504,7 @@ function renderClientsTable(clients) {
   if (!tbody) return;
 
   if (!clients.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
     return;
   }
 
@@ -1498,7 +1517,9 @@ function renderClientsTable(clients) {
   tbody.innerHTML = sortedClients.map((client) => `
     <tr>
       <td><span class="table-email" title="${escapeAttr(client.email)}">${escapeHtml(client.email)}</span></td>
+      <td><span class="status-badge ${client.account_type === 'staff' ? 'status-pending' : ''}">${escapeHtml(adminAccountTypeLabel(client.account_type))}</span></td>
       <td class="table-phone">${escapeHtml(client.phone || '-')}</td>
+      <td>${client.account_type === 'staff' ? adminVerificationBadge(client.staff_verification_status) : '-'}</td>
       <td class="table-date">${formatDate(String(client.created_at || '').slice(0, 10))}</td>
       <td class="table-status"><span class="status-badge status-pending">${Number(client.booking_count || 0)} tempahan</span></td>
       <td>
@@ -1508,6 +1529,46 @@ function renderClientsTable(clients) {
       </td>
     </tr>
   `).join('');
+}
+
+function renderStaffVerificationRequests(clients = adminClientsCache) {
+  const tbody = document.getElementById('staffVerificationTbody');
+  const badge = document.getElementById('staffVerificationBadge');
+  const staff = clients.filter((client) => client.account_type === 'staff');
+  const pendingCount = staff.filter((client) => client.staff_verification_status === 'pending').length;
+  if (badge) {
+    badge.textContent = String(pendingCount);
+    badge.hidden = pendingCount === 0;
+  }
+  if (!tbody) return;
+  if (!staff.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-title">Tiada permohonan akaun kakitangan</div></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = staff.map((client) => `
+    <tr>
+      <td><strong>${escapeHtml(client.full_name || '-')}</strong></td>
+      <td><span class="table-email">${escapeHtml(client.email)}</span></td>
+      <td>${escapeHtml(client.staff_number || '-')}</td>
+      <td>${adminVerificationBadge(client.staff_verification_status)}</td>
+      <td><div class="table-actions">
+        ${client.staff_verification_status !== 'verified' ? `<button class="btn btn-success btn-sm" onclick="updateStaffVerification(${Number(client.id)}, 'verified')"><i class="bi bi-check-lg"></i> Sahkan</button>` : ''}
+        ${client.staff_verification_status !== 'rejected' ? `<button class="btn btn-danger btn-sm" onclick="updateStaffVerification(${Number(client.id)}, 'rejected')"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}
+        <button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewClientDetail(${Number(client.id)})" title="Lihat butiran"><i class="bi bi-eye"></i></button>
+      </div></td>
+    </tr>
+  `).join('');
+}
+
+async function updateStaffVerification(id, status) {
+  try {
+    await tryApi(`users.php?action=staff-verification&id=${encodeURIComponent(id)}`, 'PUT', { status });
+    await loadClients();
+    showToast(status === 'verified' ? 'Akaun kakitangan telah disahkan.' : 'Pengesahan kakitangan telah ditolak.', status === 'verified' ? 'success' : 'error');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Status pengesahan gagal dikemas kini.', 'error');
+  }
 }
 
 async function viewClientDetail(id) {
@@ -1521,6 +1582,8 @@ async function viewClientDetail(id) {
       <div class="detail-row"><span class="detail-label">Nama</span><span class="detail-value">${escapeHtml(user.full_name || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">E-mel</span><span class="detail-value">${escapeHtml(user.email)}</span></div>
       <div class="detail-row"><span class="detail-label">No Telefon</span><span class="detail-value">${escapeHtml(user.phone || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">Jenis Akaun</span><span class="detail-value">${escapeHtml(adminAccountTypeLabel(user.account_type))}</span></div>
+      ${user.account_type === 'staff' ? `<div class="detail-row"><span class="detail-label">No. Kakitangan</span><span class="detail-value">${escapeHtml(user.staff_number || '-')}</span></div><div class="detail-row"><span class="detail-label">Pengesahan</span><span class="detail-value">${adminVerificationBadge(user.staff_verification_status)}</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Akaun</span><span class="detail-value">${user.has_password ? 'Sudah daftar' : 'Belum daftar'}</span></div>
       <div class="detail-row"><span class="detail-label">Tarikh Daftar</span><span class="detail-value">${escapeHtml(user.created_at || '-')}</span></div>
       <div class="admin-password-reset">
@@ -1546,7 +1609,7 @@ async function viewClientDetail(id) {
       </div>
     `;
     renderClientBookingsTable();
-    document.getElementById('modalFooter').innerHTML = `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
+    document.getElementById('modalFooter').innerHTML = `${user.account_type === 'staff' && user.staff_verification_status !== 'verified' ? `<button class="btn btn-success" onclick="updateStaffVerification(${Number(user.id)}, 'verified'); closeModal('bookingModal')"><i class="bi bi-check-lg"></i> Sahkan Kakitangan</button>` : ''}${user.account_type === 'staff' && user.staff_verification_status !== 'rejected' ? `<button class="btn btn-danger" onclick="updateStaffVerification(${Number(user.id)}, 'rejected'); closeModal('bookingModal')"><i class="bi bi-x-lg"></i> Tolak Pengesahan</button>` : ''}<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
     document.getElementById('bookingModal')?.classList.add('active');
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
@@ -1781,6 +1844,7 @@ function showAdminPanel(name, btn) {
   if (name === 'bookings') filterBookings('all', document.querySelector('#bookingFilterTabs .filter-tab'));
   if (name === 'messages') loadMessages();
   if (name === 'clients') loadClients();
+  if (name === 'staff-verification') loadClients();
   if (name === 'pic') refreshPicAndFacilityManagement();
   if (name === 'calendar') renderAdminDashboard();
   if (name === 'reports') loadAdminReports();
@@ -1807,6 +1871,7 @@ async function viewBookingDetail(id) {
     <div class="admin-detail-section">
       <div class="admin-facility-section-title">Maklumat Tempahan</div>
       <div class="detail-row"><span class="detail-label">Nama Penyewa</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
+      <div class="detail-row"><span class="detail-label">Jenis Pemohon</span><span class="detail-value">${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))}</span></div>
       <div class="detail-row"><span class="detail-label">E-mel</span><span class="detail-value">${escapeHtml(booking.email || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
       <div class="detail-row"><span class="detail-label">Tarikh & Masa</span><span class="detail-value">${formatDate(booking.date)}, ${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</span></div>
@@ -1815,8 +1880,8 @@ async function viewBookingDetail(id) {
       ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
-      <div class="detail-row"><span class="detail-label">Jumlah Bayaran</span><span class="detail-value">RM${Number(booking.estimatedCost || 0).toFixed(2)}</span></div>
-      <div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>
+      <div class="detail-row"><span class="detail-label">Bayaran</span><span class="detail-value">${booking.paymentRequired === false ? 'Tidak diperlukan' : `Diperlukan (RM${Number(booking.estimatedCost || 0).toFixed(2)})`}</span></div>
+      ${booking.paymentRequired === false ? '' : `<div class="detail-row"><span class="detail-label">Resit Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>`}
       ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Pentadbir</span><span class="detail-value">${escapeHtml(booking.adminNote)}</span></div>` : ''}
       ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
     </div>
@@ -1829,7 +1894,7 @@ async function viewBookingDetail(id) {
     ${booking.status === 'approved' ? cancellationNoteHtml() : ''}
   `;
   document.getElementById('modalFooter').innerHTML = booking.status === 'pending'
-    ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> Luluskan</button>`
+    ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> ${booking.paymentRequired === false ? 'Lulus Permohonan' : 'Sahkan Bayaran & Lulus'}</button>`
     : booking.status === 'approved'
       ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button><button class="btn btn-danger" onclick="cancelApprovedBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-circle"></i> Batalkan Tempahan</button>`
       : `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;

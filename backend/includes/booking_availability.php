@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 const BLOCKING_BOOKING_STATUSES = ['pending', 'approved'];
 const BOOKING_DATE_LOCK_TIMEOUT_SECONDS = 10;
+const ASRAMA_NORMAL_ROOM_LIMIT_MAX = 30;
+const ASRAMA_HOLIDAY_ROOM_LIMIT_MAX = 100;
+const ASRAMA_TOTAL_ROOM_LIMIT_MAX = 200;
 
 final class BookingAvailabilityException extends RuntimeException
 {
@@ -187,31 +190,190 @@ function assertBookingDatesAvailable(
     }
 }
 
-function assertAsramaRoomInventoryAvailable(Database $db, int $facilityId, int $maleRooms, int $femaleRooms): void
+function ensureAsramaCapacitySettingsTable(Database $db): void
 {
-    $tableExists = (int)($db->fetchOne(
-        "SELECT COUNT(*) AS count FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'asrama_rooms'"
-    )['count'] ?? 0);
-    if ($tableExists < 1) {
-        return;
-    }
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
 
-    $inventory = $db->fetchAll(
-        'SELECT gender, COUNT(*) AS available_rooms FROM asrama_rooms WHERE facility_id = ? AND is_available = 1 GROUP BY gender',
+    $db->query(
+        "CREATE TABLE IF NOT EXISTS asrama_capacity_settings (
+            facility_id INT PRIMARY KEY,
+            normal_male_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+            normal_female_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+            holiday_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+            holiday_start_date DATE NULL,
+            holiday_end_date DATE NULL,
+            holiday_male_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+            holiday_female_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT chk_asrama_normal_male_limit CHECK (normal_male_limit <= 30),
+            CONSTRAINT chk_asrama_normal_female_limit CHECK (normal_female_limit <= 30),
+            CONSTRAINT chk_asrama_holiday_male_limit CHECK (holiday_male_limit <= 100),
+            CONSTRAINT chk_asrama_holiday_female_limit CHECK (holiday_female_limit <= 100),
+            CONSTRAINT chk_asrama_holiday_dates CHECK (
+                holiday_start_date IS NULL OR holiday_end_date IS NULL OR holiday_end_date >= holiday_start_date
+            ),
+            CONSTRAINT fk_asrama_capacity_facility
+                FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
+function getAsramaCapacitySettings(Database $db, int $facilityId): array
+{
+    ensureAsramaCapacitySettingsTable($db);
+    $db->query(
+        'INSERT IGNORE INTO asrama_capacity_settings (
+            facility_id, normal_male_limit, normal_female_limit,
+            holiday_male_limit, holiday_female_limit
+         ) VALUES (?, 30, 30, 30, 30)',
         [$facilityId]
     );
-    if (!$inventory) {
-        return;
+    $settings = $db->fetchOne(
+        'SELECT facility_id, normal_male_limit, normal_female_limit, holiday_enabled,
+                holiday_start_date, holiday_end_date, holiday_male_limit, holiday_female_limit,
+                created_at, updated_at
+         FROM asrama_capacity_settings
+         WHERE facility_id = ?',
+        [$facilityId]
+    );
+    if (!$settings) {
+        throw new BookingAvailabilityException('Tetapan kapasiti asrama tidak dapat dimuatkan.', 500);
     }
-    $available = ['male' => 0, 'female' => 0];
-    foreach ($inventory as $item) {
-        $available[(string)$item['gender']] = (int)$item['available_rooms'];
+
+    foreach (['facility_id', 'normal_male_limit', 'normal_female_limit', 'holiday_male_limit', 'holiday_female_limit'] as $field) {
+        $settings[$field] = (int)$settings[$field];
     }
-    if ($maleRooms > $available['male']) {
-        throw new BookingAvailabilityException('Bilik asrama lelaki yang tersedia tidak mencukupi.', 409);
+    $settings['holiday_enabled'] = (bool)$settings['holiday_enabled'];
+    return $settings;
+}
+
+function asramaRoomLimitsForDate(array $settings, string $bookingDate): array
+{
+    $holidayActive = !empty($settings['holiday_enabled'])
+        && !empty($settings['holiday_start_date'])
+        && !empty($settings['holiday_end_date'])
+        && $bookingDate >= (string)$settings['holiday_start_date']
+        && $bookingDate <= (string)$settings['holiday_end_date'];
+
+    return [
+        'male' => (int)($holidayActive ? $settings['holiday_male_limit'] : $settings['normal_male_limit']),
+        'female' => (int)($holidayActive ? $settings['holiday_female_limit'] : $settings['normal_female_limit']),
+        'holiday_active' => $holidayActive,
+    ];
+}
+
+function asramaBookingRoomSplit(array $booking): array
+{
+    $male = max(0, (int)($booking['asrama_lelaki_rooms'] ?? 0));
+    $female = max(0, (int)($booking['asrama_perempuan_rooms'] ?? 0));
+    $total = max(0, (int)($booking['room_count'] ?? 0));
+    if ($male + $female > 0 || $total < 1) {
+        return ['male' => $male, 'female' => $female];
     }
-    if ($femaleRooms > $available['female']) {
-        throw new BookingAvailabilityException('Bilik asrama perempuan yang tersedia tidak mencukupi.', 409);
+
+    $types = array_values(array_filter(array_map('trim', explode(',', strtolower((string)($booking['asrama_type'] ?? ''))))));
+    if ($types === ['perempuan']) {
+        return ['male' => 0, 'female' => $total];
+    }
+    if (in_array('lelaki', $types, true) && in_array('perempuan', $types, true)) {
+        $male = (int)ceil($total / 2);
+        return ['male' => $male, 'female' => $total - $male];
+    }
+    return ['male' => $total, 'female' => 0];
+}
+
+function getAsramaRoomUsageByDate(
+    Database $db,
+    int $facilityId,
+    array $bookingDates,
+    ?int $excludeBookingId = null
+): array {
+    $bookingDates = array_values(array_unique(array_filter($bookingDates)));
+    $usage = [];
+    foreach ($bookingDates as $bookingDate) {
+        $usage[$bookingDate] = ['male' => 0, 'female' => 0];
+    }
+    if (!$bookingDates) return $usage;
+
+    $minDate = min($bookingDates);
+    $maxDate = max($bookingDates);
+    $lookback = (new DateTimeImmutable($minDate))->modify('-30 days')->format('Y-m-d');
+    $sql = "SELECT id, booking_date, duration, duration_unit, asrama_type,
+                   asrama_lelaki_rooms, asrama_perempuan_rooms, room_count
+            FROM bookings
+            WHERE facility_id = ?
+              AND booking_date BETWEEN ? AND ?
+              AND status IN ('pending', 'approved')";
+    $params = [$facilityId, $lookback, $maxDate];
+    if ($excludeBookingId !== null) {
+        $sql .= ' AND id <> ?';
+        $params[] = $excludeBookingId;
+    }
+
+    foreach ($db->fetchAll($sql, $params) as $booking) {
+        $split = asramaBookingRoomSplit($booking);
+        foreach (bookingBlockedDates(
+            (string)$booking['booking_date'],
+            $booking['duration'] ?? '1',
+            (string)($booking['duration_unit'] ?? 'day')
+        ) as $blockedDate) {
+            if (!isset($usage[$blockedDate])) continue;
+            $usage[$blockedDate]['male'] += $split['male'];
+            $usage[$blockedDate]['female'] += $split['female'];
+        }
+    }
+    return $usage;
+}
+
+function getAsramaCapacitySnapshot(
+    Database $db,
+    int $facilityId,
+    array $bookingDates,
+    ?int $excludeBookingId = null
+): array {
+    $settings = getAsramaCapacitySettings($db, $facilityId);
+    $usage = getAsramaRoomUsageByDate($db, $facilityId, $bookingDates, $excludeBookingId);
+    $dates = [];
+    foreach ($usage as $bookingDate => $used) {
+        $limits = asramaRoomLimitsForDate($settings, $bookingDate);
+        $dates[$bookingDate] = [
+            'limits' => ['male' => $limits['male'], 'female' => $limits['female']],
+            'used' => $used,
+            'remaining' => [
+                'male' => max(0, $limits['male'] - $used['male']),
+                'female' => max(0, $limits['female'] - $used['female']),
+            ],
+            'holiday_active' => $limits['holiday_active'],
+        ];
+    }
+    return ['settings' => $settings, 'dates' => $dates];
+}
+
+function assertAsramaCapacityAvailable(
+    Database $db,
+    int $facilityId,
+    array $bookingDates,
+    int $maleRooms,
+    int $femaleRooms,
+    ?int $excludeBookingId = null
+): void {
+    $snapshot = getAsramaCapacitySnapshot($db, $facilityId, $bookingDates, $excludeBookingId);
+    foreach ($snapshot['dates'] as $bookingDate => $availability) {
+        if ($maleRooms > (int)$availability['remaining']['male']) {
+            throw new BookingAvailabilityException(
+                sprintf('Baki bilik Blok Lelaki pada %s hanya %d bilik.', $bookingDate, $availability['remaining']['male']),
+                409
+            );
+        }
+        if ($femaleRooms > (int)$availability['remaining']['female']) {
+            throw new BookingAvailabilityException(
+                sprintf('Baki bilik Blok Perempuan pada %s hanya %d bilik.', $bookingDate, $availability['remaining']['female']),
+                409
+            );
+        }
     }
 }
 ?>

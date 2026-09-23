@@ -7,7 +7,7 @@
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260923-report-readability">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260923-account-types">
 </head>
 <body>
   <nav id="main-nav">
@@ -29,6 +29,7 @@
         <button class="admin-menu-item" onclick="showAdminPanel('messages', this)"><span class="menu-icon"><i class="bi bi-chat-dots"></i></span> Mesej</button>
         <div class="admin-menu-label">Pengurusan</div>
         <button class="admin-menu-item" onclick="showAdminPanel('clients', this)"><span class="menu-icon"><i class="bi bi-people"></i></span> Pelanggan</button>
+        <button class="admin-menu-item" onclick="showAdminPanel('staff-verification', this)"><span class="menu-icon"><i class="bi bi-person-check"></i></span> Pengesahan Staf <span class="admin-badge" id="staffVerificationBadge" hidden></span></button>
         <button class="admin-menu-item" onclick="showAdminPanel('facilities', this)"><span class="menu-icon"><i class="bi bi-building"></i></span> Fasiliti</button>
         <button class="admin-menu-item" onclick="showAdminPanel('pic', this)"><span class="menu-icon"><i class="bi bi-person-badge"></i></span> PIC</button>
         <button class="admin-menu-item" onclick="showAdminPanel('calendar', this)"><span class="menu-icon"><i class="bi bi-calendar3"></i></span> Kalendar</button>
@@ -84,10 +85,18 @@
           </div>
           <div class="admin-card">
             <div class="data-table-wrap"><table class="data-table admin-clients-table">
-              <thead><tr><th>E-mel</th><th>No Telefon</th><th>Tarikh Daftar</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
+              <thead><tr><th>E-mel</th><th>Jenis</th><th>No Telefon</th><th>Pengesahan</th><th>Tarikh Daftar</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
               <tbody id="clientsTbody"></tbody>
             </table></div>
           </div>
+        </div>
+
+        <div class="admin-panel" id="panel-staff-verification">
+          <div class="admin-panel-toolbar">
+            <div><h2>Pengesahan Akaun Kakitangan</h2><p class="admin-panel-subtitle">Semak nombor kakitangan sebelum memberikan pengecualian bayaran.</p></div>
+            <button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
+          </div>
+          <div class="admin-card"><div class="data-table-wrap"><table class="data-table"><thead><tr><th>Nama</th><th>E-mel</th><th>No. Kakitangan</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="staffVerificationTbody"></tbody></table></div></div>
         </div>
 
         <div class="admin-panel" id="panel-facilities">
@@ -220,7 +229,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260923-report-readability"></script>
+  <script src="/resources/js/script.js?v=20260923-account-types"></script>
 </body>
 </html>
 

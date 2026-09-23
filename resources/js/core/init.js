@@ -33,10 +33,10 @@ async function init() {
   const startEl = document.getElementById('f-start');
   if (startEl) {
     startEl.addEventListener('change', updateEndTime);
-    document.getElementById('f-duration')?.addEventListener('input', () => { updateEndTime(); updatePricing(); });
+    document.getElementById('f-duration')?.addEventListener('input', () => { updateEndTime(); normalizeRoomCount(); updatePricing(); });
     document.getElementById('f-duration')?.addEventListener('blur', () => normalizeDurationInput());
     document.getElementById('f-facility')?.addEventListener('change', updateFacilityInfo);
-    document.getElementById('f-date')?.addEventListener('change', renderBookingDatePicker);
+    document.getElementById('f-date')?.addEventListener('change', () => { normalizeRoomCount(); renderBookingDatePicker(); });
     document.getElementById('f-receipt')?.addEventListener('change', updateReceiptPreview);
     ['f-asrama-lelaki-rooms', 'f-asrama-perempuan-rooms'].forEach((id) => {
       document.getElementById(id)?.addEventListener('input', () => { normalizeRoomCount(); updatePricing(); });

@@ -50,6 +50,8 @@ backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calen
 backend/api/receipts.php    Authenticated receipt delivery with admin/user ownership checks
 backend/api/facilities.php  Facility list plus admin create/edit/availability/equipment/PIC assignment
 backend/api/pics.php        Admin PIC CRUD, facility assignments, and trial PIC email
+backend/api/asrama_rooms.php Admin Asrama quota settings plus public date-range capacity summary
+backend/includes/booking_availability.php Shared date locks, normal facility conflicts, and Asrama quota calculations
 backend/includes/pic_mail.php Shared PIC trial/approval/cancellation email composition
 backend/api/messages.php    Contact admin messages
 backend/api/users.php       Admin customer list/detail/password reset
@@ -66,7 +68,7 @@ backend/db.php              Creates the PDO database connection
 ## Booking Rules
 
 ```text
-Only pending and approved bookings block availability, and they block only their own facility for the selected date range.
+Only pending and approved bookings block availability. Normal facilities are exclusive for overlapping dates; Asrama sums requested rooms against male/female block quotas on every covered date.
 Unpaid, rejected, and cancelled bookings remain as history but do not block availability.
 Admin can reject pending bookings and cancel approved bookings with a required reason.
 Users can cancel unpaid and pending bookings.

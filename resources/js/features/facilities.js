@@ -10,6 +10,13 @@ function normalizeFacilities(facilities) {
     capacity: Number(f.capacity || f.cap || 0),
     price_per_hour: Number(f.price_per_hour || f.pricePerHour || 0),
     max_rooms: Number(f.max_rooms ?? f.maxRooms ?? 0) || null,
+    asrama_normal_male_limit: Number(f.asrama_normal_male_limit ?? 30),
+    asrama_normal_female_limit: Number(f.asrama_normal_female_limit ?? 30),
+    asrama_holiday_enabled: Boolean(Number(f.asrama_holiday_enabled ?? 0)),
+    asrama_holiday_start_date: f.asrama_holiday_start_date || '',
+    asrama_holiday_end_date: f.asrama_holiday_end_date || '',
+    asrama_holiday_male_limit: Number(f.asrama_holiday_male_limit ?? 30),
+    asrama_holiday_female_limit: Number(f.asrama_holiday_female_limit ?? 30),
     description: f.description || f.desc || '',
     pic_id: f.pic_id === null || f.pic_id === undefined || f.pic_id === '' ? null : String(f.pic_id),
     pic_full_name: f.pic_full_name || f.picFullName || '',
@@ -53,7 +60,11 @@ function facilityIconHtml(facility) {
 function facilityCapacityLabel(facility) {
   const capacity = Number(facility.capacity || 0);
   const name = String(facility.name || '').toLowerCase();
-  if (name.includes('asrama')) return `${capacity} orang - 1 bilik${facility.max_rooms ? `, maks. ${facility.max_rooms} bilik` : ''}`;
+  if (name.includes('asrama')) {
+    const maleLimit = Number(facility.asrama_normal_male_limit || 0);
+    const femaleLimit = Number(facility.asrama_normal_female_limit || 0);
+    return `${capacity} orang / bilik - had biasa: ${maleLimit} lelaki, ${femaleLimit} perempuan`;
+  }
   return `${capacity} orang`;
 }
 
@@ -173,6 +184,7 @@ async function renderLandingCalendar() {
     const dayBookings = bookingsByDate[date] || [];
     const availableFacilityIds = new Set(facilitiesCache.filter((facility) => facility.is_available).map((facility) => String(facility.id)));
     const bookedFacilityCount = new Set(dayBookings
+      .filter((booking) => !booking.capacityManaged)
       .map((booking) => String(booking.facilityId || ''))
       .filter((facilityId) => availableFacilityIds.has(facilityId))).size;
     const availableFacilityCount = availableFacilityIds.size;
@@ -276,15 +288,15 @@ async function populateBookingFacilities() {
   const list = document.getElementById('facilitySelectorList');
   if (list) {
     list.innerHTML = facilities.map((f) => `
-      <div class="facility-select-item ${!f.is_available ? 'is-disabled' : ''}" data-fid="${escapeAttr(f.id)}" ${f.is_available ? `onclick="sidebarSelectFacility('${escapeAttr(f.id)}')"` : 'aria-disabled="true"'}>
-        <div>
-          <div class="fsi-name">${facilityIconHtml(f)} ${escapeHtml(f.name)}</div>
-          <div class="fsi-cap">Maks. ${f.capacity} orang${isAsramaRoomFacility(f) && f.max_rooms ? `, ${f.max_rooms} bilik` : ''} - RM${f.price_per_hour}</div>
-        </div>
-        <div class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}" style="font-size:10px">
+      <button type="button" class="facility-select-item ${!f.is_available ? 'is-disabled' : ''}" data-fid="${escapeAttr(f.id)}" ${f.is_available ? `onclick="sidebarSelectFacility('${escapeAttr(f.id)}')"` : 'disabled aria-disabled="true"'}>
+        <span>
+          <span class="fsi-name">${facilityIconHtml(f)} ${escapeHtml(f.name)}</span>
+          <span class="fsi-cap">${isAsramaRoomFacility(f) ? `${f.capacity} orang setiap bilik, had ikut tarikh` : `Maks. ${f.capacity} orang`} - RM${f.price_per_hour}</span>
+        </span>
+        <span class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}" style="font-size:10px">
           ${f.is_available ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-x-lg"></i>'}
-        </div>
-      </div>
+        </span>
+      </button>
     `).join('');
   }
 
@@ -344,7 +356,12 @@ function syncAsramaBookingFields() {
   if (participantsEl) participantsEl.value = '1';
   const roomCountEl = document.getElementById('f-room-count');
   if (roomCountEl) {
-    const maxRooms = Number(facility?.max_rooms || 10);
+    const limits = asramaConfiguredLimitsForDates(
+      facility,
+      document.getElementById('f-date')?.value || '',
+      document.getElementById('f-duration')?.value || '1'
+    );
+    const maxRooms = Math.max(1, limits.male + limits.female);
     roomCountEl.value = String(Math.min(Math.max(1, Number(roomCountEl.value || 1)), maxRooms));
   }
   normalizeRoomCount();
@@ -415,6 +432,16 @@ function updatePricing() {
   const pricing = document.getElementById('pricingBreakdown');
   if (!pricing) return;
   const cost = calculateCost();
+  const pricingTitle = document.getElementById('pricingTitle');
+  if (typeof isVerifiedStaffUser === 'function' && isVerifiedStaffUser()) {
+    if (pricingTitle) pricingTitle.textContent = 'Bayaran';
+    pricing.innerHTML = `
+      <div class="pricing-minimal"><span><i class="bi bi-check-circle"></i></span><strong>Tidak Diperlukan</strong></div>
+      <p class="pricing-note">Akaun kakitangan anda telah disahkan.</p>
+    `;
+    return;
+  }
+  if (pricingTitle) pricingTitle.textContent = 'Anggaran Kos';
   pricing.innerHTML = `
     <div class="pricing-minimal">
       <span>RM</span>
@@ -441,10 +468,10 @@ async function renderBookingDatePicker() {
     ? await loadPublicCalendarBookings(year, displayMonth, selectedFacilityId)
     : [];
   if (requestId !== bookingDatePickerRequestId) return;
-  const bookedDates = new Set(
-    bookings
-      .map((booking) => booking.date)
-  );
+  const selectedFacility = getSelectedFacility();
+  const bookedDates = isAsramaRoomFacility(selectedFacility)
+    ? new Set()
+    : new Set(bookings.map((booking) => booking.date));
   unavailableBookingDates = bookedDates;
 
   if (selectedDate && bookedDates.has(selectedDate)) {

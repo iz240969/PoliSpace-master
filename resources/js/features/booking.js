@@ -17,6 +17,31 @@ function isAsramaRoomFacility(facility) {
   return name.includes('asrama') && name.includes('bilik');
 }
 
+function asramaConfiguredLimitsForDates(facility, dateValue = '', duration = '1') {
+  const normal = {
+    male: Math.max(0, Math.min(30, Number(facility?.asrama_normal_male_limit ?? 30))),
+    female: Math.max(0, Math.min(30, Number(facility?.asrama_normal_female_limit ?? 30))),
+  };
+  const dates = bookingBlockedDateValues(dateValue, duration, 'day');
+  if (!dates.length || !facility?.asrama_holiday_enabled) return normal;
+
+  const holidayStart = String(facility.asrama_holiday_start_date || '');
+  const holidayEnd = String(facility.asrama_holiday_end_date || '');
+  const limits = dates.map((date) => {
+    const holidayActive = holidayStart && holidayEnd && date >= holidayStart && date <= holidayEnd;
+    return holidayActive
+      ? {
+        male: Math.max(0, Math.min(100, Number(facility.asrama_holiday_male_limit ?? 30))),
+        female: Math.max(0, Math.min(100, Number(facility.asrama_holiday_female_limit ?? 30))),
+      }
+      : normal;
+  });
+  return {
+    male: Math.min(...limits.map((item) => item.male)),
+    female: Math.min(...limits.map((item) => item.female)),
+  };
+}
+
 function selectedAsramaType() {
   const selected = [];
   if (Number(document.getElementById('f-asrama-lelaki-rooms')?.value || 0) > 0) selected.push('lelaki');
@@ -26,7 +51,12 @@ function selectedAsramaType() {
 
 function normalizeRoomCount() {
   const facility = getSelectedFacility();
-  const maxRooms = Math.max(1, Number(facility?.max_rooms || 10));
+  const limits = asramaConfiguredLimitsForDates(
+    facility,
+    document.getElementById('f-date')?.value || '',
+    document.getElementById('f-duration')?.value || '1'
+  );
+  const maxRooms = limits.male + limits.female;
   const lelakiInput = document.getElementById('f-asrama-lelaki-rooms');
   const perempuanInput = document.getElementById('f-asrama-perempuan-rooms');
   const totalInput = document.getElementById('f-room-count');
@@ -34,29 +64,29 @@ function normalizeRoomCount() {
 
   let lelaki = Math.max(0, Math.floor(Number(lelakiInput.value || 0)));
   let perempuan = Math.max(0, Math.floor(Number(perempuanInput.value || 0)));
-  if (lelaki + perempuan < 1) lelaki = 1;
-  if (lelaki + perempuan > maxRooms) {
-    const overflow = lelaki + perempuan - maxRooms;
-    if (document.activeElement === perempuanInput) lelaki = Math.max(0, lelaki - overflow);
-    else perempuan = Math.max(0, perempuan - overflow);
+  lelaki = Math.min(lelaki, limits.male);
+  perempuan = Math.min(perempuan, limits.female);
+  if (lelaki + perempuan < 1 && maxRooms > 0) {
+    if (limits.male > 0) lelaki = 1;
+    else perempuan = 1;
   }
 
-  lelakiInput.max = String(maxRooms);
-  perempuanInput.max = String(maxRooms);
+  lelakiInput.max = String(limits.male);
+  perempuanInput.max = String(limits.female);
   lelakiInput.value = String(lelaki);
   perempuanInput.value = String(perempuan);
   totalInput.value = String(lelaki + perempuan);
   document.getElementById('asramaRoomTotalLabel').textContent = String(lelaki + perempuan);
-  document.getElementById('asramaRoomLimitLabel').textContent = `Maks. ${maxRooms} bilik`;
-  document.getElementById('asramaLelakiHint').textContent = `${lelaki} bilik`;
-  document.getElementById('asramaPerempuanHint').textContent = `${perempuan} bilik`;
+  document.getElementById('asramaRoomLimitLabel').textContent = `Had tarikh: ${limits.male} lelaki + ${limits.female} perempuan`;
+  document.getElementById('asramaLelakiHint').textContent = `${lelaki} / ${limits.male} bilik`;
+  document.getElementById('asramaPerempuanHint').textContent = `${perempuan} / ${limits.female} bilik`;
   return lelaki + perempuan;
 }
 
 function adjustAsramaSideRoom(side, delta) {
   const input = document.getElementById(side === 'perempuan' ? 'f-asrama-perempuan-rooms' : 'f-asrama-lelaki-rooms');
   if (!input) return;
-  input.value = String(Number(input.value || 1) + delta);
+  input.value = String(Number(input.value || 0) + delta);
   normalizeRoomCount();
   input.dispatchEvent(new Event('change', { bubbles: true }));
   updatePricing();
@@ -367,7 +397,7 @@ async function submitBooking() {
   normalizeDurationInput();
   normalizeEquipmentField();
   const receiptInput = document.getElementById('f-receipt');
-  const receiptFile = receiptInput?.files?.[0] || null;
+  const receiptFile = isVerifiedStaffUser() ? null : (receiptInput?.files?.[0] || null);
   const data = getBookingFormData();
   const validationMessage = validateBookingFormData(data, receiptFile);
 
@@ -451,9 +481,15 @@ function validateBookingFormData(data, receiptFile = null) {
     if (!types.length || types.some((type) => !allowedTypes.includes(type))) {
       return 'Sila pilih Asrama Lelaki, Asrama Perempuan, atau kedua-duanya.';
     }
-    const maxRooms = Number(facility.max_rooms || 10);
-    if (!Number.isInteger(Number(data.room_count)) || Number(data.room_count) < 1 || Number(data.room_count) > maxRooms) {
-      return `Bilangan bilik mesti antara 1 hingga ${maxRooms}.`;
+    const limits = asramaConfiguredLimitsForDates(facility, data.booking_date, data.duration);
+    if (!Number.isInteger(Number(data.room_count)) || Number(data.room_count) < 1) {
+      return 'Sekurang-kurangnya satu bilik perlu dipilih.';
+    }
+    if (Number(data.asrama_lelaki_rooms || 0) > limits.male) {
+      return `Had Blok Lelaki untuk tarikh dipilih ialah ${limits.male} bilik.`;
+    }
+    if (Number(data.asrama_perempuan_rooms || 0) > limits.female) {
+      return `Had Blok Perempuan untuk tarikh dipilih ialah ${limits.female} bilik.`;
     }
     if ((Number(data.asrama_lelaki_rooms || 0) + Number(data.asrama_perempuan_rooms || 0)) !== Number(data.room_count)) {
       return 'Jumlah bilik lelaki dan perempuan mesti sepadan dengan bilangan bilik.';
@@ -482,6 +518,36 @@ function validateBookingFormData(data, receiptFile = null) {
     return 'Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.';
   }
   return '';
+}
+
+function isVerifiedStaffUser() {
+  return psAuthState.role === 'user'
+    && psAuthState.user?.accountType === 'staff'
+    && psAuthState.user?.staffVerificationStatus === 'verified'
+    && psAuthState.user?.paymentExempt === true;
+}
+
+function updateBookingAccountTypeUi() {
+  const isStaffExempt = isVerifiedStaffUser();
+  const user = psAuthState.user || {};
+  const paymentSection = document.getElementById('bookingPaymentSection');
+  const notice = document.getElementById('bookingAccountNotice');
+  if (paymentSection) paymentSection.hidden = isStaffExempt;
+  if (notice) {
+    if (isStaffExempt) {
+      notice.hidden = false;
+      notice.innerHTML = '<i class="bi bi-person-badge"></i><div><strong>Akaun Kakitangan Disahkan</strong><span>Tiada bayaran atau resit diperlukan. Permohonan akan terus dihantar untuk kelulusan pentadbir.</span></div>';
+    } else if (user.accountType === 'staff') {
+      notice.hidden = false;
+      const rejected = user.staffVerificationStatus === 'rejected';
+      notice.innerHTML = `<i class="bi bi-shield-exclamation"></i><div><strong>Pengesahan kakitangan ${rejected ? 'ditolak' : 'masih menunggu'}</strong><span>Bayaran masih diperlukan sehingga akaun disahkan oleh pentadbir.</span></div>`;
+    } else {
+      notice.hidden = true;
+      notice.innerHTML = '';
+    }
+  }
+  if (isStaffExempt) clearReceiptUpload();
+  updatePricing();
 }
 
 function bookingBlockedDateValues(dateValue, duration = '1', durationUnit = 'hour') {
@@ -546,11 +612,13 @@ async function initBookingPage() {
     if (emailEl) emailEl.value = user.email || storedEmail;
     if (nameEl && user.name) nameEl.value = user.name;
     if (phoneEl && user.phone) phoneEl.value = user.phone;
+    psAuthState.user = user;
   } catch (error) {
     if (emailEl && storedEmail) emailEl.value = storedEmail;
   }
 
   initializeEquipmentField();
+  updateBookingAccountTypeUi();
   updateBookingCartCount();
 }
 
@@ -596,7 +664,7 @@ async function addBookingToCart() {
 
   normalizeDurationInput();
   normalizeEquipmentField();
-  const receiptFile = document.getElementById('f-receipt')?.files?.[0] || null;
+  const receiptFile = isVerifiedStaffUser() ? null : (document.getElementById('f-receipt')?.files?.[0] || null);
   const data = getBookingFormData();
   const validationMessage = validateBookingFormData(data, receiptFile);
   if (validationMessage) {
@@ -701,7 +769,7 @@ function ensureBookingCartModal() {
         </div>
         <div class="modal-footer booking-cart-footer">
           <button class="btn btn-secondary" type="button" onclick="closeBookingCart()">Tutup</button>
-          <label class="btn btn-secondary booking-cart-receipt-button" for="bookingCartReceiptInput">
+          <label class="btn btn-secondary booking-cart-receipt-button" id="bookingCartReceiptButton" for="bookingCartReceiptInput">
             <i class="bi bi-receipt"></i> Resit
             <input id="bookingCartReceiptInput" type="file" accept=".jpg,.jpeg,.png,.gif,.pdf" onchange="updateBookingCartReceiptState()" aria-label="Muat naik resit troli">
           </label>
@@ -731,6 +799,14 @@ function updateBookingCartReceiptState() {
   if (!items.length) {
     receiptStatus.innerHTML = '';
     submitButton.disabled = true;
+    return;
+  }
+
+  if (isVerifiedStaffUser()) {
+    const receiptInput = document.getElementById('bookingCartReceiptInput');
+    if (receiptInput) receiptInput.value = '';
+    receiptStatus.innerHTML = '<span class="is-ready"><i class="bi bi-check-circle"></i> Tiada bayaran diperlukan untuk akaun kakitangan disahkan.</span>';
+    submitButton.disabled = false;
     return;
   }
 
@@ -769,7 +845,9 @@ function renderBookingCart() {
   const summary = document.getElementById('bookingCartSummary');
   const submitButton = document.getElementById('submitBookingCartButton');
   const receiptStatus = document.getElementById('bookingCartReceiptStatus');
+  const receiptButton = document.getElementById('bookingCartReceiptButton');
   if (!list || !summary || !submitButton || !receiptStatus) return;
+  if (receiptButton) receiptButton.hidden = isVerifiedStaffUser();
 
   const items = getBookingCartItems();
   if (!items.length) {
@@ -803,7 +881,7 @@ function renderBookingCart() {
           ${item.asrama_type ? `<span><i class="bi bi-door-open"></i> ${escapeHtml(asramaRoomSplitLabel(item))}</span>` : ''}
         </div>
       </div>
-      <div class="booking-cart-item-price">RM${escapeHtml(String(item.estimated_cost || 0))}</div>
+      <div class="booking-cart-item-price">${isVerifiedStaffUser() ? 'Tiada Bayaran' : `RM${escapeHtml(String(item.estimated_cost || 0))}`}</div>
       <div class="booking-cart-item-actions">
         <button type="button" onclick="editBookingCartItem('${escapeAttr(item.id)}')" title="Edit tempahan" aria-label="Edit ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-pencil"></i></button>
         <button class="is-danger" type="button" onclick="removeBookingCartItem('${escapeAttr(item.id)}')" title="Buang daripada troli" aria-label="Buang ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-trash3"></i></button>
@@ -812,7 +890,7 @@ function renderBookingCart() {
   `).join('');
 
   const total = items.reduce((sum, item) => sum + Number(item.estimated_cost || 0), 0);
-  summary.innerHTML = `<span>${items.length} tempahan</span><strong>Jumlah Anggaran: RM${escapeHtml(String(total))}</strong>`;
+  summary.innerHTML = `<span>${items.length} tempahan</span><strong>${isVerifiedStaffUser() ? 'Bayaran Tidak Diperlukan' : `Jumlah Anggaran: RM${escapeHtml(String(total))}`}</strong>`;
   updateBookingCartReceiptState();
 }
 
@@ -881,13 +959,13 @@ async function submitBookingCart() {
 
   const items = getBookingCartItems();
   if (!items.length) return;
-  const receiptFile = getBookingCartReceiptFile();
-  if (!receiptFile) {
+  const receiptFile = isVerifiedStaffUser() ? null : getBookingCartReceiptFile();
+  if (!isVerifiedStaffUser() && !receiptFile) {
     showToast('Sila muat naik resit sebelum menghantar troli.', 'error');
     updateBookingCartReceiptState();
     return;
   }
-  if (!isValidReceiptFile(receiptFile)) {
+  if (receiptFile && !isValidReceiptFile(receiptFile)) {
     showToast('Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.', 'error');
     updateBookingCartReceiptState();
     return;
@@ -1077,11 +1155,13 @@ async function doSignup() {
   const email = document.getElementById('signup-email')?.value.trim() || '';
   const password = document.getElementById('signup-password')?.value || '';
   const passwordConfirm = document.getElementById('signup-password-confirm')?.value || '';
+  const accountType = document.querySelector('input[name="signup-account-type"]:checked')?.value || 'public';
+  const staffNumber = document.getElementById('signup-staff-number')?.value.trim() || '';
   const errorEl = document.getElementById('signupError');
 
   if (errorEl) errorEl.classList.remove('show');
 
-  if (!fullName || !phone || !isValidEmail(email) || password.length < 6 || password !== passwordConfirm) {
+  if (!fullName || !phone || !isValidEmail(email) || password.length < 6 || password !== passwordConfirm || (accountType === 'staff' && !staffNumber)) {
     const message = password !== passwordConfirm ? 'Kata laluan pengesahan tidak sama.' : 'Sila lengkapkan semua ruangan dengan betul.';
     if (errorEl) {
       errorEl.textContent = message;
@@ -1099,6 +1179,8 @@ async function doSignup() {
       email,
       password,
       password_confirm: passwordConfirm,
+      account_type: accountType,
+      staff_number: accountType === 'staff' ? staffNumber : '',
     });
     localStorage.setItem('ps_user_email', result.email || email);
     localStorage.removeItem('ps_admin_logged_in');
@@ -1111,6 +1193,17 @@ async function doSignup() {
     } else {
       showToast(message, 'error');
     }
+  }
+}
+
+function toggleSignupAccountType() {
+  const accountType = document.querySelector('input[name="signup-account-type"]:checked')?.value || 'public';
+  const group = document.getElementById('signupStaffNumberGroup');
+  const input = document.getElementById('signup-staff-number');
+  if (group) group.hidden = accountType !== 'staff';
+  if (input) {
+    input.required = accountType === 'staff';
+    if (accountType !== 'staff') input.value = '';
   }
 }
 

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/validation.php';
 require_once __DIR__ . '/../includes/booking_availability.php';
 require_once __DIR__ . '/../includes/pic_mail.php';
+require_once __DIR__ . '/../includes/account_types.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
@@ -14,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $db = Database::getInstance();
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
+ensureAccountTypeSchema($db, true);
 ensureBookingEquipmentColumn($db);
 ensureBookingCartGroupColumn($db);
 ensureBookingDurationUnitColumn($db);
@@ -152,15 +154,19 @@ function getAdminReport(Database $db, string $period): void
                 SUM(CASE WHEN b.status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
                 SUM(CASE WHEN b.status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
                 SUM(CASE WHEN b.status IN ('pending', 'approved') THEN 1 ELSE 0 END) AS active,
-                SUM(CASE WHEN b.payment_file IS NOT NULL AND b.payment_file <> '' THEN 1 ELSE 0 END) AS evidence_count,
-                SUM(CASE WHEN b.status = 'approved' AND (b.payment_file IS NULL OR b.payment_file = '') THEN 1 ELSE 0 END) AS approved_without_evidence,
-                COALESCE(SUM(CASE WHEN b.status = 'approved' THEN b.estimated_cost ELSE 0 END), 0) AS approved_estimated_value,
-                COALESCE(SUM(CASE WHEN b.status = 'pending' THEN b.estimated_cost ELSE 0 END), 0) AS pending_estimated_value
+                SUM(CASE WHEN b.payment_required = TRUE AND b.payment_file IS NOT NULL AND b.payment_file <> '' THEN 1 ELSE 0 END) AS evidence_count,
+                SUM(CASE WHEN b.payment_required = TRUE AND b.status = 'approved' AND (b.payment_file IS NULL OR b.payment_file = '') THEN 1 ELSE 0 END) AS approved_without_evidence,
+                SUM(CASE WHEN b.payment_required = TRUE THEN 1 ELSE 0 END) AS payment_required_count,
+                SUM(CASE WHEN b.payment_required = FALSE THEN 1 ELSE 0 END) AS payment_exempt_count,
+                SUM(CASE WHEN b.account_type = 'public' THEN 1 ELSE 0 END) AS public_count,
+                SUM(CASE WHEN b.account_type = 'staff' THEN 1 ELSE 0 END) AS staff_count,
+                COALESCE(SUM(CASE WHEN b.payment_required = TRUE AND b.status = 'approved' THEN b.estimated_cost ELSE 0 END), 0) AS approved_estimated_value,
+                COALESCE(SUM(CASE WHEN b.payment_required = TRUE AND b.status = 'pending' THEN b.estimated_cost ELSE 0 END), 0) AS pending_estimated_value
          FROM bookings b" . $where,
         $params
     ) ?: [];
 
-    $countFields = ['total', 'unpaid', 'pending', 'approved', 'rejected', 'cancelled', 'active', 'evidence_count', 'approved_without_evidence'];
+    $countFields = ['total', 'unpaid', 'pending', 'approved', 'rejected', 'cancelled', 'active', 'evidence_count', 'approved_without_evidence', 'payment_required_count', 'payment_exempt_count', 'public_count', 'staff_count'];
     foreach ($countFields as $field) {
         $summary[$field] = (int)($summary[$field] ?? 0);
     }
@@ -291,6 +297,8 @@ function createBooking(Database $db, bool $adminCreate = false): void
 {
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
+    $bookingAccountType = ACCOUNT_TYPE_PUBLIC;
+    $paymentRequired = true;
     if ($adminCreate) {
         requireAdmin();
     } elseif ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
@@ -303,11 +311,22 @@ function createBooking(Database $db, bool $adminCreate = false): void
         $data['full_name'] = trim((string)($data['full_name'] ?? ''));
         $data['phone'] = trim((string)($data['phone'] ?? ''));
         $matchedUser = filter_var((string)$data['email'], FILTER_VALIDATE_EMAIL)
-            ? $db->fetchOne("SELECT id FROM users WHERE email = ? AND role = 'user'", [$data['email']])
+            ? $db->fetchOne(
+                "SELECT id, account_type, staff_verification_status FROM users WHERE email = ? AND role = 'user'",
+                [$data['email']]
+            )
             : null;
         $userId = $matchedUser ? (int)$matchedUser['id'] : 0;
+        if ($matchedUser) {
+            $bookingAccountType = normalizedAccountType($matchedUser['account_type'] ?? '');
+            $paymentRequired = !isVerifiedStaffAccount($matchedUser);
+        }
     } else {
-        $user = $db->fetchOne("SELECT id, email, full_name, phone FROM users WHERE id = ? AND email = ? AND role = 'user'", [$userId, $userEmail]);
+        $user = $db->fetchOne(
+            "SELECT id, email, full_name, phone, account_type, staff_verification_status
+             FROM users WHERE id = ? AND email = ? AND role = 'user'",
+            [$userId, $userEmail]
+        );
         if (!$user) {
             jsonResponse(['success' => false, 'error' => 'Valid user account required'], 401);
         }
@@ -315,6 +334,8 @@ function createBooking(Database $db, bool $adminCreate = false): void
         $data['email'] = (string)$user['email'];
         $data['full_name'] = trim((string)($user['full_name'] ?? ''));
         $data['phone'] = trim((string)($user['phone'] ?? ''));
+        $bookingAccountType = normalizedAccountType($user['account_type'] ?? '');
+        $paymentRequired = !isVerifiedStaffAccount($user);
     }
     $facility = null;
     if (!empty($data['facility_id']) && ctype_digit((string)$data['facility_id'])) {
@@ -356,23 +377,20 @@ function createBooking(Database $db, bool $adminCreate = false): void
         $data['start_time'] = '00:00';
         $data['end_time'] = '';
         $data['equipment_required'] = '';
-        validateAsramaBookingMeta($data, (int)($facility['max_rooms'] ?? 10));
+        validateAsramaBookingMeta($data, ASRAMA_TOTAL_ROOM_LIMIT_MAX);
         $data['asrama_type'] = normalizeAsramaTypeFromRooms($data);
-        $data['room_count'] = normalizeAsramaRoomCount($data['room_count'] ?? 1, (int)($facility['max_rooms'] ?? 10));
+        $data['room_count'] = normalizeAsramaRoomCount($data['room_count'] ?? 1, ASRAMA_TOTAL_ROOM_LIMIT_MAX);
         $data['participant_count'] = $data['room_count'] * max(1, (int)$facility['capacity']);
-        assertAsramaRoomInventoryAvailable(
-            $db,
-            (int)$data['facility_id'],
-            (int)($data['asrama_lelaki_rooms'] ?? 0),
-            (int)($data['asrama_perempuan_rooms'] ?? 0)
-        );
     }
 
     $paymentFile = null;
-    $bookingStatus = $adminCreate ? 'approved' : 'unpaid';
+    $bookingStatus = $adminCreate ? 'approved' : ($paymentRequired ? 'unpaid' : 'pending');
     $hasPaymentFile = !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
     if ($hasPaymentFile && $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
         jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
+    }
+    if ($hasPaymentFile && !$paymentRequired) {
+        jsonResponse(['success' => false, 'error' => 'Payment evidence is not accepted for verified staff bookings'], 400);
     }
     if ($hasPaymentFile && !$adminCreate) $bookingStatus = 'pending';
 
@@ -390,6 +408,8 @@ function createBooking(Database $db, bool $adminCreate = false): void
         $ref,
         $hasPaymentFile,
         $bookingStatus,
+        $bookingAccountType,
+        $paymentRequired,
         &$paymentFile
     ): void {
         $latestFacility = $db->fetchOne('SELECT name, capacity, price_per_hour, max_rooms, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
@@ -403,17 +423,18 @@ function createBooking(Database $db, bool $adminCreate = false): void
             throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
         }
         if (isAsramaRoomFacilityName((string)$latestFacility['name'])) {
-            validateAsramaBookingMeta($data, (int)($latestFacility['max_rooms'] ?? 10));
+            validateAsramaBookingMeta($data, ASRAMA_TOTAL_ROOM_LIMIT_MAX);
             $data['asrama_type'] = normalizeAsramaTypeFromRooms($data);
-            assertAsramaRoomInventoryAvailable(
+            assertAsramaCapacityAvailable(
                 $db,
                 (int)$data['facility_id'],
+                $requestedBookingDates,
                 (int)($data['asrama_lelaki_rooms'] ?? 0),
                 (int)($data['asrama_perempuan_rooms'] ?? 0)
             );
+        } else {
+            assertBookingDatesAvailable($db, (int)$data['facility_id'], $requestedBookingDates);
         }
-
-        assertBookingDatesAvailable($db, (int)$data['facility_id'], $requestedBookingDates);
 
         if ($hasPaymentFile) {
             $upload = handlePaymentUpload($_FILES['payment_file']);
@@ -426,14 +447,16 @@ function createBooking(Database $db, bool $adminCreate = false): void
         try {
             $db->insert(
                 "INSERT INTO bookings (
-                    booking_ref, user_id, facility_id, full_name, organization, email, phone,
+                    booking_ref, user_id, account_type, payment_required, facility_id, full_name, organization, email, phone,
                     booking_date, start_time, end_time, duration, duration_unit, purpose, participant_count,
                     setup_required, equipment_required, asrama_type, asrama_lelaki_rooms, asrama_perempuan_rooms,
                     room_count, payment_file, status, estimated_cost, cart_group_ref
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     $ref,
                     $userId > 0 ? $userId : null,
+                    $bookingAccountType,
+                    $paymentRequired ? 1 : 0,
                     $data['facility_id'],
                     $data['full_name'],
                     $data['organization'] ?? '',
@@ -510,7 +533,12 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         &$updatedBookingId
     ): void {
         $current = $db->fetchOne(
-            "SELECT id, status, payment_file, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?",
+            "SELECT b.id, b.status, b.payment_file, b.payment_required, b.account_type,
+                    b.facility_id, b.booking_date, b.duration, b.duration_unit,
+                    b.asrama_lelaki_rooms, b.asrama_perempuan_rooms, f.name AS facility_name
+             FROM bookings b
+             JOIN facilities f ON f.id = b.facility_id
+             WHERE b.{$field} = ?",
             [$id]
         );
         if (!$current) {
@@ -518,7 +546,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         }
 
         if ($status === 'approved' && $current['status'] !== 'pending') {
-            throw new BookingAvailabilityException('Hanya tempahan menunggu dengan resit boleh diluluskan.');
+            throw new BookingAvailabilityException('Hanya permohonan berstatus menunggu boleh diluluskan.');
         }
         if ($status === 'rejected' && !in_array($current['status'], ['unpaid', 'pending', 'approved'], true)) {
             throw new BookingAvailabilityException('Tempahan ini tidak boleh ditolak dalam status semasa.');
@@ -527,19 +555,21 @@ function updateBookingStatus(Database $db, string $id, array $data): void
             throw new BookingAvailabilityException('Hanya tempahan yang telah diluluskan boleh dibatalkan oleh pentadbir.');
         }
         if (in_array($status, BLOCKING_BOOKING_STATUSES, true)) {
-            if (empty($current['payment_file'])) {
+            if ((bool)$current['payment_required'] && empty($current['payment_file'])) {
                 throw new BookingAvailabilityException('Resit bayaran diperlukan sebelum tarikh boleh dikunci.');
             }
-            assertBookingDatesAvailable(
-                $db,
-                (int)$current['facility_id'],
-                bookingBlockedDates(
-                    (string)$current['booking_date'],
-                    $current['duration'] ?? '1',
-                    (string)($current['duration_unit'] ?? 'hour')
-                ),
-                (int)$current['id']
-            );
+            if (!isAsramaRoomFacilityName((string)$current['facility_name'])) {
+                assertBookingDatesAvailable(
+                    $db,
+                    (int)$current['facility_id'],
+                    bookingBlockedDates(
+                        (string)$current['booking_date'],
+                        $current['duration'] ?? '1',
+                        (string)($current['duration_unit'] ?? 'hour')
+                    ),
+                    (int)$current['id']
+                );
+            }
         }
 
         if ($status === 'cancelled') {
@@ -593,7 +623,7 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
     }
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
-    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?", [$id]);
+    $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit, payment_required FROM bookings WHERE {$field} = ?", [$id]);
     if (!$booking) {
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
@@ -708,7 +738,9 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
             $participantCount
         ): void {
             $current = $db->fetchOne(
-                "SELECT b.id, b.user_id, b.email, b.status, b.facility_id, f.name AS facility_name, f.capacity, f.is_available
+                "SELECT b.id, b.user_id, b.email, b.status, b.facility_id,
+                        b.asrama_lelaki_rooms, b.asrama_perempuan_rooms,
+                        f.name AS facility_name, f.capacity, f.is_available
                  FROM bookings b
                  JOIN facilities f ON f.id = b.facility_id
                  WHERE b.{$field} = ?",
@@ -735,12 +767,24 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
                 throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
             }
 
-            assertBookingDatesAvailable(
-                $db,
-                (int)$current['facility_id'],
-                bookingBlockedDates($bookingDate, $duration, $durationUnit),
-                (int)$current['id']
-            );
+            $updatedDates = bookingBlockedDates($bookingDate, $duration, $durationUnit);
+            if (isAsramaRoomFacilityName((string)$current['facility_name'])) {
+                assertAsramaCapacityAvailable(
+                    $db,
+                    (int)$current['facility_id'],
+                    $updatedDates,
+                    (int)$current['asrama_lelaki_rooms'],
+                    (int)$current['asrama_perempuan_rooms'],
+                    (int)$current['id']
+                );
+            } else {
+                assertBookingDatesAvailable(
+                    $db,
+                    (int)$current['facility_id'],
+                    $updatedDates,
+                    (int)$current['id']
+                );
+            }
             $db->update(
                 'UPDATE bookings SET booking_date = ?, start_time = ?, end_time = ?, duration = ?, duration_unit = ?, purpose = ?, equipment_required = ?, participant_count = ? WHERE id = ?',
                 [$bookingDate, $startTime, $endTime ?: null, $duration, $durationUnit, $purpose, $equipment, $participantCount, $current['id']]
@@ -953,9 +997,10 @@ function uploadOwnReceipt(Database $db, string $id): void
         true,
         function () use ($db, $field, $id, $userId, $userEmail): string {
             $current = $db->fetchOne(
-                "SELECT b.id, b.user_id, b.email, b.status, b.payment_file, b.facility_id,
+                "SELECT b.id, b.user_id, b.email, b.status, b.payment_file, b.payment_required, b.facility_id,
                         b.booking_date, b.start_time, b.end_time, b.duration, b.duration_unit, b.participant_count,
-                        f.is_available
+                        b.asrama_lelaki_rooms, b.asrama_perempuan_rooms,
+                        f.name AS facility_name, f.is_available
                  FROM bookings b
                  JOIN facilities f ON f.id = b.facility_id
                  WHERE b.{$field} = ?",
@@ -971,6 +1016,9 @@ function uploadOwnReceipt(Database $db, string $id): void
             }
             if ($current['status'] !== 'unpaid') {
                 throw new BookingAvailabilityException('Receipt can only be uploaded for unpaid bookings');
+            }
+            if (!(bool)$current['payment_required']) {
+                throw new BookingAvailabilityException('Payment is not required for this staff booking', 400);
             }
             if (!(bool)$current['is_available']) {
                 throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
@@ -988,16 +1036,28 @@ function uploadOwnReceipt(Database $db, string $id): void
                 throw new BookingAvailabilityException(array_values($scheduleErrors)[0], 400);
             }
 
-            assertBookingDatesAvailable(
-                $db,
-                (int)$current['facility_id'],
-                bookingBlockedDates(
-                    (string)$current['booking_date'],
-                    $current['duration'] ?? '1',
-                    (string)($current['duration_unit'] ?? 'hour')
-                ),
-                (int)$current['id']
+            $receiptDates = bookingBlockedDates(
+                (string)$current['booking_date'],
+                $current['duration'] ?? '1',
+                (string)($current['duration_unit'] ?? 'hour')
             );
+            if (isAsramaRoomFacilityName((string)$current['facility_name'])) {
+                assertAsramaCapacityAvailable(
+                    $db,
+                    (int)$current['facility_id'],
+                    $receiptDates,
+                    (int)$current['asrama_lelaki_rooms'],
+                    (int)$current['asrama_perempuan_rooms'],
+                    (int)$current['id']
+                );
+            } else {
+                assertBookingDatesAvailable(
+                    $db,
+                    (int)$current['facility_id'],
+                    $receiptDates,
+                    (int)$current['id']
+                );
+            }
 
             $upload = handlePaymentUpload($_FILES['payment_file']);
             if (!empty($upload['error'])) {
@@ -1116,6 +1176,7 @@ function getPublicCalendarBookings(Database $db): void
                 'status' => $booking['status'],
                 'facilityName' => $booking['facility_name'] ?? 'Fasiliti',
                 'facilityIcon' => '<i class="bi ' . htmlspecialchars($booking['icon'] ?? 'bi-building', ENT_QUOTES, 'UTF-8') . '"></i>',
+                'capacityManaged' => isAsramaRoomFacilityName((string)($booking['facility_name'] ?? '')),
             ];
         }
     }

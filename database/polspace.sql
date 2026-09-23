@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(100),
     phone VARCHAR(20),
     role ENUM('admin', 'user') DEFAULT 'user',
+    account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public',
+    staff_number VARCHAR(50) NULL,
+    staff_verification_status ENUM('pending', 'verified', 'rejected') NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email)
@@ -46,6 +49,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     booking_ref VARCHAR(20) UNIQUE NOT NULL,
     cart_group_ref VARCHAR(32),
     user_id INT,
+    account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public',
+    payment_required BOOLEAN NOT NULL DEFAULT TRUE,
     facility_id INT NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     organization VARCHAR(100),
@@ -84,7 +89,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     INDEX idx_email (email),
     INDEX idx_status (status),
     INDEX idx_booking_date (booking_date),
-    UNIQUE INDEX uniq_blocking_facility_date (blocking_facility_id, blocking_booking_date)
+    INDEX idx_blocking_facility_date (blocking_facility_id, blocking_booking_date)
 );
 
 CREATE TABLE IF NOT EXISTS contact_messages (
@@ -112,6 +117,27 @@ CREATE TABLE IF NOT EXISTS asrama_rooms (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_asrama_room (facility_id, gender, room_number),
     INDEX idx_asrama_floor (facility_id, gender, floor_level),
+    FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
+);
+
+-- Room/floor inventory is retained for migration safety, but booking capacity is
+-- controlled by the per-block quota settings below.
+CREATE TABLE IF NOT EXISTS asrama_capacity_settings (
+    facility_id INT PRIMARY KEY,
+    normal_male_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    normal_female_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    holiday_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    holiday_start_date DATE NULL,
+    holiday_end_date DATE NULL,
+    holiday_male_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    holiday_female_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CHECK (normal_male_limit <= 30),
+    CHECK (normal_female_limit <= 30),
+    CHECK (holiday_male_limit <= 100),
+    CHECK (holiday_female_limit <= 100),
+    CHECK (holiday_start_date IS NULL OR holiday_end_date IS NULL OR holiday_end_date >= holiday_start_date),
     FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
 );
 
@@ -146,3 +172,8 @@ ON DUPLICATE KEY UPDATE
     description = VALUES(description),
     pic_id = COALESCE(pic_id, VALUES(pic_id)),
     equipment_options = VALUES(equipment_options);
+
+INSERT INTO asrama_capacity_settings (facility_id)
+SELECT id FROM facilities
+WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%'
+ON DUPLICATE KEY UPDATE facility_id = VALUES(facility_id);

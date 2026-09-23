@@ -12,6 +12,7 @@ function getBookingPicNotificationData(Database $db, int $bookingId): array|fals
         "SELECT b.booking_ref, b.full_name, b.phone, b.email, b.booking_date,
                 b.start_time, b.end_time, b.duration, b.duration_unit, b.purpose,
                 b.participant_count, b.equipment_required, b.cancellation_reason,
+                b.account_type, b.payment_required,
                 f.name AS facility_name, p.full_name AS pic_full_name,
                 p.phone AS pic_phone, p.email AS pic_email
          FROM bookings b
@@ -38,6 +39,8 @@ function bookingNotificationLines(array $booking): array
         'Nama pelanggan: ' . ($booking['full_name'] ?: '-'),
         'Telefon pelanggan: ' . ($booking['phone'] ?: '-'),
         'E-mel pelanggan: ' . ($booking['email'] ?: '-'),
+        'Jenis pemohon: ' . (($booking['account_type'] ?? 'public') === 'staff' ? 'Kakitangan' : 'Orang Awam'),
+        'Bayaran diperlukan: ' . (!empty($booking['payment_required']) ? 'Ya' : 'Tidak'),
         'Tarikh tempahan: ' . ($booking['booking_date'] ?: '-'),
         'Masa mula: ' . ($startTime ?: '-'),
         'Tempoh: ' . bookingDurationLabel($booking),
@@ -80,11 +83,19 @@ function sendBookingPicNotification(
     if ($type === 'approved') {
         $subject = 'PoliSpace - Tempahan Diluluskan (' . $booking['booking_ref'] . ')';
         $equipment = trim((string)($booking['equipment_required'] ?? ''));
+        $approvalMessage = !empty($booking['payment_required'])
+            ? [
+                'Bayaran pelanggan telah disahkan dan tempahan berikut telah diluluskan.',
+                'Sila sediakan dan urus fasiliti untuk tempahan yang telah diluluskan ini.',
+            ]
+            : [
+                'Permohonan fasiliti kakitangan berikut telah diluluskan.',
+                'Tiada bayaran diperlukan untuk tempahan ini. Sila sediakan dan urus fasiliti seperti dinyatakan.',
+            ];
         $body = implode("\n", array_merge([
             $greeting,
             '',
-            'Bayaran pelanggan telah disahkan dan tempahan berikut telah diluluskan.',
-            'Sila sediakan dan urus fasiliti untuk tempahan yang telah diluluskan ini.',
+        ], $approvalMessage, [
             '',
         ], $details, [
             'Peralatan diminta: ' . ($equipment !== '' ? $equipment : 'Tiada'),

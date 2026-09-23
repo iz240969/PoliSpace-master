@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(100),
     phone VARCHAR(20),
     role ENUM('admin', 'user') DEFAULT 'user',
+    account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public',
+    staff_number VARCHAR(50) NULL,
+    staff_verification_status ENUM('pending', 'verified', 'rejected') NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email)
@@ -45,6 +48,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     booking_ref VARCHAR(20) UNIQUE NOT NULL,
     cart_group_ref VARCHAR(32),
     user_id INT,
+    account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public',
+    payment_required BOOLEAN NOT NULL DEFAULT TRUE,
     facility_id INT NOT NULL,
     full_name VARCHAR(100) NOT NULL,
     organization VARCHAR(100),
@@ -107,6 +112,27 @@ CREATE TABLE IF NOT EXISTS asrama_rooms (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_asrama_room (facility_id, gender, room_number),
     INDEX idx_asrama_floor (facility_id, gender, floor_level),
+    FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
+);
+
+-- Keep the legacy room inventory table for rollback/history, but use block-level
+-- quotas for all new availability decisions.
+CREATE TABLE IF NOT EXISTS asrama_capacity_settings (
+    facility_id INT PRIMARY KEY,
+    normal_male_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    normal_female_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    holiday_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    holiday_start_date DATE NULL,
+    holiday_end_date DATE NULL,
+    holiday_male_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    holiday_female_limit TINYINT UNSIGNED NOT NULL DEFAULT 30,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CHECK (normal_male_limit <= 30),
+    CHECK (normal_female_limit <= 30),
+    CHECK (holiday_male_limit <= 100),
+    CHECK (holiday_female_limit <= 100),
+    CHECK (holiday_start_date IS NULL OR holiday_end_date IS NULL OR holiday_end_date >= holiday_start_date),
     FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
 );
 
@@ -280,16 +306,32 @@ PREPARE blocking_date_column_stmt FROM @blocking_date_column_sql;
 EXECUTE blocking_date_column_stmt;
 DEALLOCATE PREPARE blocking_date_column_stmt;
 
-SET @blocking_date_index_exists := (
+SET @blocking_date_unique_index_exists := (
     SELECT COUNT(*)
     FROM information_schema.STATISTICS
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = 'bookings'
       AND INDEX_NAME = 'uniq_blocking_facility_date'
 );
+SET @drop_blocking_date_unique_index_sql := IF(
+    @blocking_date_unique_index_exists > 0,
+    'ALTER TABLE bookings DROP INDEX uniq_blocking_facility_date',
+    'SELECT 1'
+);
+PREPARE drop_blocking_date_unique_index_stmt FROM @drop_blocking_date_unique_index_sql;
+EXECUTE drop_blocking_date_unique_index_stmt;
+DEALLOCATE PREPARE drop_blocking_date_unique_index_stmt;
+
+SET @blocking_date_index_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND INDEX_NAME = 'idx_blocking_facility_date'
+);
 SET @blocking_date_index_sql := IF(
     @blocking_date_index_exists = 0,
-    'ALTER TABLE bookings ADD UNIQUE INDEX uniq_blocking_facility_date (blocking_facility_id, blocking_booking_date)',
+    'ALTER TABLE bookings ADD INDEX idx_blocking_facility_date (blocking_facility_id, blocking_booking_date)',
     'SELECT 1'
 );
 PREPARE blocking_date_index_stmt FROM @blocking_date_index_sql;
@@ -487,6 +529,75 @@ PREPARE booking_asrama_perempuan_rooms_column_stmt FROM @booking_asrama_perempua
 EXECUTE booking_asrama_perempuan_rooms_column_stmt;
 DEALLOCATE PREPARE booking_asrama_perempuan_rooms_column_stmt;
 
+SET @user_account_type_column_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'account_type'
+);
+SET @user_account_type_column_sql := IF(
+    @user_account_type_column_exists = 0,
+    "ALTER TABLE users ADD COLUMN account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public' AFTER role",
+    'SELECT 1'
+);
+PREPARE user_account_type_column_stmt FROM @user_account_type_column_sql;
+EXECUTE user_account_type_column_stmt;
+DEALLOCATE PREPARE user_account_type_column_stmt;
+
+SET @user_staff_number_column_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'staff_number'
+);
+SET @user_staff_number_column_sql := IF(
+    @user_staff_number_column_exists = 0,
+    'ALTER TABLE users ADD COLUMN staff_number VARCHAR(50) NULL AFTER account_type',
+    'SELECT 1'
+);
+PREPARE user_staff_number_column_stmt FROM @user_staff_number_column_sql;
+EXECUTE user_staff_number_column_stmt;
+DEALLOCATE PREPARE user_staff_number_column_stmt;
+
+SET @user_staff_verification_column_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'staff_verification_status'
+);
+SET @user_staff_verification_column_sql := IF(
+    @user_staff_verification_column_exists = 0,
+    "ALTER TABLE users ADD COLUMN staff_verification_status ENUM('pending', 'verified', 'rejected') NULL DEFAULT NULL AFTER staff_number",
+    'SELECT 1'
+);
+PREPARE user_staff_verification_column_stmt FROM @user_staff_verification_column_sql;
+EXECUTE user_staff_verification_column_stmt;
+DEALLOCATE PREPARE user_staff_verification_column_stmt;
+
+SET @booking_account_type_column_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'account_type'
+);
+SET @booking_account_type_column_sql := IF(
+    @booking_account_type_column_exists = 0,
+    "ALTER TABLE bookings ADD COLUMN account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public' AFTER user_id",
+    'SELECT 1'
+);
+PREPARE booking_account_type_column_stmt FROM @booking_account_type_column_sql;
+EXECUTE booking_account_type_column_stmt;
+DEALLOCATE PREPARE booking_account_type_column_stmt;
+
+SET @booking_payment_required_column_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'payment_required'
+);
+SET @booking_payment_required_column_sql := IF(
+    @booking_payment_required_column_exists = 0,
+    'ALTER TABLE bookings ADD COLUMN payment_required BOOLEAN NOT NULL DEFAULT TRUE AFTER account_type',
+    'SELECT 1'
+);
+PREPARE booking_payment_required_column_stmt FROM @booking_payment_required_column_sql;
+EXECUTE booking_payment_required_column_stmt;
+DEALLOCATE PREPARE booking_payment_required_column_stmt;
+
+UPDATE users
+SET account_type = 'public', staff_number = NULL, staff_verification_status = NULL
+WHERE role = 'admin';
+
 INSERT INTO users (email, password, full_name, role)
 VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb7rm40SpJI56', 'Administrator', 'admin')
 ON DUPLICATE KEY UPDATE
@@ -520,3 +631,8 @@ ON DUPLICATE KEY UPDATE
     description = VALUES(description),
     pic_id = COALESCE(pic_id, VALUES(pic_id)),
     equipment_options = VALUES(equipment_options);
+
+INSERT INTO asrama_capacity_settings (facility_id)
+SELECT id FROM facilities
+WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%'
+ON DUPLICATE KEY UPDATE facility_id = VALUES(facility_id);

@@ -49,9 +49,17 @@ function facilitySelectSql(bool $includePicEmail = false): string
     $picEmail = $includePicEmail ? ', p.email AS pic_email' : '';
     return 'SELECT f.id, f.name, f.icon, f.capacity, f.price_per_hour, f.max_rooms, f.description,
                    f.pic_id, p.full_name AS pic_full_name, p.phone AS pic_phone' . $picEmail . ',
+                   acs.normal_male_limit AS asrama_normal_male_limit,
+                   acs.normal_female_limit AS asrama_normal_female_limit,
+                   acs.holiday_enabled AS asrama_holiday_enabled,
+                   acs.holiday_start_date AS asrama_holiday_start_date,
+                   acs.holiday_end_date AS asrama_holiday_end_date,
+                   acs.holiday_male_limit AS asrama_holiday_male_limit,
+                   acs.holiday_female_limit AS asrama_holiday_female_limit,
                    f.equipment_options, f.is_available, f.created_at, f.updated_at
             FROM facilities f
-            LEFT JOIN pics p ON p.id = f.pic_id';
+            LEFT JOIN pics p ON p.id = f.pic_id
+            LEFT JOIN asrama_capacity_settings acs ON acs.facility_id = f.id';
 }
 
 function normalizeFacilityPicId(Database $db, mixed $value): ?int
@@ -128,6 +136,12 @@ function backfillDefaultFacilityEquipment(Database $db): void
 try {
     ensureFacilityEquipmentColumn($db);
     ensureFacilityMaxRoomsColumn($db);
+    ensureAsramaCapacitySettingsTable($db);
+    $db->query(
+        "INSERT IGNORE INTO asrama_capacity_settings (facility_id)
+         SELECT id FROM facilities
+         WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%'"
+    );
     backfillDefaultFacilityEquipment($db);
     $action = $_GET['action'] ?? '';
 

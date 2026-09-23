@@ -22,7 +22,8 @@ $publicChecks = @(
     '/resources/views/admin/create-booking.html',
     '/resources/views/admin/asrama.html',
     '/backend/api/facilities.php',
-    '/backend/api/bookings.php?action=public-stats'
+    '/backend/api/bookings.php?action=public-stats',
+    '/backend/api/asrama_rooms.php?action=availability&date=2026-12-12&duration=2'
 )
 foreach ($path in $publicChecks) {
     try {
@@ -52,6 +53,13 @@ try {
     $failures.Add('Admin report was accessible without authentication')
 } catch {
     if ([int]$_.Exception.Response.StatusCode -ne 401) { $failures.Add("Admin report returned $([int]$_.Exception.Response.StatusCode), expected 401") }
+}
+
+try {
+    Invoke-WebRequest -UseBasicParsing -Uri "$BaseUrl/backend/api/asrama_rooms.php" -TimeoutSec 10 | Out-Null
+    $failures.Add('Asrama capacity settings were accessible without authentication')
+} catch {
+    if ([int]$_.Exception.Response.StatusCode -ne 401) { $failures.Add("Asrama settings returned $([int]$_.Exception.Response.StatusCode), expected 401") }
 }
 
 if ($failures.Count -gt 0) {

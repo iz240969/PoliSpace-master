@@ -2,10 +2,10 @@
 @import url('./components/navigation.css?v=20260804-booking-cart');
 @import url('./components/buttons.css');
 @import url('./pages/landing.css?v=20260823-pic-admin-trial');
-@import url('./pages/booking.css?v=20260823-pic-admin-trial');
+@import url('./pages/booking.css?v=20260923-booking-redesign-2');
 @import url('./pages/dashboard.css?v=20260917-table-sort');
 @import url('./pages/status.css?v=20260823-pic-admin-trial');
-@import url('./pages/asrama-admin.css?v=20260908-asrama-visual-refresh');
+@import url('./pages/asrama-admin.css?v=20260923-asrama-capacity');
 @import url('./pages/admin-create-booking.css?v=20260908-admin-create-page');
 @import url('./components/admin.css?v=20260923-report-readability');
 @import url('./components/calendar.css');

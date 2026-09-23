@@ -70,9 +70,9 @@ unpaid, rejected, cancelled
 Business behavior:
 
 - A new booking without a receipt starts as `unpaid` and does not reserve the date.
-- A booking with a receipt starts as `pending`, unless another `pending` or `approved` booking already reserves the same facility and date range.
+- A booking with a receipt starts as `pending`, unless existing blocking bookings already consume the selected facility's availability. Normal facilities allow one blocking booking per overlapping date range; Asrama uses room quotas.
 - A reserved date applies only to that facility. Every other available facility can still be booked on the same date.
-- Day-based bookings block every date in their selected duration. A 2-day Asrama booking blocks both dates for Asrama only.
+- Day-based Asrama bookings consume their requested male/female room quantities on every date in the selected duration.
 - Uploading a receipt from the dashboard changes an `unpaid` booking to `pending` and performs the same conflict check.
 - `approved` bookings remain reserved.
 - Admin can reject pending bookings. Admins can cancel approved bookings with a required cancellation reason.
@@ -103,6 +103,7 @@ Additional form behavior:
 - Users can add multiple equipment requests and set a quantity for each item.
 - Equipment choices are loaded from the selected facility's `equipment_options`, so each facility can expose a different equipment list.
 - The selected facility's PIC full name and phone number are shown in the form and remain available in the user dashboard and status details.
+- Asrama room controls use separate male and female block limits for the selected date range. Actual room numbers and floors are assigned manually by the Asrama PIC.
 - Equipment is stored in `equipment_required` as readable text, for example `Mikrofon x 2, Projektor x 1`.
 
 Receipt uploads accept JPG, PNG, GIF, or PDF up to 5MB.
@@ -181,6 +182,8 @@ Asrama - Bilik           RM10   2 orang - 1 bilik
 
 Facility cards use `Arial Black` for the facility name. The Asrama capacity label is rendered as `2 orang - 1 bilik`.
 
+The Asrama `Urus Bilik` page manages quota rather than floors. Normal limits default to 30 rooms for each block and can be reduced to zero. Optional `Mod Cuti Panjang` accepts a configured date range and separate limits up to 100 rooms per block. The higher limits apply only inside that range; outside it the normal limits apply automatically. Only `pending` and `approved` room quantities consume quota, including every date of multi-day bookings. Settings are stored in `asrama_capacity_settings`; the legacy `asrama_rooms` inventory is retained but no longer drives booking availability.
+
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the backend forces `setup_required` to `full`.
 
 Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. Facility cards can also be edited, including their optional `pic_id` assignment and facility-specific equipment options. PIC contact details are stored in the separate `pics` table and managed from the PIC page. The create action calls:
@@ -224,9 +227,9 @@ created_at
 updated_at
 ```
 
-Generated columns expose the facility/start-date pair only for `pending` and `approved` rows. Backend range checks prevent overlapping multi-day bookings for the same facility, while any number of `unpaid`, `rejected`, or `cancelled` history rows remain allowed.
+Generated columns expose the facility/start-date pair only for `pending` and `approved` rows. Backend locks and range checks prevent overlapping multi-day bookings for normal facilities. Asrama permits concurrent bookings up to the configured per-block room quota. Any number of `unpaid`, `rejected`, or `cancelled` history rows remain allowed.
 
-Running `database/update_polspace.sql` preserves existing admin passwords, custom facilities, and each facility's current availability setting.
+Running `database/update_polspace.sql` preserves existing admin passwords, bookings, PICs, custom facilities, facility availability, and the legacy Asrama room inventory while adding the quota settings safely.
 
 The current UI requires no additional columns beyond `database/polspace.sql` or the current `database/update_polspace.sql`. For an older installation, verify that `bookings.equipment_required` and `facilities.equipment_options` exist before using facility-specific equipment:
 
