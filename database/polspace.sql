@@ -13,6 +13,17 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_email (email)
 );
 
+CREATE TABLE IF NOT EXISTS pics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_pic_name (full_name),
+    INDEX idx_pic_email (email)
+);
+
 CREATE TABLE IF NOT EXISTS facilities (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -21,13 +32,13 @@ CREATE TABLE IF NOT EXISTS facilities (
     price_per_hour DECIMAL(10,2) DEFAULT 0,
     max_rooms INT NULL,
     description TEXT,
-    pic_full_name VARCHAR(100),
-    pic_phone VARCHAR(20),
-    pic_email VARCHAR(100),
+    pic_id INT NULL,
     equipment_options TEXT,
     is_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_facility_pic (pic_id),
+    FOREIGN KEY (pic_id) REFERENCES pics(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS bookings (
@@ -62,6 +73,7 @@ CREATE TABLE IF NOT EXISTS bookings (
         CASE WHEN status IN ('pending', 'approved') THEN booking_date ELSE NULL END
     ) STORED,
     admin_note TEXT,
+    cancellation_reason TEXT,
     estimated_cost DECIMAL(10,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -108,13 +120,23 @@ VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb
 ON DUPLICATE KEY UPDATE
     email = VALUES(email);
 
-INSERT INTO facilities (id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, pic_email, equipment_options, is_available) VALUES
-(1, 'Dewan Utama', 'bi-bank', 800, 450.00, NULL, 'Kemudahan: Econ, PA system, projector.', 'Person 1', '012-000-0001', 'person1@polspace.local', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
-(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, NULL, 'Kemudahan: Econ, PA system, projector.', 'Person 2', '012-000-0002', 'person2@polspace.local', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
-(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, NULL, 'Kemudahan: LCD, projector, econ.', 'Person 3', '012-000-0003', 'person3@polspace.local', '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
-(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, NULL, 'Kemudahan: TV besar, econ.', 'Person 4', '012-000-0004', 'person4@polspace.local', '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
-(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, NULL, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', 'Person 5', '012-000-0005', 'person5@polspace.local', '[{"name":"Komputer Tambahan","max":null},{"name":"Projektor","max":null}]', TRUE),
-(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 10, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', 'Person 6', '012-000-0006', 'person6@polspace.local', '[]', TRUE)
+INSERT INTO pics (id, full_name, phone, email) VALUES
+(1, 'Person 1', '012-000-0001', 'person1@polspace.local'),
+(2, 'Person 2', '012-000-0002', 'person2@polspace.local'),
+(3, 'Person 3', '012-000-0003', 'person3@polspace.local'),
+(4, 'Person 4', '012-000-0004', 'person4@polspace.local'),
+(5, 'Person 5', '012-000-0005', 'person5@polspace.local'),
+(6, 'Person 6', '012-000-0006', 'person6@polspace.local')
+ON DUPLICATE KEY UPDATE
+    id = VALUES(id);
+
+INSERT INTO facilities (id, name, icon, capacity, price_per_hour, max_rooms, description, pic_id, equipment_options, is_available) VALUES
+(1, 'Dewan Utama', 'bi-bank', 800, 450.00, NULL, 'Kemudahan: Econ, PA system, projector.', 1, '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
+(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, NULL, 'Kemudahan: Econ, PA system, projector.', 2, '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
+(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, NULL, 'Kemudahan: LCD, projector, econ.', 3, '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
+(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, NULL, 'Kemudahan: TV besar, econ.', 4, '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
+(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, NULL, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', 5, '[{"name":"Komputer Tambahan","max":null},{"name":"Projektor","max":null}]', TRUE),
+(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 10, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', 6, '[]', TRUE)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     icon = VALUES(icon),
@@ -122,7 +144,5 @@ ON DUPLICATE KEY UPDATE
     price_per_hour = VALUES(price_per_hour),
     max_rooms = VALUES(max_rooms),
     description = VALUES(description),
-    pic_full_name = COALESCE(NULLIF(pic_full_name, ''), VALUES(pic_full_name)),
-    pic_phone = COALESCE(NULLIF(pic_phone, ''), VALUES(pic_phone)),
-    pic_email = COALESCE(NULLIF(pic_email, ''), VALUES(pic_email)),
+    pic_id = COALESCE(pic_id, VALUES(pic_id)),
     equipment_options = VALUES(equipment_options);

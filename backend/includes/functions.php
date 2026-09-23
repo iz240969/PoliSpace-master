@@ -56,6 +56,8 @@ function formatBookingForFrontend(array $booking): array
         'pax' => $booking['participant_count'],
         'status' => $booking['status'],
         'adminNote' => $booking['admin_note'],
+        'cancellationReason' => $booking['cancellation_reason'] ?? '',
+        'cancellation_reason' => $booking['cancellation_reason'] ?? '',
         'paymentFile' => $booking['payment_file'],
         'cartGroupRef' => $booking['cart_group_ref'] ?? '',
         'estimatedCost' => $booking['estimated_cost'],

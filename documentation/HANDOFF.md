@@ -56,6 +56,8 @@ backend/api/auth.php        Login/signup/session plus current-user profile updat
 backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar endpoints
 backend/api/receipts.php    Secure receipt viewing for authenticated admins and receipt owners
 backend/api/facilities.php  Facility list/admin create/admin availability update endpoint
+backend/api/pics.php        Admin PIC CRUD, facility assignment, and trial-email endpoint
+backend/includes/pic_mail.php Shared PIC booking notification email helper
 backend/api/messages.php    Contact message endpoint
 backend/api/users.php       Admin customer list/detail/password reset endpoint
 ```
@@ -130,7 +132,8 @@ Important behavior:
 - A reservation never disables a different facility on the same date.
 - Day-based bookings block every date in their duration. For example, a 2-day Asrama booking blocks both dates for Asrama.
 - `approved` bookings remain reserved.
-- Admin can reject `unpaid`, `pending`, or `approved` bookings. Rejection requires an admin note and releases the slot.
+- Admin can reject pending bookings. Admins can cancel an approved booking with a required cancellation reason; the cancelled record remains in history and releases the slot.
+- A successful `pending -> approved` transition emails the assigned facility PIC. A successful admin `approved -> cancelled` transition sends the PIC a cancellation email. Missing PIC contact details or mail delivery failure never roll back the booking status.
 - User cancellation changes `unpaid` or `pending` bookings to `cancelled` and releases the slot.
 - Booking records must be preserved for history and reporting. The DELETE endpoint returns 405 and does not delete rows.
 
@@ -140,7 +143,7 @@ Important behavior:
 2. The system detects role by email/password through `auth.php?action=auto`.
 3. Admin dashboard loads bookings, facilities, calendar, and customers.
 4. `Tambah Tempahan` opens a dedicated, spacious admin page. Admin must choose `Muat Naik Resit` or `Bayaran Fizikal`; physical payment generates a printable acknowledgement after the booking reference is created.
-5. Admin can approve pending bookings and reject unpaid, pending, or approved bookings.
+5. Admin can approve pending bookings, reject pending bookings, and cancel approved bookings with a required reason.
 6. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
 7. Admin can set or reset a client password from the customer management flow.
 8. Admin can read customer messages and open an email reply from the message table.
@@ -170,7 +173,7 @@ Asrama - Bilik           RM10   2 orang - 1 bilik    Harga untuk satu bilik
 
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the setup option is forced to `Pakej Lengkap` by the backend.
 
-Admins can add custom facilities from the dashboard `Fasiliti` panel. The form writes to `POST backend/api/facilities.php` with `name`, `icon`, `capacity`, `price_per_hour`, `description`, `equipment_options`, and `is_available`. Existing cards can be edited with `PUT backend/api/facilities.php?id=...`.
+Admins can add custom facilities from the dashboard `Fasiliti` panel. The form writes to `POST backend/api/facilities.php` with `name`, `icon`, `capacity`, `price_per_hour`, `description`, optional `pic_id`, `equipment_options`, and `is_available`. Existing cards can be edited with `PUT backend/api/facilities.php?id=...`.
 
 ## Current UI Notes
 
@@ -243,8 +246,12 @@ DELETE backend/api/bookings.php?id=PS...        Disabled: returns 405 to preserv
 GET  backend/api/facilities.php                          Includes PIC full name and phone; includes PIC email only for admin sessions
 POST backend/api/facilities.php                 Admin create facility
 PUT  backend/api/facilities.php?id=1            Admin edit facility, equipment, or availability
-PUT  backend/api/facilities.php?action=pic&id=1 Admin edit PIC full name, phone, and email
-POST backend/api/facilities.php?action=pic-email&id=1 Admin send trial email to PIC
+PUT  backend/api/facilities.php?action=pic&id=1 Admin change/unassign the facility PIC
+GET  backend/api/pics.php                       Admin PIC list with assigned facilities
+POST backend/api/pics.php                      Admin create PIC and assignments
+PUT  backend/api/pics.php?id=1                 Admin edit PIC and replace assignments
+DELETE backend/api/pics.php?id=1               Admin delete PIC and safely unassign facilities
+POST backend/api/pics.php?action=test-email&id=1 Admin send trial email to PIC
 GET  backend/api/users.php
 GET  backend/api/users.php?action=detail&id=1
 PUT  backend/api/users.php?id=1
@@ -256,7 +263,7 @@ Admin-only endpoints call `requireAdmin()`. Client booking actions rely on the P
 
 ## Database Compatibility
 
-No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. The update script is idempotent and preserves existing admin passwords, custom facilities, facility availability settings, and edited PIC contacts. PIC details use `facilities.pic_full_name`, `facilities.pic_phone`, and admin-only `facilities.pic_email`. Profile editing uses the existing `users.full_name` and `users.phone` columns. Multi-equipment requests use `bookings.equipment_required`, facility-specific equipment uses `facilities.equipment_options`, and durations use `bookings.duration` plus `bookings.duration_unit`.
+No new migration is required when the database already matches `database/polspace.sql` or the current `database/update_polspace.sql`. The update script is idempotent and preserves existing admin passwords, bookings, custom facilities, availability settings, and legacy PIC contacts. PIC details live in `pics`; `facilities.pic_id` is a nullable foreign key with `ON DELETE SET NULL`. Existing facility PIC columns are migrated before removal. Admin cancellation reasons use `bookings.cancellation_reason` so existing `admin_note` values remain intact.
 
 For an older database, check `equipment_required` with `information_schema.COLUMNS`. Add it only when missing:
 

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/validation.php';
 require_once __DIR__ . '/../includes/booking_availability.php';
+require_once __DIR__ . '/../includes/pic_mail.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
@@ -18,7 +19,6 @@ ensureBookingCartGroupColumn($db);
 ensureBookingDurationUnitColumn($db);
 ensureBookingAsramaColumns($db);
 ensureBookingFacilityMaxRoomsColumn($db);
-ensureBookingFacilityPicColumns($db);
 
 try {
     if ($method === 'GET') {
@@ -93,9 +93,10 @@ try {
 
 function getAllBookings(Database $db, mixed $status = null): void
 {
-    $sql = "SELECT b.*, f.name AS facility_name, f.icon, f.pic_full_name, f.pic_phone
+    $sql = "SELECT b.*, f.name AS facility_name, f.icon, p.full_name AS pic_full_name, p.phone AS pic_phone
             FROM bookings b
-            LEFT JOIN facilities f ON b.facility_id = f.id";
+            LEFT JOIN facilities f ON b.facility_id = f.id
+            LEFT JOIN pics p ON f.pic_id = p.id";
     $params = [];
 
     if ($status === 'unpaid') {
@@ -167,9 +168,10 @@ function getAdminReport(Database $db, string $period): void
     $summary['pending_estimated_value'] = (string)($summary['pending_estimated_value'] ?? '0.00');
 
     $bookings = $db->fetchAll(
-        "SELECT b.*, f.name AS facility_name, f.icon, f.pic_full_name, f.pic_phone
+        "SELECT b.*, f.name AS facility_name, f.icon, p.full_name AS pic_full_name, p.phone AS pic_phone
          FROM bookings b
-         LEFT JOIN facilities f ON b.facility_id = f.id" . $where . '
+         LEFT JOIN facilities f ON b.facility_id = f.id
+         LEFT JOIN pics p ON f.pic_id = p.id" . $where . '
          ORDER BY b.created_at DESC',
         $params
     );
@@ -200,9 +202,10 @@ function getUserBookings(Database $db, string $email = ''): void
     }
 
     $bookings = $db->fetchAll(
-        "SELECT b.*, f.name AS facility_name, f.icon, f.pic_full_name, f.pic_phone
+        "SELECT b.*, f.name AS facility_name, f.icon, p.full_name AS pic_full_name, p.phone AS pic_phone
          FROM bookings b
          LEFT JOIN facilities f ON b.facility_id = f.id
+         LEFT JOIN pics p ON f.pic_id = p.id
          WHERE b.user_id = ? OR LOWER(b.email) = LOWER(?)
          ORDER BY b.created_at DESC",
         [$userId, $sessionEmail]
@@ -220,18 +223,20 @@ function getBookingByRef(Database $db, string $ref): void
     }
 
     $booking = $db->fetchOne(
-        "SELECT b.*, f.name AS facility_name, f.icon, f.pic_full_name, f.pic_phone
+        "SELECT b.*, f.name AS facility_name, f.icon, p.full_name AS pic_full_name, p.phone AS pic_phone
          FROM bookings b
          LEFT JOIN facilities f ON b.facility_id = f.id
+         LEFT JOIN pics p ON f.pic_id = p.id
          WHERE b.booking_ref = ?",
         [$ref]
     );
 
     if (!$booking) {
         $groupBookings = $db->fetchAll(
-            "SELECT b.*, f.name AS facility_name, f.icon, f.pic_full_name, f.pic_phone
+            "SELECT b.*, f.name AS facility_name, f.icon, p.full_name AS pic_full_name, p.phone AS pic_phone
              FROM bookings b
              LEFT JOIN facilities f ON b.facility_id = f.id
+             LEFT JOIN pics p ON f.pic_id = p.id
              WHERE b.cart_group_ref = ?
              ORDER BY b.booking_date ASC, b.start_time ASC, b.created_at DESC",
             [$ref]
@@ -469,8 +474,9 @@ function updateBookingStatus(Database $db, string $id, array $data): void
 {
     $status = $data['status'] ?? '';
     $adminNote = trim((string)($data['admin_note'] ?? ''));
+    $cancellationReason = trim((string)($data['cancellation_reason'] ?? ''));
 
-    if (!in_array($status, ['approved', 'rejected'], true)) {
+    if (!in_array($status, ['approved', 'rejected', 'cancelled'], true)) {
         jsonResponse(['success' => false, 'error' => 'Invalid status'], 400);
     }
 
@@ -483,6 +489,9 @@ function updateBookingStatus(Database $db, string $id, array $data): void
     if ($status === 'rejected' && $adminNote === '') {
         jsonResponse(['success' => false, 'error' => 'Rejection reason required'], 400);
     }
+    if ($status === 'cancelled' && $cancellationReason === '') {
+        jsonResponse(['success' => false, 'error' => 'Sebab pembatalan diperlukan.'], 400);
+    }
 
     $bookingDates = bookingBlockedDates(
         (string)$booking['booking_date'],
@@ -490,12 +499,15 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         (string)($booking['duration_unit'] ?? 'hour')
     );
 
+    $updatedBookingId = 0;
     withBookingMutationLocks($db, (int)$booking['id'], (int)$booking['facility_id'], $bookingDates, false, function () use (
         $db,
         $field,
         $id,
         $status,
-        $adminNote
+        $adminNote,
+        $cancellationReason,
+        &$updatedBookingId
     ): void {
         $current = $db->fetchOne(
             "SELECT id, status, payment_file, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?",
@@ -510,6 +522,9 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         }
         if ($status === 'rejected' && !in_array($current['status'], ['unpaid', 'pending', 'approved'], true)) {
             throw new BookingAvailabilityException('Tempahan ini tidak boleh ditolak dalam status semasa.');
+        }
+        if ($status === 'cancelled' && $current['status'] !== 'approved') {
+            throw new BookingAvailabilityException('Hanya tempahan yang telah diluluskan boleh dibatalkan oleh pentadbir.');
         }
         if (in_array($status, BLOCKING_BOOKING_STATUSES, true)) {
             if (empty($current['payment_file'])) {
@@ -527,10 +542,41 @@ function updateBookingStatus(Database $db, string $id, array $data): void
             );
         }
 
-        $db->update('UPDATE bookings SET status = ?, admin_note = ? WHERE id = ?', [$status, $adminNote, $current['id']]);
+        if ($status === 'cancelled') {
+            $db->update(
+                'UPDATE bookings SET status = ?, cancellation_reason = ? WHERE id = ?',
+                [$status, $cancellationReason, $current['id']]
+            );
+        } else {
+            $db->update('UPDATE bookings SET status = ?, admin_note = ? WHERE id = ?', [$status, $adminNote, $current['id']]);
+        }
+        $updatedBookingId = (int)$current['id'];
     });
 
-    jsonResponse(['success' => true, 'message' => 'Booking status updated']);
+    $notification = null;
+    if ($status === 'approved' || $status === 'cancelled') {
+        try {
+            $notification = sendBookingPicNotification($db, $updatedBookingId, $status);
+        } catch (Throwable $e) {
+            $notification = [
+                'sent' => false,
+                'skipped' => false,
+                'warning' => 'Status tempahan berjaya dikemas kini, tetapi e-mel kepada PIC gagal dihantar.',
+            ];
+        }
+    }
+
+    $response = [
+        'success' => true,
+        'message' => $status === 'cancelled' ? 'Tempahan berjaya dibatalkan.' : 'Booking status updated',
+    ];
+    if ($notification !== null) {
+        $response['notification'] = $notification;
+        if (!empty($notification['warning'])) {
+            $response['warning'] = $notification['warning'];
+        }
+    }
+    jsonResponse($response);
 }
 
 function cancelOwnBooking(Database $db, string $id, array $data): void
@@ -827,26 +873,6 @@ function ensureBookingFacilityMaxRoomsColumn(Database $db): void
     }
 
     $db->update("UPDATE facilities SET max_rooms = 10 WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%' AND (max_rooms IS NULL OR max_rooms < 1)");
-}
-
-function ensureBookingFacilityPicColumns(Database $db): void
-{
-    static $checked = false;
-    if ($checked) return;
-    $checked = true;
-
-    $nameColumn = $db->fetchOne("SHOW COLUMNS FROM facilities LIKE 'pic_full_name'");
-    if (!$nameColumn) {
-        $db->query('ALTER TABLE facilities ADD COLUMN pic_full_name VARCHAR(100) NULL AFTER description');
-    }
-
-    $phoneColumn = $db->fetchOne("SHOW COLUMNS FROM facilities LIKE 'pic_phone'");
-    if (!$phoneColumn) {
-        $db->query('ALTER TABLE facilities ADD COLUMN pic_phone VARCHAR(20) NULL AFTER pic_full_name');
-    }
-
-    $db->update("UPDATE facilities SET pic_full_name = CONCAT('Person ', id) WHERE pic_full_name IS NULL OR TRIM(pic_full_name) = ''");
-    $db->update("UPDATE facilities SET pic_phone = CONCAT('012-000-', LPAD(id, 4, '0')) WHERE pic_phone IS NULL OR TRIM(pic_phone) = ''");
 }
 
 function isAsramaRoomFacilityName(string $name): bool

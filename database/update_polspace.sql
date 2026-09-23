@@ -13,6 +13,17 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_email (email)
 );
 
+CREATE TABLE IF NOT EXISTS pics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_pic_name (full_name),
+    INDEX idx_pic_email (email)
+);
+
 CREATE TABLE IF NOT EXISTS facilities (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -20,13 +31,13 @@ CREATE TABLE IF NOT EXISTS facilities (
     capacity INT DEFAULT 0,
     price_per_hour DECIMAL(10,2) DEFAULT 0,
     description TEXT,
-    pic_full_name VARCHAR(100),
-    pic_phone VARCHAR(20),
-    pic_email VARCHAR(100),
+    pic_id INT NULL,
     equipment_options TEXT,
     is_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_facility_pic (pic_id),
+    FOREIGN KEY (pic_id) REFERENCES pics(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS bookings (
@@ -57,6 +68,7 @@ CREATE TABLE IF NOT EXISTS bookings (
         CASE WHEN status IN ('pending', 'approved') THEN booking_date ELSE NULL END
     ) STORED,
     admin_note TEXT,
+    cancellation_reason TEXT,
     estimated_cost DECIMAL(10,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -188,6 +200,22 @@ UPDATE bookings SET status = 'approved' WHERE status = 'completed';
 ALTER TABLE bookings
     MODIFY status ENUM('unpaid', 'pending', 'approved', 'rejected', 'cancelled') DEFAULT 'unpaid';
 
+SET @booking_cancellation_reason_column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'bookings'
+      AND COLUMN_NAME = 'cancellation_reason'
+);
+SET @booking_cancellation_reason_column_sql := IF(
+    @booking_cancellation_reason_column_exists = 0,
+    'ALTER TABLE bookings ADD COLUMN cancellation_reason TEXT NULL AFTER admin_note',
+    'SELECT 1'
+);
+PREPARE booking_cancellation_reason_column_stmt FROM @booking_cancellation_reason_column_sql;
+EXECUTE booking_cancellation_reason_column_stmt;
+DEALLOCATE PREPARE booking_cancellation_reason_column_stmt;
+
 SET @booking_completion_email_column_exists := (
     SELECT COUNT(*)
     FROM information_schema.COLUMNS
@@ -284,65 +312,116 @@ PREPARE facility_max_rooms_column_stmt FROM @facility_max_rooms_column_sql;
 EXECUTE facility_max_rooms_column_stmt;
 DEALLOCATE PREPARE facility_max_rooms_column_stmt;
 
-SET @facility_pic_name_column_exists := (
+CREATE TABLE IF NOT EXISTS pics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_pic_name (full_name),
+    INDEX idx_pic_email (email)
+);
+
+SET @facility_pic_id_column_exists := (
     SELECT COUNT(*)
     FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = 'facilities'
-      AND COLUMN_NAME = 'pic_full_name'
+      AND COLUMN_NAME = 'pic_id'
 );
-SET @facility_pic_name_column_sql := IF(
-    @facility_pic_name_column_exists = 0,
-    'ALTER TABLE facilities ADD COLUMN pic_full_name VARCHAR(100) NULL AFTER description',
+SET @facility_pic_id_column_sql := IF(
+    @facility_pic_id_column_exists = 0,
+    'ALTER TABLE facilities ADD COLUMN pic_id INT NULL AFTER description',
     'SELECT 1'
 );
-PREPARE facility_pic_name_column_stmt FROM @facility_pic_name_column_sql;
-EXECUTE facility_pic_name_column_stmt;
-DEALLOCATE PREPARE facility_pic_name_column_stmt;
+PREPARE facility_pic_id_column_stmt FROM @facility_pic_id_column_sql;
+EXECUTE facility_pic_id_column_stmt;
+DEALLOCATE PREPARE facility_pic_id_column_stmt;
 
-SET @facility_pic_phone_column_exists := (
+SET @legacy_pic_column_count := (
     SELECT COUNT(*)
     FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = 'facilities'
-      AND COLUMN_NAME = 'pic_phone'
+      AND COLUMN_NAME IN ('pic_full_name', 'pic_phone', 'pic_email')
 );
-SET @facility_pic_phone_column_sql := IF(
-    @facility_pic_phone_column_exists = 0,
-    'ALTER TABLE facilities ADD COLUMN pic_phone VARCHAR(20) NULL AFTER pic_full_name',
+SET @migrate_legacy_pics_sql := IF(
+    @legacy_pic_column_count = 3,
+    "INSERT INTO pics (full_name, phone, email)
+     SELECT DISTINCT TRIM(f.pic_full_name), TRIM(f.pic_phone), NULLIF(TRIM(f.pic_email), '')
+     FROM facilities f
+     WHERE TRIM(COALESCE(f.pic_full_name, '')) <> ''
+       AND TRIM(COALESCE(f.pic_phone, '')) <> ''
+       AND NOT EXISTS (
+           SELECT 1 FROM pics p
+           WHERE p.full_name = TRIM(f.pic_full_name)
+             AND p.phone = TRIM(f.pic_phone)
+             AND p.email <=> NULLIF(TRIM(f.pic_email), '')
+       )",
     'SELECT 1'
 );
-PREPARE facility_pic_phone_column_stmt FROM @facility_pic_phone_column_sql;
-EXECUTE facility_pic_phone_column_stmt;
-DEALLOCATE PREPARE facility_pic_phone_column_stmt;
+PREPARE migrate_legacy_pics_stmt FROM @migrate_legacy_pics_sql;
+EXECUTE migrate_legacy_pics_stmt;
+DEALLOCATE PREPARE migrate_legacy_pics_stmt;
 
-SET @facility_pic_email_column_exists := (
+SET @assign_legacy_pics_sql := IF(
+    @legacy_pic_column_count = 3,
+    "UPDATE facilities f
+     INNER JOIN pics p
+       ON p.full_name = TRIM(f.pic_full_name)
+      AND p.phone = TRIM(f.pic_phone)
+      AND p.email <=> NULLIF(TRIM(f.pic_email), '')
+     SET f.pic_id = p.id
+     WHERE f.pic_id IS NULL",
+    'SELECT 1'
+);
+PREPARE assign_legacy_pics_stmt FROM @assign_legacy_pics_sql;
+EXECUTE assign_legacy_pics_stmt;
+DEALLOCATE PREPARE assign_legacy_pics_stmt;
+
+-- The legacy contact columns are removed only after their values have been
+-- copied to pics and every matching facility has received its pic_id.
+SET @drop_legacy_pic_columns_sql := IF(
+    @legacy_pic_column_count = 3,
+    'ALTER TABLE facilities DROP COLUMN pic_full_name, DROP COLUMN pic_phone, DROP COLUMN pic_email',
+    'SELECT 1'
+);
+PREPARE drop_legacy_pic_columns_stmt FROM @drop_legacy_pic_columns_sql;
+EXECUTE drop_legacy_pic_columns_stmt;
+DEALLOCATE PREPARE drop_legacy_pic_columns_stmt;
+
+SET @facility_pic_index_exists := (
     SELECT COUNT(*)
-    FROM information_schema.COLUMNS
+    FROM information_schema.STATISTICS
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = 'facilities'
-      AND COLUMN_NAME = 'pic_email'
+      AND INDEX_NAME = 'idx_facility_pic'
 );
-SET @facility_pic_email_column_sql := IF(
-    @facility_pic_email_column_exists = 0,
-    'ALTER TABLE facilities ADD COLUMN pic_email VARCHAR(100) NULL AFTER pic_phone',
+SET @facility_pic_index_sql := IF(
+    @facility_pic_index_exists = 0,
+    'ALTER TABLE facilities ADD INDEX idx_facility_pic (pic_id)',
     'SELECT 1'
 );
-PREPARE facility_pic_email_column_stmt FROM @facility_pic_email_column_sql;
-EXECUTE facility_pic_email_column_stmt;
-DEALLOCATE PREPARE facility_pic_email_column_stmt;
+PREPARE facility_pic_index_stmt FROM @facility_pic_index_sql;
+EXECUTE facility_pic_index_stmt;
+DEALLOCATE PREPARE facility_pic_index_stmt;
 
-UPDATE facilities
-SET pic_full_name = CONCAT('Person ', id)
-WHERE pic_full_name IS NULL OR TRIM(pic_full_name) = '';
-
-UPDATE facilities
-SET pic_phone = CONCAT('012-000-', LPAD(id, 4, '0'))
-WHERE pic_phone IS NULL OR TRIM(pic_phone) = '';
-
-UPDATE facilities
-SET pic_email = CONCAT('person', id, '@polspace.local')
-WHERE pic_email IS NULL OR TRIM(pic_email) = '';
+SET @facility_pic_fk_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.REFERENTIAL_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'facilities'
+      AND REFERENCED_TABLE_NAME = 'pics'
+);
+SET @facility_pic_fk_sql := IF(
+    @facility_pic_fk_exists = 0,
+    'ALTER TABLE facilities ADD CONSTRAINT fk_facilities_pic FOREIGN KEY (pic_id) REFERENCES pics(id) ON DELETE SET NULL',
+    'SELECT 1'
+);
+PREPARE facility_pic_fk_stmt FROM @facility_pic_fk_sql;
+EXECUTE facility_pic_fk_stmt;
+DEALLOCATE PREPARE facility_pic_fk_stmt;
 
 SET @booking_asrama_type_column_exists := (
     SELECT COUNT(*)
@@ -413,13 +492,25 @@ VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb
 ON DUPLICATE KEY UPDATE
     email = VALUES(email);
 
-INSERT INTO facilities (id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, pic_email, equipment_options, is_available) VALUES
-(1, 'Dewan Utama', 'bi-bank', 800, 450.00, NULL, 'Kemudahan: Econ, PA system, projector.', 'Person 1', '012-000-0001', 'person1@polspace.local', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
-(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, NULL, 'Kemudahan: Econ, PA system, projector.', 'Person 2', '012-000-0002', 'person2@polspace.local', '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
-(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, NULL, 'Kemudahan: LCD, projector, econ.', 'Person 3', '012-000-0003', 'person3@polspace.local', '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
-(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, NULL, 'Kemudahan: TV besar, econ.', 'Person 4', '012-000-0004', 'person4@polspace.local', '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
-(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, NULL, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', 'Person 5', '012-000-0005', 'person5@polspace.local', '[{"name":"Komputer Tambahan","max":null},{"name":"Projektor","max":null}]', TRUE),
-(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 10, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', 'Person 6', '012-000-0006', 'person6@polspace.local', '[]', TRUE)
+INSERT INTO pics (full_name, phone, email)
+SELECT seed.full_name, seed.phone, seed.email
+FROM (
+    SELECT 'Person 1' AS full_name, '012-000-0001' AS phone, 'person1@polspace.local' AS email
+    UNION ALL SELECT 'Person 2', '012-000-0002', 'person2@polspace.local'
+    UNION ALL SELECT 'Person 3', '012-000-0003', 'person3@polspace.local'
+    UNION ALL SELECT 'Person 4', '012-000-0004', 'person4@polspace.local'
+    UNION ALL SELECT 'Person 5', '012-000-0005', 'person5@polspace.local'
+    UNION ALL SELECT 'Person 6', '012-000-0006', 'person6@polspace.local'
+) seed
+WHERE NOT EXISTS (SELECT 1 FROM pics p WHERE p.email = seed.email);
+
+INSERT INTO facilities (id, name, icon, capacity, price_per_hour, max_rooms, description, pic_id, equipment_options, is_available) VALUES
+(1, 'Dewan Utama', 'bi-bank', 800, 450.00, NULL, 'Kemudahan: Econ, PA system, projector.', (SELECT id FROM pics WHERE email = 'person1@polspace.local' LIMIT 1), '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
+(2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, NULL, 'Kemudahan: Econ, PA system, projector.', (SELECT id FROM pics WHERE email = 'person2@polspace.local' LIMIT 1), '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
+(3, 'Bilik Persidangan', 'bi-people', 60, 350.00, NULL, 'Kemudahan: LCD, projector, econ.', (SELECT id FROM pics WHERE email = 'person3@polspace.local' LIMIT 1), '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
+(4, 'Bilik Seminar', 'bi-easel', 45, 250.00, NULL, 'Kemudahan: TV besar, econ.', (SELECT id FROM pics WHERE email = 'person4@polspace.local' LIMIT 1), '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
+(5, 'Makmal Komputer - ILL 1', 'bi-pc-display', 50, 100.00, NULL, 'Makmal komputer ILL 1 untuk penggunaan akademik dan latihan.', (SELECT id FROM pics WHERE email = 'person5@polspace.local' LIMIT 1), '[{"name":"Komputer Tambahan","max":null},{"name":"Projektor","max":null}]', TRUE),
+(6, 'Asrama - Bilik', 'bi-door-open', 2, 10.00, 10, 'Bilik asrama untuk penginapan. Harga untuk satu bilik.', (SELECT id FROM pics WHERE email = 'person6@polspace.local' LIMIT 1), '[]', TRUE)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name),
     icon = VALUES(icon),
@@ -427,7 +518,5 @@ ON DUPLICATE KEY UPDATE
     price_per_hour = VALUES(price_per_hour),
     max_rooms = VALUES(max_rooms),
     description = VALUES(description),
-    pic_full_name = COALESCE(NULLIF(pic_full_name, ''), VALUES(pic_full_name)),
-    pic_phone = COALESCE(NULLIF(pic_phone, ''), VALUES(pic_phone)),
-    pic_email = COALESCE(NULLIF(pic_email, ''), VALUES(pic_email)),
+    pic_id = COALESCE(pic_id, VALUES(pic_id)),
     equipment_options = VALUES(equipment_options);

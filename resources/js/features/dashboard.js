@@ -400,6 +400,7 @@ async function viewUserBookingDetail(id) {
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
       ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value">${escapeHtml(booking.adminNote)}</span></div>` : ''}
+      ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
     `;
     document.getElementById('userBookingModalFooter').innerHTML = `
       ${booking.status === 'unpaid' ? `<button class="btn btn-primary" onclick="openReceiptUploadModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-receipt"></i> Muat Naik Resit</button>` : ''}

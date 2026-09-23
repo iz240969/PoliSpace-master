@@ -11,6 +11,7 @@ function normalizeFacilities(facilities) {
     price_per_hour: Number(f.price_per_hour || f.pricePerHour || 0),
     max_rooms: Number(f.max_rooms ?? f.maxRooms ?? 0) || null,
     description: f.description || f.desc || '',
+    pic_id: f.pic_id === null || f.pic_id === undefined || f.pic_id === '' ? null : String(f.pic_id),
     pic_full_name: f.pic_full_name || f.picFullName || '',
     pic_phone: f.pic_phone || f.picPhone || '',
     pic_email: f.pic_email || f.picEmail || '',

@@ -32,7 +32,7 @@ Admin dashboard HTML        resources/views/admin/dashboard.html
 Admin dashboard behavior    resources/js/features/admin.js
 Admin dashboard styling     resources/css/components/admin.css
 Admin facility create form  resources/views/admin/dashboard.html, resources/js/features/admin.js, backend/api/facilities.php
-Admin PIC management        resources/views/admin/dashboard.html, resources/js/features/admin.js, backend/api/facilities.php
+Admin PIC management        resources/views/admin/dashboard.html, resources/js/features/admin.js, backend/api/pics.php
 
 Login/signup behavior       resources/js/features/auth.js
 Profile editor/menu         resources/js/core/navigation.js, resources/css/components/navigation.css
@@ -48,7 +48,9 @@ App startup logic           resources/js/core/init.js
 backend/api/auth.php        Role-aware login, signup, session check, self-profile update, logout
 backend/api/bookings.php    Booking create/list/status/edit/cancel/receipt/calendar; DELETE is disabled
 backend/api/receipts.php    Authenticated receipt delivery with admin/user ownership checks
-backend/api/facilities.php  Facility list plus admin create/edit/availability/equipment/PIC update and trial PIC email
+backend/api/facilities.php  Facility list plus admin create/edit/availability/equipment/PIC assignment
+backend/api/pics.php        Admin PIC CRUD, facility assignments, and trial PIC email
+backend/includes/pic_mail.php Shared PIC trial/approval/cancellation email composition
 backend/api/messages.php    Contact admin messages
 backend/api/users.php       Admin customer list/detail/password reset
 ```
@@ -66,7 +68,7 @@ backend/db.php              Creates the PDO database connection
 ```text
 Only pending and approved bookings block availability, and they block only their own facility for the selected date range.
 Unpaid, rejected, and cancelled bookings remain as history but do not block availability.
-Admin can reject unpaid, pending, and approved bookings.
+Admin can reject pending bookings and cancel approved bookings with a required reason.
 Users can cancel unpaid and pending bookings.
 Booking deletion is intentionally disabled in the API.
 Booking duration is a whole number. Normal bookings use hours; day-based bookings block every date in the duration.
@@ -80,7 +82,7 @@ Backend conflict checks      backend/api/bookings.php
 Date range lock helpers      backend/includes/booking_availability.php
 Public calendar filtering    backend/api/bookings.php, resources/js/features/facilities.js
 Receipt upload behavior      backend/api/bookings.php, resources/js/features/dashboard.js
-Admin reject UI              resources/js/features/admin.js
+Admin approve/reject/cancel UI resources/js/features/admin.js
 Status label rendering       resources/js/core/helpers.js
 ```
 

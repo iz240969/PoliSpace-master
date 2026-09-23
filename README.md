@@ -73,6 +73,6 @@ An unpaid booking does not reserve the date. The date is secured only when a rec
 
 Day-based bookings, such as `Asrama - Bilik`, block every date in their selected duration. For example, a 2-day Asrama booking blocks both selected dates for that facility.
 
-Each facility has editable PIC details. Users see the PIC full name and phone number while selecting a facility and in their booking details afterward. Admins also have a separate PIC section for PIC email management and a trial email send button.
+PICs are stored independently and assigned to facilities. One PIC can manage several facilities, while each facility has at most one current PIC. Users still see the assigned PIC's full name and phone number. Admins can add, edit, delete, reassign, and send a manual trial email from the PIC page. Approving a pending booking and cancelling a previously approved booking also notify the assigned PIC without rolling back the status change if mail delivery fails.
 
 Admins can open the dedicated `Urus Bilik` page from the `Asrama - Bilik` facility card to manage whole-level availability across five levels in both the male and female blocks.

@@ -75,7 +75,8 @@ Business behavior:
 - Day-based bookings block every date in their selected duration. A 2-day Asrama booking blocks both dates for Asrama only.
 - Uploading a receipt from the dashboard changes an `unpaid` booking to `pending` and performs the same conflict check.
 - `approved` bookings remain reserved.
-- Admin can reject `unpaid`, `pending`, or `approved` bookings. A rejection note is required.
+- Admin can reject pending bookings. Admins can cancel approved bookings with a required cancellation reason.
+- Approval and approved-booking cancellation automatically attempt to notify the assigned facility PIC. Mail problems do not roll back the status change.
 - User cancellation changes an `unpaid` or `pending` booking to `cancelled`.
 - `rejected` and `cancelled` bookings release the slot but remain in history.
 - The API does not permanently delete bookings. `DELETE backend/api/bookings.php?id=...` returns 405.
@@ -155,8 +156,9 @@ Admin can:
 - Read customer messages and reply through their email client.
 - Add new facilities from the dashboard.
 - Add and edit facility-specific equipment options from the facility management panel.
-- Manage PIC full name, phone number, and email from the separate `PIC` admin section.
-- Send a manual trial email to a facility PIC.
+- Add, edit, delete, and assign independent PIC records from the separate `PIC` admin section.
+- Assign one PIC to several facilities and change a facility's PIC later.
+- Send a manual trial email to a PIC.
 - Toggle facility availability.
 - View the booking calendar.
 
@@ -181,13 +183,13 @@ Facility cards use `Arial Black` for the facility name. The Asrama capacity labe
 
 For Dewan Utama, Dewan Syarahan, Bilik Persidangan, and Bilik Seminar, the backend forces `setup_required` to `full`.
 
-Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. Facility cards can also be edited, including the PIC full name, PIC phone number, PIC email, and facility-specific equipment options. The separate `PIC` admin section focuses only on PIC contact management and includes a manual trial email button. The create action calls:
+Admins can add facilities from `Pengurusan Fasiliti` using the dashboard form. Facility cards can also be edited, including their optional `pic_id` assignment and facility-specific equipment options. PIC contact details are stored in the separate `pics` table and managed from the PIC page. The create action calls:
 
 ```text
 POST backend/api/facilities.php
 ```
 
-Required fields are facility name, capacity, price, PIC full name, and PIC phone number. Optional fields are Bootstrap icon class, description, PIC email, equipment options, and initial availability. PIC-only updates call `PUT backend/api/facilities.php?action=pic&id=...`; trial email calls `POST backend/api/facilities.php?action=pic-email&id=...`.
+Required facility fields are facility name, capacity, and price. Optional fields include Bootstrap icon class, description, `pic_id`, equipment options, and initial availability. PIC CRUD and multi-facility assignments use `backend/api/pics.php`; trial email calls `POST backend/api/pics.php?action=test-email&id=...`.
 
 ## Database
 

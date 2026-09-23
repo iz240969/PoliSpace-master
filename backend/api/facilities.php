@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/booking_availability.php';
+require_once __DIR__ . '/../includes/pic_mail.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     jsonResponse(['success' => true]);
@@ -43,48 +44,26 @@ function ensureFacilityMaxRoomsColumn(Database $db): void
     $db->update("UPDATE facilities SET max_rooms = 10 WHERE LOWER(name) LIKE '%asrama%' AND LOWER(name) LIKE '%bilik%' AND (max_rooms IS NULL OR max_rooms < 1)");
 }
 
-function ensureFacilityPicColumns(Database $db): void
-{
-    $nameColumn = $db->fetchOne("SHOW COLUMNS FROM facilities LIKE 'pic_full_name'");
-    if (!$nameColumn) {
-        $db->query('ALTER TABLE facilities ADD COLUMN pic_full_name VARCHAR(100) NULL AFTER description');
-    }
-
-    $phoneColumn = $db->fetchOne("SHOW COLUMNS FROM facilities LIKE 'pic_phone'");
-    if (!$phoneColumn) {
-        $db->query('ALTER TABLE facilities ADD COLUMN pic_phone VARCHAR(20) NULL AFTER pic_full_name');
-    }
-
-    $emailColumn = $db->fetchOne("SHOW COLUMNS FROM facilities LIKE 'pic_email'");
-    if (!$emailColumn) {
-        $db->query('ALTER TABLE facilities ADD COLUMN pic_email VARCHAR(100) NULL AFTER pic_phone');
-    }
-
-    $db->update("UPDATE facilities SET pic_full_name = CONCAT('Person ', id) WHERE pic_full_name IS NULL OR TRIM(pic_full_name) = ''");
-    $db->update("UPDATE facilities SET pic_phone = CONCAT('012-000-', LPAD(id, 4, '0')) WHERE pic_phone IS NULL OR TRIM(pic_phone) = ''");
-    $db->update("UPDATE facilities SET pic_email = CONCAT('person', id, '@polspace.local') WHERE pic_email IS NULL OR TRIM(pic_email) = ''");
-}
-
 function facilitySelectSql(bool $includePicEmail = false): string
 {
-    $picEmail = $includePicEmail ? ', pic_email' : '';
-    return 'SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone' . $picEmail . ', equipment_options, is_available, created_at, updated_at FROM facilities';
+    $picEmail = $includePicEmail ? ', p.email AS pic_email' : '';
+    return 'SELECT f.id, f.name, f.icon, f.capacity, f.price_per_hour, f.max_rooms, f.description,
+                   f.pic_id, p.full_name AS pic_full_name, p.phone AS pic_phone' . $picEmail . ',
+                   f.equipment_options, f.is_available, f.created_at, f.updated_at
+            FROM facilities f
+            LEFT JOIN pics p ON p.id = f.pic_id';
 }
 
-function validateFacilityPic(string $picFullName, string $picPhone, string $picEmail = '', bool $emailRequired = false): array
+function normalizeFacilityPicId(Database $db, mixed $value): ?int
 {
-    $errors = [];
-    if ($picFullName === '' || strlen($picFullName) > 100) {
-        $errors['pic_full_name'] = 'Nama penuh PIC mesti diisi dan tidak melebihi 100 aksara.';
+    if ($value === null || $value === '') {
+        return null;
     }
-    if (!preg_match('/^[0-9+()\-\s]{7,20}$/', $picPhone)) {
-        $errors['pic_phone'] = 'Nombor telefon PIC tidak sah.';
+    $picId = (int)$value;
+    if ($picId <= 0 || !$db->fetchOne('SELECT id FROM pics WHERE id = ?', [$picId])) {
+        jsonResponse(['success' => false, 'error' => 'PIC yang dipilih tidak sah.'], 422);
     }
-    if (($emailRequired || $picEmail !== '') && !filter_var($picEmail, FILTER_VALIDATE_EMAIL)) {
-        $errors['pic_email'] = 'Alamat e-mel PIC tidak sah.';
-    }
-
-    return $errors;
+    return $picId;
 }
 
 function normalizeFacilityEquipmentOptions(mixed $value): string
@@ -149,14 +128,13 @@ function backfillDefaultFacilityEquipment(Database $db): void
 try {
     ensureFacilityEquipmentColumn($db);
     ensureFacilityMaxRoomsColumn($db);
-    ensureFacilityPicColumns($db);
     backfillDefaultFacilityEquipment($db);
     $action = $_GET['action'] ?? '';
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $includePicEmail = !empty($_SESSION['admin_id']) && empty($_SESSION['user_id']);
         $facilities = $db->fetchAll(
-            facilitySelectSql($includePicEmail) . ' ORDER BY id'
+            facilitySelectSql($includePicEmail) . ' ORDER BY f.id'
         );
         jsonResponse(['success' => true, 'data' => $facilities]);
     }
@@ -171,35 +149,25 @@ try {
             }
 
             $facility = $db->fetchOne(
-                'SELECT id, name, pic_full_name, pic_phone, pic_email FROM facilities WHERE id = ?',
+                "SELECT f.id, f.name, p.full_name, p.phone, p.email,
+                        GROUP_CONCAT(assigned.name ORDER BY assigned.name SEPARATOR ', ') AS facility_names
+                 FROM facilities f
+                 LEFT JOIN pics p ON p.id = f.pic_id
+                 LEFT JOIN facilities assigned ON assigned.pic_id = p.id
+                 WHERE f.id = ?
+                 GROUP BY f.id, f.name, p.id, p.full_name, p.phone, p.email",
                 [$id]
             );
             if (!$facility) {
                 jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
             }
 
-            $picEmail = trim((string)($facility['pic_email'] ?? ''));
+            $picEmail = trim((string)($facility['email'] ?? ''));
             if (!filter_var($picEmail, FILTER_VALIDATE_EMAIL)) {
                 jsonResponse(['success' => false, 'error' => 'Sila tetapkan e-mel PIC yang sah sebelum hantar e-mel percubaan.'], 422);
             }
 
-            $subject = 'PoliSpace - Percubaan E-mel PIC';
-            $body = implode("\n", [
-                'Assalamualaikum / Salam sejahtera,',
-                '',
-                'Ini ialah e-mel percubaan daripada sistem PoliSpace.',
-                '',
-                'Maklumat PIC:',
-                'Nama: ' . ($facility['pic_full_name'] ?: '-'),
-                'Telefon: ' . ($facility['pic_phone'] ?: '-'),
-                'Fasiliti: ' . ($facility['name'] ?: '-'),
-                '',
-                'Nota: Fungsi ini disediakan untuk ujian sebelum automasi e-mel tempahan diaktifkan.',
-                '',
-                'Terima kasih.',
-            ]);
-
-            if (!sendPlainEmail($picEmail, $subject, $body)) {
+            if (!sendPicTestEmail($facility)) {
                 jsonResponse(['success' => false, 'error' => 'E-mel percubaan gagal dihantar. Semak konfigurasi mail server.'], 500);
             }
 
@@ -216,9 +184,7 @@ try {
             ? (int)$input['max_rooms']
             : null;
         $description = trim((string)($input['description'] ?? ''));
-        $picFullName = trim((string)($input['pic_full_name'] ?? ''));
-        $picPhone = trim((string)($input['pic_phone'] ?? ''));
-        $picEmail = trim((string)($input['pic_email'] ?? ''));
+        $picId = normalizeFacilityPicId($db, $input['pic_id'] ?? null);
         $equipmentOptions = normalizeFacilityEquipmentOptions($input['equipment_options'] ?? '');
         $isAvailable = (int)(bool)($input['is_available'] ?? true);
         $errors = [];
@@ -247,19 +213,17 @@ try {
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
         }
-        $errors = array_merge($errors, validateFacilityPic($picFullName, $picPhone, $picEmail));
-
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
         }
 
         $id = $db->insert(
-            'INSERT INTO facilities (name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, pic_email, equipment_options, is_available)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picFullName, $picPhone, $picEmail, $equipmentOptions, $isAvailable]
+            'INSERT INTO facilities (name, icon, capacity, price_per_hour, max_rooms, description, pic_id, equipment_options, is_available)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picId, $equipmentOptions, $isAvailable]
         );
         $facility = $db->fetchOne(
-            facilitySelectSql(true) . ' WHERE id = ?',
+            facilitySelectSql(true) . ' WHERE f.id = ?',
             [$id]
         );
 
@@ -275,26 +239,16 @@ try {
             jsonResponse(['success' => false, 'error' => 'Facility ID required'], 400);
         }
 
-        $facility = $db->fetchOne('SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, pic_full_name, pic_phone, pic_email, equipment_options, is_available FROM facilities WHERE id = ?', [$id]);
+        $facility = $db->fetchOne('SELECT id, name, icon, capacity, price_per_hour, max_rooms, description, pic_id, equipment_options, is_available FROM facilities WHERE id = ?', [$id]);
         if (!$facility) {
             jsonResponse(['success' => false, 'error' => 'Facility not found'], 404);
         }
 
         if ($action === 'pic') {
-            $picFullName = trim((string)($input['pic_full_name'] ?? ''));
-            $picPhone = trim((string)($input['pic_phone'] ?? ''));
-            $picEmail = trim((string)($input['pic_email'] ?? ''));
-            $errors = validateFacilityPic($picFullName, $picPhone, $picEmail, true);
-            if ($errors) {
-                jsonResponse(['success' => false, 'error' => 'Maklumat PIC tidak lengkap.', 'errors' => $errors], 422);
-            }
-
-            $db->update(
-                'UPDATE facilities SET pic_full_name = ?, pic_phone = ?, pic_email = ? WHERE id = ?',
-                [$picFullName, $picPhone, $picEmail, $id]
-            );
-            $updated = $db->fetchOne(facilitySelectSql(true) . ' WHERE id = ?', [$id]);
-            jsonResponse(['success' => true, 'message' => 'Maklumat PIC berjaya dikemas kini.', 'data' => $updated]);
+            $picId = normalizeFacilityPicId($db, $input['pic_id'] ?? null);
+            $db->update('UPDATE facilities SET pic_id = ? WHERE id = ?', [$picId, $id]);
+            $updated = $db->fetchOne(facilitySelectSql(true) . ' WHERE f.id = ?', [$id]);
+            jsonResponse(['success' => true, 'message' => 'Tugasan PIC berjaya dikemas kini.', 'data' => $updated]);
         }
 
         $name = array_key_exists('name', $input) ? trim((string)$input['name']) : (string)$facility['name'];
@@ -305,9 +259,9 @@ try {
             ? (($input['max_rooms'] === null || $input['max_rooms'] === '') ? null : (int)$input['max_rooms'])
             : ($facility['max_rooms'] === null ? null : (int)$facility['max_rooms']);
         $description = array_key_exists('description', $input) ? trim((string)$input['description']) : (string)($facility['description'] ?? '');
-        $picFullName = array_key_exists('pic_full_name', $input) ? trim((string)$input['pic_full_name']) : (string)($facility['pic_full_name'] ?? '');
-        $picPhone = array_key_exists('pic_phone', $input) ? trim((string)$input['pic_phone']) : (string)($facility['pic_phone'] ?? '');
-        $picEmail = array_key_exists('pic_email', $input) ? trim((string)$input['pic_email']) : (string)($facility['pic_email'] ?? '');
+        $picId = array_key_exists('pic_id', $input)
+            ? normalizeFacilityPicId($db, $input['pic_id'])
+            : ($facility['pic_id'] === null ? null : (int)$facility['pic_id']);
         $equipmentOptions = array_key_exists('equipment_options', $input)
             ? normalizeFacilityEquipmentOptions($input['equipment_options'])
             : (string)($facility['equipment_options'] ?? '[]');
@@ -334,21 +288,20 @@ try {
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
         }
-        $errors = array_merge($errors, validateFacilityPic($picFullName, $picPhone, $picEmail));
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
         }
 
-        withFacilityAvailabilityLock($db, $id, function () use ($db, $id, $name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picFullName, $picPhone, $picEmail, $equipmentOptions, $isAvailable): void {
+        withFacilityAvailabilityLock($db, $id, function () use ($db, $id, $name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picId, $equipmentOptions, $isAvailable): void {
             $db->update(
                 'UPDATE facilities
-                 SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, max_rooms = ?, description = ?, pic_full_name = ?, pic_phone = ?, pic_email = ?, equipment_options = ?, is_available = ?
+                 SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, max_rooms = ?, description = ?, pic_id = ?, equipment_options = ?, is_available = ?
                  WHERE id = ?',
-                [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picFullName, $picPhone, $picEmail, $equipmentOptions, $isAvailable, $id]
+                [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picId, $equipmentOptions, $isAvailable, $id]
             );
         });
         $updated = $db->fetchOne(
-            facilitySelectSql(true) . ' WHERE id = ?',
+            facilitySelectSql(true) . ' WHERE f.id = ?',
             [$id]
         );
         jsonResponse(['success' => true, 'message' => 'Facility updated', 'data' => $updated]);
