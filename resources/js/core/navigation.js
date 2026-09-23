@@ -64,12 +64,41 @@ function setupNavigationAccess() {
 
   updateProtectedNavLinks(loggedIn);
   updateNavActions(navActions, loggedIn);
+  setupMobileNavigation();
   if (isClientLoggedIn()) ensureProfileModal();
   bindAccountMenu();
 }
 
+function setupMobileNavigation() {
+  const nav = document.getElementById('main-nav');
+  const navLinks = nav?.querySelector('.nav-links');
+  const navActions = nav?.querySelector('.nav-actions');
+  if (!nav || !navLinks || !navActions) return;
+
+  const hasPageLinks = Boolean(navLinks.querySelector('.nav-link'));
+  navLinks.id = navLinks.id || 'primaryNavigation';
+  navActions.querySelector('.nav-menu-toggle')?.remove();
+  if (!hasPageLinks) return;
+
+  const toggle = document.createElement('button');
+  toggle.className = 'nav-menu-toggle';
+  toggle.type = 'button';
+  toggle.setAttribute('aria-label', 'Buka menu navigasi');
+  toggle.setAttribute('aria-controls', navLinks.id);
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.innerHTML = '<i class="bi bi-list" aria-hidden="true"></i>';
+  toggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const isOpen = nav.classList.toggle('menu-open');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    toggle.setAttribute('aria-label', isOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi');
+    toggle.innerHTML = `<i class="bi ${isOpen ? 'bi-x-lg' : 'bi-list'}" aria-hidden="true"></i>`;
+  });
+  navActions.prepend(toggle);
+}
+
 function updateProtectedNavLinks(loggedIn) {
-  document.querySelectorAll('button[onclick]').forEach((button) => {
+  document.querySelectorAll('.nav-link[onclick]').forEach((button) => {
     const action = button.getAttribute('onclick') || '';
     const isProtectedLink = isProtectedRouteAction(action);
 
@@ -262,18 +291,36 @@ function bindAccountMenu() {
 
 document.addEventListener('click', (event) => {
   const accountMenu = document.querySelector('.account-menu');
-  if (!accountMenu || accountMenu.contains(event.target)) return;
+  if (accountMenu && !accountMenu.contains(event.target)) {
+    accountMenu.classList.remove('is-open');
+    document.querySelector('.account-menu-trigger')?.setAttribute('aria-expanded', 'false');
+  }
 
-  accountMenu.classList.remove('is-open');
-  document.querySelector('.account-menu-trigger')?.setAttribute('aria-expanded', 'false');
+  const nav = document.getElementById('main-nav');
+  if (nav && !nav.contains(event.target)) closeMobileNavigation();
 });
+
+function closeMobileNavigation() {
+  const nav = document.getElementById('main-nav');
+  const toggle = nav?.querySelector('.nav-menu-toggle');
+  if (!nav || !toggle) return;
+  nav.classList.remove('menu-open');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Buka menu navigasi');
+  toggle.innerHTML = '<i class="bi bi-list" aria-hidden="true"></i>';
+}
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
 
   document.querySelector('.account-menu')?.classList.remove('is-open');
   document.querySelector('.account-menu-trigger')?.setAttribute('aria-expanded', 'false');
+  closeMobileNavigation();
   if (typeof closeBookingCart === 'function') closeBookingCart();
+
+  const activeModals = document.querySelectorAll('.modal-overlay.active');
+  const activeModal = activeModals[activeModals.length - 1];
+  if (activeModal) activeModal.classList.remove('active');
 });
 
 function protectLoggedInPages() {

@@ -4,12 +4,24 @@ async function checkStatus() {
   const card = document.getElementById('statusResultCard');
   if (!ref || !card) return;
 
+  const button = document.getElementById('statusSearchButton');
+  if (button?.disabled) return;
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menyemak';
+  }
+
   try {
     const result = await tryApi(`bookings.php?action=ref&ref=${encodeURIComponent(ref)}`);
     renderStatusCard(result.data, card);
   } catch (error) {
     showToast(error.status === 404 ? 'Nombor rujukan tidak dijumpai.' : error.message || 'Status tempahan tidak dapat dimuatkan.', 'error');
     card.classList.remove('show');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = '<i class="bi bi-search"></i> Semak';
+    }
   }
 }
 
@@ -26,7 +38,7 @@ function renderStatusCard(booking, card) {
     : statusBadgeHtml(booking.status);
   document.getElementById('statusDetails').innerHTML = `
     <div class="detail-row"><span class="detail-label">Nama</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
-    <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value" style="display:flex;align-items:center;gap:6px">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
+    <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value detail-value-with-icon">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
     <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
     <div class="detail-row"><span class="detail-label">Masa</span><span class="detail-value">${escapeHtml(booking.start)} - ${escapeHtml(booking.end || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
@@ -37,8 +49,8 @@ function renderStatusCard(booking, card) {
     ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
     <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose)}</span></div>
-    ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value" style="color:var(--amber)">${escapeHtml(booking.adminNote)}</span></div>` : ''}
-    ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value" style="color:var(--amber)">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
+    ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value detail-value-warning">${escapeHtml(booking.adminNote)}</span></div>` : ''}
+    ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value detail-value-warning">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
   `;
 
   const hasReceipt = Boolean(booking.paymentFile || booking.payment_file);
@@ -69,7 +81,7 @@ function renderStatusGroupCard(group, card) {
           <span class="booking-id">${escapeHtml(booking.id || booking.booking_ref)}</span>
           ${statusBadgeHtml(booking.status)}
         </div>
-        <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value" style="display:flex;align-items:center;gap:6px">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
+        <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value detail-value-with-icon">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
         <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
         <div class="detail-row"><span class="detail-label">Masa</span><span class="detail-value">${escapeHtml(booking.start)} - ${escapeHtml(booking.end || '-')}</span></div>
         <div class="detail-row"><span class="detail-label">Jenis Pemohon</span><span class="detail-value">${escapeHtml(booking.accountTypeLabel || (booking.accountType === 'staff' ? 'Kakitangan' : 'Orang Awam'))}</span></div>

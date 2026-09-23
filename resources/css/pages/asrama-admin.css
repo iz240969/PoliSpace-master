@@ -1,4 +1,4 @@
-.asrama-admin-page {
+#admin.asrama-admin-page {
   max-width: 1180px;
   margin: 0 auto;
   padding: 112px 36px 60px;
@@ -289,7 +289,7 @@
 }
 
 @media (max-width: 640px) {
-  .asrama-admin-page { padding: 94px 16px 36px; }
+  #admin.asrama-admin-page { padding: 88px 16px 36px; }
   .asrama-page-header { align-items: stretch; flex-direction: column; }
   .asrama-page-header > .btn,
   .asrama-form-footer .btn { width: 100%; }

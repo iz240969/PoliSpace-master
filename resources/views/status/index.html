@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PoliSpace - Semak Status</title>
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260923-account-types">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260924-admin-table-fit">
 </head>
 <body>
   <nav id="main-nav">
@@ -25,14 +25,17 @@
 
   <div id="status" class="view active page-transition">
     <div class="status-page-content">
+      <div class="status-eyebrow">STATUS TEMPAHAN</div>
       <h1 class="page-title">Semak Status Tempahan</h1>
+      <p class="status-page-subtitle">Masukkan nombor rujukan individu (PS) atau rujukan troli (TR) untuk melihat perkembangan permohonan.</p>
       <div class="status-search-bar">
-        <input type="text" id="statusInput" placeholder="cth: PS-0001" onkeydown="if(event.key==='Enter') checkStatus()">
-        <button class="btn btn-primary" onclick="checkStatus()">Semak</button>
+        <label class="sr-only" for="statusInput">Nombor rujukan tempahan</label>
+        <input type="text" id="statusInput" placeholder="Contoh: PS-0001 atau TR-0001" autocomplete="off" onkeydown="if(event.key==='Enter') checkStatus()">
+        <button class="btn btn-primary" id="statusSearchButton" type="button" onclick="checkStatus()"><i class="bi bi-search"></i> Semak</button>
       </div>
       <div class="status-result-card" id="statusResultCard">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-          <div><div style="font-size:11px;color:var(--grey-4)">Rujukan Tempahan</div><div style="font-size:22px;color:var(--gold);font-weight:800;" id="statusRef"></div></div>
+        <div class="status-result-header">
+          <div><div class="status-result-label">Rujukan Tempahan</div><div class="status-result-reference" id="statusRef"></div></div>
           <div id="statusBadge"></div>
         </div>
         <div id="statusDetails"></div>
@@ -40,7 +43,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260923-account-types"></script>
+  <script src="/resources/js/script.js?v=20260924-admin-table-fixes"></script>
 </body>
 </html>
 

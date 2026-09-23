@@ -68,6 +68,11 @@ function facilityCapacityLabel(facility) {
   return `${capacity} orang`;
 }
 
+function facilityPriceLabel(facility) {
+  const price = Number(facility.price_per_hour || 0).toFixed(2);
+  return `RM ${price} / ${String(facility.name || '').toLowerCase().includes('asrama') ? 'bilik' : 'jam'}`;
+}
+
 function isBlockingBookingStatus(status) {
   return ['pending', 'approved'].includes(status);
 }
@@ -91,21 +96,28 @@ async function renderFacilities() {
   if (!grid) return;
 
   const facilities = await loadFacilities();
-  grid.innerHTML = facilities.map((f) => `
-    <div class="facility-card" onclick="selectFacilityAndBook('${escapeAttr(f.id)}')">
+  grid.innerHTML = facilities.map((f) => {
+    const equipment = f.equipment_options.slice(0, 3).map((item) => item.name).join(' · ');
+    return `
+    <button type="button" class="facility-card" onclick="selectFacilityAndBook('${escapeAttr(f.id)}')" aria-label="Tempah ${escapeAttr(f.name)}">
       <div class="facility-card-accent"></div>
       <div class="facility-arrow"><i class="bi bi-arrow-up-right"></i></div>
       <div class="facility-icon">${facilityIconHtml(f)}</div>
       <div class="facility-name">${escapeHtml(f.name)}</div>
       <div class="facility-desc">${escapeHtml(f.description)}</div>
+      <div class="facility-equipment">${equipment ? `<i class="bi bi-tools"></i><span>${escapeHtml(equipment)}</span>` : '<i class="bi bi-info-circle"></i><span>Keperluan boleh dipilih semasa tempahan</span>'}</div>
       <div class="facility-meta">
-        <div class="facility-cap">Kapasiti: <span>${escapeHtml(facilityCapacityLabel(f))}</span></div>
+        <div class="facility-facts">
+          <div class="facility-cap"><i class="bi bi-people"></i><span>${escapeHtml(facilityCapacityLabel(f))}</span></div>
+          <div class="facility-price">${escapeHtml(facilityPriceLabel(f))}</div>
+        </div>
         <div class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}">
           ${f.is_available ? '<i class="bi bi-check-circle"></i> Tersedia' : '<i class="bi bi-x-circle"></i> Tidak Tersedia'}
         </div>
       </div>
-    </div>
-  `).join('');
+    </button>
+  `;
+  }).join('');
 
   setText('stat-facilities', facilities.filter((f) => f.is_available).length);
   try {

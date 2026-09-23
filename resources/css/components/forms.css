@@ -1,0 +1,40 @@
+/* Shared form controls and validation */
+.form-group { display: flex; flex-direction: column; gap: 7px; }
+.form-group label, .field-label { color: var(--grey-5); font-size: 12px; font-weight: 700; line-height: 1.35; }
+.form-group label i { margin-right: 5px; color: var(--gold); }
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  width: 100%;
+  min-height: var(--input-height);
+  padding: 10px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  outline: none;
+  background: var(--surface);
+  color: var(--text-main);
+  font-family: var(--body-font);
+  font-size: 14px;
+  transition: border-color var(--transition), box-shadow var(--transition), background-color var(--transition);
+}
+
+select { cursor: pointer; }
+textarea { min-height: 112px; resize: vertical; line-height: 1.55; }
+input::placeholder, textarea::placeholder { color: var(--grey-3); opacity: 1; }
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):focus,
+select:focus,
+textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-ring); }
+
+input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacity: 0.7; background: var(--surface-3); }
+input[readonly], textarea[readonly], .profile-readonly, .booking-readonly { border-color: var(--border); background: var(--surface-2); color: var(--grey-4); cursor: default; }
+input[readonly]:focus, textarea[readonly]:focus { border-color: var(--border); box-shadow: none; }
+input[aria-invalid='true'], select[aria-invalid='true'], textarea[aria-invalid='true'],
+.field-error input, .field-error select, .field-error textarea { border-color: var(--red); box-shadow: 0 0 0 3px rgba(184, 60, 60, 0.11); }
+.field-help, .form-group small { color: var(--grey-4); font-size: 12px; line-height: 1.45; }
+.field-error-message { display: flex; align-items: center; gap: 6px; color: var(--red); font-size: 12px; font-weight: 600; }
+input[type='checkbox'], input[type='radio'] { width: 17px; height: 17px; accent-color: var(--gold); }
+.search-control { position: relative; }
+.search-control > i { position: absolute; top: 50%; left: 13px; transform: translateY(-50%); color: var(--grey-3); pointer-events: none; }
+.search-control > input { padding-left: 38px; }

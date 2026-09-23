@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PoliSpace - Dashboard Pengguna</title>
     <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/resources/css/style.css?v=20260923-account-types">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260924-admin-table-fit">
 </head>
 <body>
 
@@ -35,6 +35,7 @@
 
         <!-- HERO -->
         <div class="dash-hero">
+            <div class="dash-eyebrow">RUANG KERJA TEMPAHAN</div>
             <h1>Dashboard Anda</h1>
             <p>Urus semua tempahan fasiliti anda di satu tempat.</p>
             <p id="dashboardAccountType"></p>
@@ -44,30 +45,30 @@
         <!-- QUICK ACTIONS -->
         <div class="dash-section is-compact">
             <div class="dash-actions">
-                <div class="dash-action-card" onclick="window.location.href='/resources/views/booking/index.html'">
+                <button type="button" class="dash-action-card" onclick="window.location.href='/resources/views/booking/index.html'">
                     <span class="action-arrow"><i class="bi bi-arrow-up-right"></i></span>
                     <span class="action-icon"><i class="bi bi-calendar-plus"></i></span>
                     <div class="action-title">Buat Tempahan</div>
                     <div class="action-desc">Tempah fasiliti baharu</div>
-                </div>
-                <div class="dash-action-card" onclick="document.getElementById('dashBookingsSection').scrollIntoView({behavior:'smooth'})">
+                </button>
+                <button type="button" class="dash-action-card" onclick="document.getElementById('dashBookingsSection').scrollIntoView({behavior:'smooth'})">
                     <span class="action-arrow"><i class="bi bi-arrow-up-right"></i></span>
                     <span class="action-icon"><i class="bi bi-list-ul"></i></span>
-                    <div class="action-title">Mengurus Tempahan</div>
+                    <div class="action-title">Urus Tempahan</div>
                     <div class="action-desc">Lihat & batalkan tempahan anda</div>
-                </div>
-                <div class="dash-action-card" onclick="window.location.href='/resources/views/status/index.html'">
+                </button>
+                <button type="button" class="dash-action-card" onclick="window.location.href='/resources/views/status/index.html'">
                     <span class="action-arrow"><i class="bi bi-arrow-up-right"></i></span>
                     <span class="action-icon"><i class="bi bi-search"></i></span>
                     <div class="action-title">Semak Tempahan</div>
                     <div class="action-desc">Semak status melalui rujukan</div>
-                </div>
-                <div class="dash-action-card" onclick="openContactModal()">
+                </button>
+                <button type="button" class="dash-action-card" onclick="openContactModal()">
                     <span class="action-arrow"><i class="bi bi-arrow-up-right"></i></span>
                     <span class="action-icon"><i class="bi bi-chat-dots"></i></span>
                     <div class="action-title">Hubungi Admin</div>
                     <div class="action-desc">Hantar pertanyaan atau maklum balas</div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -143,6 +144,7 @@
                     <div class="upload-icon"><i class="bi bi-receipt"></i></div>
                     <div class="upload-title">Pilih resit bayaran</div>
                     <div class="upload-sub" id="dashboardReceiptFileName">Tiada fail dipilih</div>
+                    <div class="upload-sub">JPG, PNG, GIF atau PDF · Maksimum 5MB</div>
                 </label>
             </div>
             <div class="modal-footer">
@@ -181,7 +183,7 @@
         </div>
     </div>
 
-    <script src="/resources/js/script.js?v=20260923-account-types"></script>
+  <script src="/resources/js/script.js?v=20260924-admin-table-fixes"></script>
 
 </body>
 </html>

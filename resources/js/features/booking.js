@@ -1158,10 +1158,19 @@ async function doSignup() {
   const accountType = document.querySelector('input[name="signup-account-type"]:checked')?.value || 'public';
   const staffNumber = document.getElementById('signup-staff-number')?.value.trim() || '';
   const errorEl = document.getElementById('signupError');
+  const form = document.querySelector('.signup-card form');
+  const submitButton = document.getElementById('signupButton');
 
   if (errorEl) errorEl.classList.remove('show');
+  if (form) clearInlineFieldErrors(form);
 
   if (!fullName || !phone || !isValidEmail(email) || password.length < 6 || password !== passwordConfirm || (accountType === 'staff' && !staffNumber)) {
+    if (!fullName) showInlineFieldError('signup-name', 'Masukkan nama penuh.');
+    if (!phone) showInlineFieldError('signup-phone', 'Masukkan nombor telefon.');
+    if (!isValidEmail(email)) showInlineFieldError('signup-email', 'Masukkan alamat e-mel yang sah.');
+    if (password.length < 6) showInlineFieldError('signup-password', 'Kata laluan mestilah sekurang-kurangnya 6 aksara.');
+    if (password !== passwordConfirm) showInlineFieldError('signup-password-confirm', 'Kata laluan pengesahan tidak sama.');
+    if (accountType === 'staff' && !staffNumber) showInlineFieldError('signup-staff-number', 'Masukkan nombor kakitangan.');
     const message = password !== passwordConfirm ? 'Kata laluan pengesahan tidak sama.' : 'Sila lengkapkan semua ruangan dengan betul.';
     if (errorEl) {
       errorEl.textContent = message;
@@ -1172,6 +1181,7 @@ async function doSignup() {
     return;
   }
 
+  setActionButtonLoading(submitButton, true, '<i class="bi bi-person-plus"></i> Daftar Akaun', 'Mendaftarkan akaun');
   try {
     const result = await signupClient({
       full_name: fullName,
@@ -1193,6 +1203,8 @@ async function doSignup() {
     } else {
       showToast(message, 'error');
     }
+  } finally {
+    setActionButtonLoading(submitButton, false, '<i class="bi bi-person-plus"></i> Daftar Akaun', 'Mendaftarkan akaun');
   }
 }
 

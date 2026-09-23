@@ -3,7 +3,7 @@
 // Feature files are loaded in order because this app uses plain browser globals.
 (() => {
   const baseUrl = new URL('.', document.currentScript.src).href;
-  const version = '20260923-booking-redesign';
+  const version = '20260924-admin-table-fixes';
   const files = [
     'core/config.js',
     'core/navigation.js',

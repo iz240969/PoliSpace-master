@@ -15,14 +15,14 @@ function showToast(msg, type = 'success') {
 
 function statusBadgeHtml(status) {
   const labels = {
-    unpaid: '<div class="status-badge status-unpaid">Belum Bayar</div>',
-    pending: '<div class="status-badge status-pending">Menunggu</div>',
-    approved: '<div class="status-badge status-available">Diluluskan</div>',
-    rejected: '<div class="status-badge status-booked">Ditolak</div>',
-    cancelled: '<div class="status-badge status-booked">Dibatalkan</div>',
-    available: '<div class="status-badge status-available">Tersedia</div>',
-    unavailable: '<div class="status-badge status-booked">Tidak Tersedia</div>',
-    booked: '<div class="status-badge status-booked">Ditempah</div>',
+    unpaid: '<div class="status-badge status-unpaid"><i class="bi bi-credit-card" aria-hidden="true"></i>Belum Bayar</div>',
+    pending: '<div class="status-badge status-pending"><i class="bi bi-clock" aria-hidden="true"></i>Menunggu</div>',
+    approved: '<div class="status-badge status-approved"><i class="bi bi-check-circle" aria-hidden="true"></i>Diluluskan</div>',
+    rejected: '<div class="status-badge status-rejected"><i class="bi bi-x-circle" aria-hidden="true"></i>Ditolak</div>',
+    cancelled: '<div class="status-badge status-cancelled"><i class="bi bi-slash-circle" aria-hidden="true"></i>Dibatalkan</div>',
+    available: '<div class="status-badge status-available"><i class="bi bi-check-circle" aria-hidden="true"></i>Tersedia</div>',
+    unavailable: '<div class="status-badge status-booked"><i class="bi bi-x-circle" aria-hidden="true"></i>Tidak Tersedia</div>',
+    booked: '<div class="status-badge status-booked"><i class="bi bi-calendar-x" aria-hidden="true"></i>Ditempah</div>',
   };
   return labels[status] || '';
 }

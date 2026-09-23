@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PoliSpace - Admin Portal</title>
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260923-account-types">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260924-admin-table-fit">
 </head>
 <body>
   <nav id="main-nav">
@@ -38,8 +38,11 @@
 
       <div class="admin-content">
         <div class="admin-panel active" id="panel-dashboard">
-          <h2 style="font-family:var(--display-font);font-size:28px;font-weight:900;margin-bottom:8px">Dashboard</h2>
-          <p style="color:var(--grey-4);font-size:13px;margin-bottom:32px" id="dashDate"></p>
+          <header class="admin-page-header">
+            <div class="admin-page-eyebrow">RINGKASAN OPERASI</div>
+            <h1>Dashboard</h1>
+            <p id="dashDate"></p>
+          </header>
           <div class="stats-grid" id="adminStats"></div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -55,7 +58,7 @@
 
         <div class="admin-panel" id="panel-bookings">
           <div class="admin-panel-toolbar">
-            <h2>Pengurusan Tempahan</h2>
+            <div><div class="admin-page-eyebrow">TEMPAHAN</div><h2>Pengurusan Tempahan</h2><p class="admin-panel-subtitle">Semak permohonan, status bayaran dan tindakan kelulusan.</p></div>
             <div class="admin-toolbar-actions">
               <button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminCreateBooking"><i class="bi bi-plus-lg"></i> Tambah Tempahan</button>
               <div class="table-sort"><i class="bi bi-sort-down"></i><select id="adminBookingsSortSelect" aria-label="Susun tempahan" onchange="renderAdminBookings()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div>
@@ -67,7 +70,7 @@
 
         <div class="admin-panel" id="panel-messages">
           <div class="admin-panel-toolbar">
-            <h2>Mesej Pelanggan</h2>
+            <div><div class="admin-page-eyebrow">KOMUNIKASI</div><h2>Mesej Pelanggan</h2><p class="admin-panel-subtitle">Baca pertanyaan dan balas melalui e-mel.</p></div>
             <div class="admin-toolbar-actions"><div class="table-sort"><i class="bi bi-sort-down"></i><select id="messagesSortSelect" aria-label="Susun mesej" onchange="renderAdminMessages()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div><button class="btn btn-secondary btn-sm" type="button" onclick="loadMessages()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
           </div>
           <div class="admin-card">
@@ -80,7 +83,7 @@
 
         <div class="admin-panel" id="panel-clients">
           <div class="admin-panel-toolbar">
-            <h2>Pengurusan Pelanggan</h2>
+            <div><div class="admin-page-eyebrow">PELANGGAN</div><h2>Pengurusan Pelanggan</h2><p class="admin-panel-subtitle">Lihat profil, jenis akaun dan sejarah tempahan.</p></div>
             <div class="admin-toolbar-actions"><div class="table-sort"><i class="bi bi-sort-down"></i><select id="clientsSortSelect" aria-label="Susun pelanggan" onchange="renderAdminClients()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div><button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
           </div>
           <div class="admin-card">
@@ -96,12 +99,12 @@
             <div><h2>Pengesahan Akaun Kakitangan</h2><p class="admin-panel-subtitle">Semak nombor kakitangan sebelum memberikan pengecualian bayaran.</p></div>
             <button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
           </div>
-          <div class="admin-card"><div class="data-table-wrap"><table class="data-table"><thead><tr><th>Nama</th><th>E-mel</th><th>No. Kakitangan</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="staffVerificationTbody"></tbody></table></div></div>
+          <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-staff-verification-table"><thead><tr><th>Nama</th><th>E-mel</th><th>No. Kakitangan</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="staffVerificationTbody"></tbody></table></div></div>
         </div>
 
         <div class="admin-panel" id="panel-facilities">
           <div class="admin-panel-toolbar">
-            <h2>Pengurusan Fasiliti</h2>
+            <div><div class="admin-page-eyebrow">FASILITI</div><h2>Pengurusan Fasiliti</h2><p class="admin-panel-subtitle">Urus ketersediaan, peralatan dan tugasan PIC.</p></div>
             <button class="btn btn-secondary btn-sm" type="button" onclick="loadFacilities().then(renderFacilityManagement)"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
           </div>
           <form class="admin-card admin-facility-form" id="adminFacilityForm" onsubmit="addFacility(event)">
@@ -190,7 +193,7 @@
           <div class="admin-panel-toolbar">
             <div>
               <h2>Pengurusan PIC</h2>
-              <p class="admin-panel-subtitle">Urus orang bertanggungjawab untuk setiap fasiliti dan hantar e-mel percubaan kepada PIC.</p>
+              <p class="admin-panel-subtitle">Urus orang bertanggungjawab untuk setiap fasiliti dan hantar e-mel kepada PIC.</p>
             </div>
             <div class="admin-toolbar-actions">
               <button class="btn btn-primary btn-sm" type="button" onclick="openPicAddModal()"><i class="bi bi-person-plus"></i> Tambah PIC</button>
@@ -201,8 +204,8 @@
         </div>
 
         <div class="admin-panel" id="panel-calendar">
-          <h2 style="margin-bottom:32px;">Kalendar Tempahan</h2>
-          <div class="admin-card" style="padding:32px"><div id="calendarView"></div></div>
+          <div class="admin-panel-toolbar"><div><div class="admin-page-eyebrow">KALENDAR</div><h2>Kalendar Tempahan</h2><p class="admin-panel-subtitle">Lihat tempahan mengikut tarikh tanpa memadatkan butiran ke dalam sel.</p></div></div>
+          <div class="admin-card admin-calendar-card"><div id="calendarView"></div></div>
         </div>
 
         <div class="admin-panel" id="panel-reports">
@@ -229,7 +232,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260923-account-types"></script>
+  <script src="/resources/js/script.js?v=20260924-admin-table-fixes"></script>
 </body>
 </html>
 

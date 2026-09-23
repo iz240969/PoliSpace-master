@@ -1,12 +1,39 @@
 // ==================== AUTH ====================
+function clearInlineFieldErrors(scope = document) {
+  scope.querySelectorAll('.field-error-message').forEach((message) => message.remove());
+  scope.querySelectorAll('[aria-invalid="true"]').forEach((field) => field.removeAttribute('aria-invalid'));
+}
+
+function showInlineFieldError(fieldId, message) {
+  const field = document.getElementById(fieldId);
+  const group = field?.closest('.form-group');
+  if (!field || !group) return;
+  field.setAttribute('aria-invalid', 'true');
+  const feedback = document.createElement('span');
+  feedback.className = 'field-error-message';
+  feedback.innerHTML = `<i class="bi bi-exclamation-circle" aria-hidden="true"></i>${escapeHtml(message)}`;
+  group.appendChild(feedback);
+}
+
+function setActionButtonLoading(button, loading, idleHtml, loadingLabel) {
+  if (!button) return;
+  button.disabled = loading;
+  button.innerHTML = loading ? `<i class="bi bi-arrow-repeat"></i>${escapeHtml(loadingLabel)}` : idleHtml;
+}
+
 async function doAutoLogin() {
   const email = document.getElementById('login-email')?.value.trim() || '';
   const password = document.getElementById('login-password')?.value || '';
   const errorEl = document.getElementById('loginError');
+  const form = document.querySelector('.unified-login-card form');
+  const submitButton = document.getElementById('authLoginButton');
 
   if (errorEl) errorEl.classList.remove('show');
+  if (form) clearInlineFieldErrors(form);
 
   if (!isValidEmail(email) || !password) {
+    if (!isValidEmail(email)) showInlineFieldError('login-email', 'Masukkan alamat e-mel yang sah.');
+    if (!password) showInlineFieldError('login-password', 'Masukkan kata laluan.');
     if (errorEl) {
       errorEl.textContent = 'Sila masukkan e-mel dan kata laluan yang sah.';
       errorEl.classList.add('show');
@@ -16,6 +43,7 @@ async function doAutoLogin() {
     return;
   }
 
+  setActionButtonLoading(submitButton, true, '<i class="bi bi-box-arrow-in-right"></i> Log Masuk', 'Sedang log masuk');
   try {
     const result = await autoLogin(email, password);
     if (result.role === 'admin') {
@@ -33,6 +61,8 @@ async function doAutoLogin() {
     } else {
       showToast(error.message || 'Log masuk gagal.', 'error');
     }
+  } finally {
+    setActionButtonLoading(submitButton, false, '<i class="bi bi-box-arrow-in-right"></i> Log Masuk', 'Sedang log masuk');
   }
 }
 
@@ -40,10 +70,19 @@ async function doLogin() {
   const userEl = document.getElementById('login-user');
   const passEl = document.getElementById('login-pass');
   const errorEl = document.getElementById('loginError');
+  const submitButton = document.getElementById('adminLoginButton');
   const rawUser = userEl?.value.trim() || '';
   const password = passEl?.value || '';
   const email = rawUser.includes('@') ? rawUser : 'admin@polspace.com';
 
+  clearInlineFieldErrors(document);
+  if (!isValidEmail(email) || !password) {
+    if (!isValidEmail(email)) showInlineFieldError('login-user', 'Masukkan alamat e-mel admin yang sah.');
+    if (!password) showInlineFieldError('login-pass', 'Masukkan kata laluan.');
+    return;
+  }
+
+  setActionButtonLoading(submitButton, true, 'Log Masuk', 'Sedang log masuk');
   try {
     await adminLogin(email, password);
     localStorage.setItem('ps_admin_logged_in', '1');
@@ -54,6 +93,8 @@ async function doLogin() {
       errorEl.classList.add('show');
       errorEl.style.display = 'block';
     }
+  } finally {
+    setActionButtonLoading(submitButton, false, 'Log Masuk', 'Sedang log masuk');
   }
 }
 

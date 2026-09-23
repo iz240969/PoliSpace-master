@@ -428,7 +428,7 @@ function adminBookingRowHtml(booking, isRecent, childGroupRef = '') {
       <td class="table-date">${cell(formatDate(booking.date))}</td>
       ${!isRecent ? `<td class="table-time">${cell(`${escapeHtml(booking.start)} - ${escapeHtml(booking.end || '?')}`)}</td>` : ''}
       <td class="table-status">${cell(statusBadgeHtml(booking.status))}</td>
-      <td>${cell(`<div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(booking.id)}')" title="${booking.paymentRequired === false ? 'Lulus permohonan' : 'Sahkan bayaran dan luluskan'}" aria-label="Luluskan tempahan ${escapeAttr(booking.id)}"><i class="bi bi-check-lg"></i> ${booking.paymentRequired === false ? 'Lulus Permohonan' : 'Sahkan & Lulus'}</button>` : ''}${canReject && !canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(booking.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}${canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="cancelApprovedBookingPrompt('${escapeAttr(booking.id)}')" title="Batalkan tempahan yang diluluskan"><i class="bi bi-x-circle"></i> Batal</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(booking.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(booking.id)}"><i class="bi bi-eye"></i></button></div>`)}</td>
+      <td>${cell(`<div class="table-actions admin-booking-actions">${canApprove ? `<button class="btn btn-success btn-sm admin-decision-btn" onclick="approveBooking('${escapeAttr(booking.id)}')" title="${booking.paymentRequired === false ? 'Sahkan permohonan' : 'Sahkan bayaran dan tempahan'}" aria-label="Sahkan tempahan ${escapeAttr(booking.id)}"><i class="bi bi-check-lg"></i> Sahkan</button>` : ''}${canReject && !canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="rejectBookingPrompt('${escapeAttr(booking.id)}')" title="Tolak tempahan"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}${canCancelApproved ? `<button class="btn btn-danger btn-sm admin-decision-btn" onclick="cancelApprovedBookingPrompt('${escapeAttr(booking.id)}')" title="Batalkan tempahan yang diluluskan"><i class="bi bi-x-circle"></i> Batal</button>` : ''}<button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewBookingDetail('${escapeAttr(booking.id)}')" title="Lihat tempahan" aria-label="Lihat tempahan ${escapeAttr(booking.id)}"><i class="bi bi-eye"></i></button></div>`)}</td>
     </tr>`;
 }
 
@@ -1080,7 +1080,7 @@ function renderPicManagement(pics = adminPicsCache) {
                 : '<em>Belum ditugaskan</em>'}</div></td>
               <td><div class="table-actions pic-table-actions">
                 <button class="btn btn-secondary btn-sm" type="button" onclick="openPicEditModal('${escapeAttr(pic.id)}')"><i class="bi bi-pencil-square"></i> Edit</button>
-                <button class="btn btn-secondary btn-sm table-icon-btn" type="button" onclick="sendPicTestEmailRequest('${escapeAttr(pic.id)}')" title="Hantar e-mel percubaan" aria-label="Hantar e-mel percubaan kepada ${escapeAttr(pic.full_name)}"><i class="bi bi-envelope-check"></i></button>
+                <button class="btn btn-secondary btn-sm table-icon-btn" type="button" onclick="sendPicTestEmailRequest('${escapeAttr(pic.id)}')" title="Hantar e-mel" aria-label="Hantar e-mel kepada ${escapeAttr(pic.full_name)}"><i class="bi bi-envelope-check"></i></button>
                 <button class="btn btn-danger btn-sm table-icon-btn" type="button" onclick="deletePic('${escapeAttr(pic.id)}')" title="Padam PIC" aria-label="Padam ${escapeAttr(pic.full_name)}"><i class="bi bi-trash3"></i></button>
               </div></td>
             </tr>`).join('')}</tbody>
@@ -1477,10 +1477,10 @@ async function deletePic(id) {
 async function sendPicTestEmailRequest(id) {
   try {
     const result = await tryApi(`pics.php?action=test-email&id=${encodeURIComponent(id)}`, 'POST', {});
-    showToast(result.message || 'E-mel percubaan telah dihantar.', 'success');
+    showToast(result.message || 'E-mel telah dihantar.', 'success');
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
-    showToast(error.message || 'E-mel percubaan gagal dihantar.', 'error');
+    showToast(error.message || 'E-mel gagal dihantar.', 'error');
   }
 }
 
@@ -1554,7 +1554,7 @@ function renderStaffVerificationRequests(clients = adminClientsCache) {
       <td><div class="table-actions">
         ${client.staff_verification_status !== 'verified' ? `<button class="btn btn-success btn-sm" onclick="updateStaffVerification(${Number(client.id)}, 'verified')"><i class="bi bi-check-lg"></i> Sahkan</button>` : ''}
         ${client.staff_verification_status !== 'rejected' ? `<button class="btn btn-danger btn-sm" onclick="updateStaffVerification(${Number(client.id)}, 'rejected')"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}
-        <button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewClientDetail(${Number(client.id)})" title="Lihat butiran"><i class="bi bi-eye"></i></button>
+        <button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewClientDetail(${Number(client.id)})" title="Lihat butiran" aria-label="Lihat pelanggan ${escapeAttr(client.email)}"><i class="bi bi-eye"></i></button>
       </div></td>
     </tr>
   `).join('');
@@ -1894,7 +1894,7 @@ async function viewBookingDetail(id) {
     ${booking.status === 'approved' ? cancellationNoteHtml() : ''}
   `;
   document.getElementById('modalFooter').innerHTML = booking.status === 'pending'
-    ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> ${booking.paymentRequired === false ? 'Lulus Permohonan' : 'Sahkan Bayaran & Lulus'}</button>`
+    ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Batal</button><button class="btn btn-danger" onclick="rejectBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-lg"></i> Tolak</button><button class="btn btn-success" onclick="approveBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-check-lg"></i> ${booking.paymentRequired === false ? 'Lulus Permohonan' : 'Sahkan'}</button>`
     : booking.status === 'approved'
       ? `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button><button class="btn btn-danger" onclick="cancelApprovedBookingFromModal('${escapeAttr(booking.id)}')"><i class="bi bi-x-circle"></i> Batalkan Tempahan</button>`
       : `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
