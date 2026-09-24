@@ -63,6 +63,9 @@ async function loadUserBookings() {
     return;
   }
   psDashboardBookings = bookings;
+  setText('userStatTotal', bookings.length);
+  setText('userStatPending', bookings.filter((booking) => booking.status === 'pending').length);
+  setText('userStatApproved', bookings.filter((booking) => booking.status === 'approved').length);
   applyBookingFilters();
 }
 

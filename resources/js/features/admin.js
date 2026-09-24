@@ -913,13 +913,7 @@ async function createAdminBookingRequest(data, receiptFile = null) {
     body: formData,
     credentials: 'include',
   });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.success === false) {
-    const error = new Error(result.error || 'Tempahan gagal dicipta.');
-    error.status = response.status;
-    throw error;
-  }
-  return result;
+  return readApiResponse(response, 'Tempahan gagal dicipta.');
 }
 
 function openAdminPhysicalPaymentWindow() {

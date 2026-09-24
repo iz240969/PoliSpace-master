@@ -21,9 +21,18 @@ if ($LASTEXITCODE -ne 0) { $failures.Add('UI behaviour checks failed') }
 $publicChecks = @(
     '/',
     '/resources/views/welcome.html',
+    '/resources/views/booking/index.html',
+    '/resources/views/dashboard/index.html',
+    '/resources/views/status/index.html',
+    '/resources/views/auth/login.html',
+    '/resources/views/auth/signup.html',
+    '/resources/views/admin/login.html',
     '/resources/views/admin/dashboard.html',
     '/resources/views/admin/create-booking.html',
     '/resources/views/admin/asrama.html',
+    '/resources/css/style.css',
+    '/resources/css/components/public-experience.css',
+    '/resources/js/script.js',
     '/backend/api/facilities.php',
     '/backend/api/bookings.php?action=public-stats',
     '/backend/api/asrama_rooms.php?action=availability&date=2026-12-12&duration=2'

@@ -26,9 +26,18 @@ async function init() {
     return;
   }
 
-  await renderFacilities();
-  await renderLandingCalendar();
-  await renderPublicCalendarView();
+  if (document.getElementById('facilitiesGrid')) {
+    await Promise.all([renderFacilities(), renderLandingCalendar(), renderPublicCalendarView()]);
+    return;
+  }
+
+  if (document.getElementById('dashboard')) {
+    initDashboard();
+    return;
+  }
+
+  if (!document.getElementById('booking')) return;
+
   await populateBookingFacilities();
   await initBookingPage();
   await renderBookingDatePicker();
@@ -45,10 +54,6 @@ async function init() {
       document.getElementById(id)?.addEventListener('input', () => { normalizeRoomCount(); updatePricing(); });
       document.getElementById(id)?.addEventListener('blur', normalizeRoomCount);
     });
-  }
-
-  if (document.getElementById('dashboard')) {
-    initDashboard();
   }
 
 }

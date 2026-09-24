@@ -1,0 +1,115 @@
+/* Shared customer-facing layout. Admin views keep their own workspace styles. */
+.public-page {
+  --public-line: #e8e6df;
+  --public-shadow: 0 12px 32px rgba(37, 39, 35, .045);
+  background: #f7f7f4;
+}
+.public-page #main-nav {
+  border-bottom: 1px solid var(--public-line);
+  box-shadow: 0 4px 24px rgba(32, 33, 29, .025);
+}
+.public-page :is(.btn, .nav-link, .dash-action-card, .dash-filter-chip):focus-visible {
+  outline: 3px solid var(--gold-ring);
+  outline-offset: 2px;
+}
+.public-page :is(.btn, .dash-action-card) {
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+.public-page .dash-action-card:hover { transform: translateY(-3px); }
+.public-page .btn:active { transform: translateY(1px); }
+
+/* Customer dashboard: compact overview, actions and one clear booking toolbar. */
+.public-page .dash-overview-card { animation: surfaceEnter 240ms var(--motion-ease); }
+.public-page .dash-hero { padding-top: 120px; padding-bottom: 25px; }
+.public-page .dash-hero h1 { font-size: clamp(34px, 4vw, 46px); }
+.public-page .dash-overview { width: min(100%, var(--container)); margin: 0 auto; padding: 0 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.public-page .dash-overview-card { min-width: 0; display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; column-gap: 14px; align-items: center; padding: 19px 22px; border: 1px solid var(--public-line); border-radius: 16px; background: #fff; box-shadow: var(--shadow-sm); }
+.public-page .dash-overview-icon { grid-row: 1 / 3; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 11px; background: var(--gold-dim); color: var(--gold-hover); font-size: 19px; }
+.public-page .dash-overview-label { color: var(--grey-4); font-size: 11px; font-weight: 700; letter-spacing: .45px; text-transform: uppercase; }
+.public-page .dash-overview-card strong { margin-top: 2px; font-size: 28px; font-weight: 800; line-height: 1.15; }
+.public-page .dash-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); justify-content: stretch; gap: 14px; margin-top: 0; }
+.public-page .dash-action-card { min-height: 146px; border-radius: 16px; box-shadow: var(--shadow-sm); }
+.public-page .dash-action-card .action-icon { font-size: 27px; }
+.public-page .dash-section.is-compact { padding-top: 22px; padding-bottom: 8px; }
+.public-page #dashBookingsSection { padding-top: 32px; }
+.public-page .dash-section-header { margin-bottom: 18px; }
+.public-page .dash-filter-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.public-page .dash-booking-search { position: relative; flex: 0 1 310px; min-width: 230px; }
+.public-page .dash-booking-search i { position: absolute; top: 50%; left: 14px; transform: translateY(-50%); color: var(--grey-3); font-size: 16px; pointer-events: none; }
+.public-page .dash-booking-search input { width: 100%; height: 43px; padding: 0 14px 0 42px; border: 1px solid var(--public-line); border-radius: 10px; background: #fff; color: var(--text-main); font: 600 13px var(--body-font); }
+.public-page .dash-booking-search input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-ring); }
+.public-page .dash-filter-list { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.public-page .dash-filter-chip { min-height: 36px; padding: 0 12px; border: 1px solid var(--public-line); border-radius: 9px; background: #fff; color: var(--grey-4); cursor: pointer; font: 700 12px var(--body-font); }
+.public-page .dash-filter-chip:hover { border-color: #dac590; color: var(--text-main); }
+.public-page .dash-filter-chip.active { border-color: #e6d8b3; background: var(--gold-dim); color: var(--gold-hover); }
+.public-page .dash-bookings-card { border-radius: 16px; box-shadow: var(--shadow-sm); }
+
+/* Booking and status retain their workflow while sharing the same surfaces. */
+.public-page #booking .booking-layout { gap: 22px; padding-top: 34px; }
+.public-page #booking .booking-form-section,
+.public-page #booking .sidebar-card { border-color: var(--public-line); border-radius: 18px; box-shadow: var(--public-shadow); }
+.public-page #booking .form-section-number { background: var(--gold-dim); color: var(--gold-hover); }
+.public-page #booking .form-section-title { font-weight: 800; }
+.public-page #booking .form-group input:focus,
+.public-page #booking .form-group select:focus,
+.public-page #booking .form-group textarea:focus { box-shadow: 0 0 0 3px var(--gold-ring); }
+.public-page .status-page-content { max-width: 850px; padding-top: 54px; }
+.public-page .status-page-content .page-title { font-weight: 800; letter-spacing: -1px; }
+.public-page .status-page-subtitle { font-size: 15px; line-height: 1.65; }
+.public-page .status-search-bar { padding: 20px; border-radius: 16px; box-shadow: var(--public-shadow); }
+.public-page .status-search-hint { display: flex; gap: 9px; max-width: 690px; margin: -6px 0 26px; color: var(--grey-4); font-size: 12px; line-height: 1.6; }
+.public-page .status-search-hint i { flex: 0 0 auto; color: var(--gold); }
+.public-page .status-search-hint a { color: var(--gold-hover); font-weight: 750; }
+.public-page .status-result-card { border-radius: 17px; box-shadow: var(--public-shadow); }
+
+/* Focused two-column authentication, with PoliSpace brand content. */
+.public-page :is(.login-page, .signup-page) { display: grid; grid-template-columns: minmax(290px, .8fr) minmax(0, 1.2fr); align-items: stretch; gap: 0; width: min(100%, 1100px); min-height: 0; margin: 0 auto; padding: 130px 24px 70px; background: transparent; }
+.public-page .auth-aside { min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 60px; padding: 38px; border-radius: 20px 0 0 20px; background: #292d28; color: #fff; }
+.public-page .auth-aside-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -.5px; }
+.public-page .auth-aside-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: var(--gold); color: #fff; font-size: 18px; }
+.public-page .auth-aside-eyebrow { color: #dec68f; font-size: 11px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; }
+.public-page .auth-aside h2 { max-width: 350px; margin: 12px 0; color: #fff; font-size: clamp(29px, 3vw, 39px); font-weight: 800; line-height: 1.16; letter-spacing: -1.2px; }
+.public-page .auth-aside p { max-width: 350px; color: #d0d3cc; font-size: 14px; line-height: 1.7; }
+.public-page .auth-aside-foot { color: #d0d3cc; font-size: 12px; font-weight: 600; }
+.public-page .auth-aside-foot i { margin-right: 7px; color: #e4c885; }
+.public-page :is(.unified-login-card, .signup-card) { max-width: none; margin: 0; padding: clamp(32px, 4vw, 54px); border-color: var(--public-line); border-radius: 0 20px 20px 0; box-shadow: var(--public-shadow); }
+.public-page :is(.unified-login-head, .signup-head) { text-align: left; }
+.public-page :is(.unified-login-icon, .signup-icon) { margin-left: 0; }
+.public-page :is(.unified-login-sub, .signup-sub) { margin-left: 0; }
+.public-page :is(.unified-login-title, .signup-title) { font-size: 32px; font-weight: 800; }
+
+@media (max-width: 1050px) {
+  .public-page .dash-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .public-page .dash-filter-toolbar { align-items: flex-start; flex-direction: column; }
+  .public-page .dash-booking-search { flex-basis: auto; width: min(100%, 420px); }
+  .public-page .dash-filter-list { justify-content: flex-start; }
+}
+@media (max-width: 760px) {
+  .public-page #dashboard { padding-top: 0; }
+  .public-page .dash-hero { padding: 104px 18px 24px; }
+  .public-page .dash-overview { padding: 0 18px; gap: 9px; }
+  .public-page .dash-overview-card { grid-template-columns: 1fr; padding: 14px; }
+  .public-page .dash-overview-icon { grid-row: auto; width: 36px; height: 36px; margin-bottom: 12px; }
+  .public-page .dash-overview-card strong { font-size: 23px; }
+  .public-page .dash-section { padding-left: 18px; padding-right: 18px; }
+  .public-page :is(.login-page, .signup-page) { display: block; padding: 105px 18px 44px; }
+  .public-page .auth-aside { display: none; }
+  .public-page :is(.unified-login-card, .signup-card) { max-width: 620px; margin: auto; border-radius: 18px; }
+  .public-page .status-page-content { padding: 40px 18px 60px; }
+}
+@media (max-width: 520px) {
+  .public-page .dash-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .public-page .dash-overview-card { padding: 12px 9px; }
+  .public-page .dash-overview-label { font-size: 9px; letter-spacing: 0; }
+  .public-page .dash-actions { grid-template-columns: 1fr 1fr; }
+  .public-page .dash-action-card { min-height: 145px; padding: 16px; }
+  .public-page .dash-action-card .action-title { font-size: 14px; }
+  .public-page .dash-booking-search { min-width: 0; width: 100%; }
+  .public-page :is(.unified-login-card, .signup-card) { padding: 28px 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .public-page .dash-overview-card { animation: none; }
+  .public-page :is(.btn, .dash-action-card) { transition: none; }
+  .public-page .dash-action-card:hover,
+  .public-page .btn:active { transform: none; }
+}

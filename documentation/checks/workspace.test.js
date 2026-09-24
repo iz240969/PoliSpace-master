@@ -49,6 +49,58 @@ function harness() {
   return { context, run, element, selectors, document };
 }
 
+test('API requests recover after a temporary network failure', async () => {
+  let requests = 0;
+  const context = vm.createContext({
+    API_BASE: '/backend/api',
+    apiOnline: true,
+    fetch: async () => {
+      requests += 1;
+      if (requests === 1) throw new Error('Network unavailable');
+      return { ok: true, status: 200, json: async () => ({ success: true, data: [] }) };
+    },
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+  await assert.rejects(context.tryApi('facilities.php'));
+  assert.equal(context.apiOnline, false);
+  await context.tryApi('facilities.php');
+  assert.equal(context.apiOnline, true);
+  assert.equal(requests, 2);
+});
+
+test('malformed successful HTTP responses are rejected', async () => {
+  const context = vm.createContext({
+    API_BASE: '/backend/api',
+    fetch: async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('HTML response'); } }),
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+  await assert.rejects(context.apiRequest('facilities.php'), /Respons pelayan tidak sah/);
+});
+
+test('landing sections initialize together without delaying other pages', async () => {
+  const started = [];
+  let finishFacilities;
+  const context = vm.createContext({
+    document: {
+      readyState: 'loading',
+      addEventListener() {},
+      documentElement: { classList: { remove() {} } },
+      getElementById: (id) => id === 'facilitiesGrid' ? {} : null,
+    },
+    setupAdminWorkspace() {}, setupSurfaceAccessibility() {}, setupNavigationAccess() {},
+    refreshAuthState: async () => {}, protectLoggedInPages: () => true,
+    renderFacilities: () => { started.push('facilities'); return new Promise((resolve) => { finishFacilities = resolve; }); },
+    renderLandingCalendar: () => { started.push('legacy calendar'); },
+    renderPublicCalendarView: () => { started.push('calendar'); },
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/init.js'), 'utf8'), context);
+  const initialization = context.init();
+  await new Promise(setImmediate);
+  assert.deepEqual(started, ['facilities', 'legacy calendar', 'calendar']);
+  finishFacilities();
+  await initialization;
+});
+
 test('customer search and account filters preserve the staff verification queue and source records', () => {
   const h = harness();
   h.element('adminClientSearch', 'ali EXAMPLE');

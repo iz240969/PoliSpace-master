@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260925-titles">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260925-public">
 </head>
-<body>
+<body class="public-page">
   <div class="session-loading" role="status">Menyemak sesi akaun...</div>
 
     <!-- ===== NAV ===== -->
@@ -43,6 +43,12 @@
             <p>Urus semua tempahan fasiliti anda di satu tempat.</p>
             <p id="dashboardAccountType"></p>
 
+        </div>
+
+        <div class="dash-overview" aria-label="Ringkasan tempahan">
+            <div class="dash-overview-card"><span class="dash-overview-icon"><i class="bi bi-calendar2-week"></i></span><span class="dash-overview-label">Jumlah Tempahan</span><strong id="userStatTotal">0</strong></div>
+            <div class="dash-overview-card"><span class="dash-overview-icon"><i class="bi bi-hourglass-split"></i></span><span class="dash-overview-label">Menunggu</span><strong id="userStatPending">0</strong></div>
+            <div class="dash-overview-card"><span class="dash-overview-icon"><i class="bi bi-check2-circle"></i></span><span class="dash-overview-label">Diluluskan</span><strong id="userStatApproved">0</strong></div>
         </div>
 
         <!-- QUICK ACTIONS -->
@@ -93,13 +99,24 @@
                     </div>
                 </div>
             </div>
+            <div class="dash-filter-toolbar">
+                <label class="dash-booking-search"><i class="bi bi-search"></i><span class="sr-only">Cari tempahan</span><input id="bookingSearchInput" type="search" placeholder="Cari rujukan atau fasiliti..." oninput="applyBookingFilters()"></label>
+                <div class="dash-filter-list" role="group" aria-label="Tapis status tempahan">
+                    <button type="button" class="dash-filter-chip active" data-status="all" onclick="setBookingStatusFilter(this)">Semua</button>
+                    <button type="button" class="dash-filter-chip" data-status="unpaid" onclick="setBookingStatusFilter(this)">Belum Bayar</button>
+                    <button type="button" class="dash-filter-chip" data-status="pending" onclick="setBookingStatusFilter(this)">Menunggu</button>
+                    <button type="button" class="dash-filter-chip" data-status="approved" onclick="setBookingStatusFilter(this)">Diluluskan</button>
+                    <button type="button" class="dash-filter-chip" data-status="rejected" onclick="setBookingStatusFilter(this)">Ditolak</button>
+                    <button type="button" class="dash-filter-chip" data-status="cancelled" onclick="setBookingStatusFilter(this)">Dibatalkan</button>
+                </div>
+            </div>
             <div class="dash-bookings-card">
                 <div id="dashBookingsContainer">
                     <!-- Rendered by JS -->
                     <div class="dash-empty">
                         <div class="empty-icon"><i class="bi bi-inbox"></i></div>
                         <div class="empty-title">Tiada Tempahan</div>
-                        <div class="empty-sub">Masukkan e-mel anda di atas untuk melihat tempahan anda.</div>
+                        <div class="empty-sub">Tempahan anda akan dipaparkan di sini.</div>
                     </div>
                 </div>
             </div>
@@ -186,7 +203,7 @@
         </div>
     </div>
 
-  <script src="/resources/js/script.js?v=20260925-navigation"></script>
+  <script src="/resources/js/script.js?v=20260925-audit"></script>
 
 </body>
 </html>

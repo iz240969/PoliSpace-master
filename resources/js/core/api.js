@@ -1,4 +1,24 @@
 // ==================== API HELPERS ====================
+async function readApiResponse(response, fallbackMessage) {
+  let result;
+  try {
+    result = await response.json();
+  } catch (error) {
+    // A proxy or PHP error page can return HTML with a successful HTTP status.
+  }
+  if (!result || typeof result !== 'object' || typeof result.success !== 'boolean') {
+    const error = new Error('Respons pelayan tidak sah. Sila cuba semula.');
+    if (!response.ok) error.status = response.status;
+    throw error;
+  }
+  if (!response.ok || result.success === false) {
+    const error = new Error(typeof result.error === 'string' ? result.error : fallbackMessage);
+    error.status = response.status;
+    throw error;
+  }
+  return result;
+}
+
 async function apiRequest(endpoint, method = 'GET', data = null) {
   const options = { method, credentials: 'include', headers: {} };
   if (data !== null) {
@@ -7,23 +27,16 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
   }
 
   const response = await fetch(`${API_BASE}/${endpoint}`, options);
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.success === false) {
-    const error = new Error(result.error || 'API request failed');
-    error.status = response.status;
-    throw error;
-  }
-  return result;
+  return readApiResponse(response, 'API request failed');
 }
 
 async function tryApi(endpoint, method = 'GET', data = null) {
-  if (!apiOnline) throw new Error('API offline');
   try {
-    return await apiRequest(endpoint, method, data);
+    const result = await apiRequest(endpoint, method, data);
+    apiOnline = true;
+    return result;
   } catch (error) {
-    if (!error.status) {
-      apiOnline = false;
-    }
+    apiOnline = Boolean(error.status);
     throw error;
   }
 }
@@ -55,13 +68,7 @@ async function createBookingApi(data) {
     body: formData,
     credentials: 'include',
   });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.success === false) {
-    const error = new Error(result.error || 'Failed to create booking');
-    error.status = response.status;
-    throw error;
-  }
-  return result;
+  return readApiResponse(response, 'Failed to create booking');
 }
 
 async function uploadBookingReceiptApi(id, file) {
@@ -73,13 +80,7 @@ async function uploadBookingReceiptApi(id, file) {
     body: formData,
     credentials: 'include',
   });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.success === false) {
-    const error = new Error(result.error || 'Failed to upload receipt');
-    error.status = response.status;
-    throw error;
-  }
-  return result;
+  return readApiResponse(response, 'Failed to upload receipt');
 }
 
 async function adminLogin(email, password) {
@@ -101,13 +102,7 @@ async function authRequest(action, data) {
     credentials: 'include',
     cache: 'no-store',
   });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok || result.success === false) {
-    const error = new Error(result.error || 'API request failed');
-    error.status = response.status;
-    throw error;
-  }
-  return result;
+  return readApiResponse(response, 'API request failed');
 }
 
 async function autoLogin(email, password) {
