@@ -1,18 +1,21 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="ms" class="auth-pending">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PoliSpace - Pengurusan Asrama</title>
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260924-admin-table-fit">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260925-titles">
 </head>
 <body>
+  <div class="session-loading" role="status">Menyemak sesi akaun...</div>
   <nav id="main-nav">
     <div class="nav-logo nav-logo-static"><div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div></div>
-    <div class="nav-links"><span class="nav-mode-label">Admin Mode</span></div>
+    <div class="nav-links"><span class="nav-mode-label">Pentadbir</span></div>
     <div class="nav-actions"></div>
   </nav>
   <div class="toast-container" id="toastContainer"></div>
@@ -30,6 +33,6 @@
     <section id="asramaBuildings"><div class="asrama-loading"><i class="bi bi-arrow-repeat"></i> Memuatkan tetapan kapasiti...</div></section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260924-admin-table-fixes"></script>
+  <script src="/resources/js/script.js?v=20260925-navigation"></script>
 </body>
 </html>

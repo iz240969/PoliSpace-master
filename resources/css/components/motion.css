@@ -1,0 +1,52 @@
+/* Short page transitions. Grouped table content uses the shared motion helper. */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 180ms; }
+.session-loading { display: none; }
+html.auth-pending :is(#booking, #dashboard, #status, #admin) { visibility: hidden; }
+html.auth-pending .session-loading { position: fixed; inset: 80px 0 0; display: grid; place-content: center; color: var(--grey-4); background: var(--bg-main); }
+:root { --motion-duration: 200ms; --motion-ease: cubic-bezier(.2, .7, .2, 1); }
+@keyframes surfaceEnter {
+  from { opacity: .92; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes overlayEnter { from { opacity: 0; } to { opacity: 1; } }
+.admin-panel.active,
+.login-page > section, .signup-page > section,
+.booking-page-header, .dash-hero, .status-page-content,
+#adminFacilityForm:not([hidden]) {
+  animation: surfaceEnter var(--motion-duration) var(--motion-ease);
+}
+.modal-overlay.active { animation: overlayEnter 140ms ease-out; }
+.modal-overlay.active .modal { animation: surfaceEnter var(--motion-duration) var(--motion-ease); }
+/* Modern browsers also animate closing; older browsers keep the entry fallback. */
+@supports (transition-behavior: allow-discrete) {
+  .modal-overlay { opacity: 0; pointer-events: none; transition: opacity 160ms ease, display 160ms allow-discrete; }
+  .modal-overlay.active { opacity: 1; pointer-events: auto; animation: none; }
+  .modal-overlay .modal { transform: translateY(6px); transition: transform var(--motion-duration) var(--motion-ease); }
+  .modal-overlay.active .modal { transform: none; animation: none; }
+  @starting-style {
+    .modal-overlay.active { opacity: 0; }
+    .modal-overlay.active .modal { transform: translateY(6px); }
+  }
+}
+.btn, .btn-nav-icon, .nav-link, .admin-menu-item, .filter-tab, .dash-filter-chip {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms var(--motion-ease);
+}
+.nav-actions { min-width: 40px; min-height: 40px; }
+body:has(#booking) .nav-actions { min-width: 88px; }
+.account-dropdown { visibility: hidden; transition: opacity 160ms ease, transform 160ms var(--motion-ease), visibility 160ms; }
+.account-menu.is-open .account-dropdown { visibility: visible; }
+.admin-nav-backdrop:not([hidden]) { animation: overlayEnter 160ms ease-out; }
+.toast { transition: opacity 180ms ease, transform 180ms var(--motion-ease); }
+.btn .bi-arrow-repeat { display: inline-block; }
+
+/* Keep scrollbar space when dialogs/drawers lock scrolling. */
+html { scrollbar-gutter: stable; }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

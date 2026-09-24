@@ -3,10 +3,11 @@
 // Feature files are loaded in order because this app uses plain browser globals.
 (() => {
   const baseUrl = new URL('.', document.currentScript.src).href;
-  const version = '20260924-admin-table-fixes';
+  const version = '20260925-navigation';
   const files = [
     'core/config.js',
     'core/navigation.js',
+    'core/motion.js',
     'core/api.js',
     'core/fallback.js',
     'features/auth.js',

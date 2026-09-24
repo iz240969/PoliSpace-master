@@ -18,7 +18,7 @@
   width: 100%;
   min-width: 0;
   max-width: 460px;
-  padding: 38px;
+  padding: 40px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -48,12 +48,12 @@
 
 .unified-login-title,
 .signup-title,
-.login-title { margin-bottom: 7px; font-size: 30px; font-weight: 750; letter-spacing: -0.7px; }
+.login-title { margin-bottom: 7px; font-size: 30px; font-weight: var(--title-weight); letter-spacing: -0.7px; }
 
 .unified-login-sub,
 .signup-sub { max-width: 380px; margin: 0 auto; color: var(--grey-4); font-size: 14px; }
 
-.login-form, .signup-grid { display: grid; gap: 16px; }
+.login-form, .signup-grid { display: grid; gap: 20px; }
 .login-password-group { margin-top: 16px; }
 .auth-form-actions { display: grid; gap: 10px; margin-top: 24px; }
 
@@ -96,7 +96,7 @@
 .auth-section { padding-top: 4px; }
 .auth-section .form-group + .form-group { margin-top: 14px; }
 .auth-section + .auth-section { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--border-light); }
-.auth-section-heading { margin-bottom: 14px; color: var(--gold-hover); font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.auth-section-heading { margin-bottom: 16px; color: var(--text-main); font-size: 14px; font-weight: var(--title-weight); letter-spacing: 0; }
 
 .account-type-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .account-type-option {

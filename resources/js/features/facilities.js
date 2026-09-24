@@ -136,7 +136,7 @@ function selectFacilityAndBook(fid) {
     return;
   }
   localStorage.setItem('ps_selected_facility', fid);
-  window.location.href = ROUTES.booking;
+  navigateToClientPage(ROUTES.booking);
 }
 
 async function loadPublicCalendarBookings(year, month, facilityId = '') {

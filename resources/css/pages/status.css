@@ -3,7 +3,7 @@
 .status-page-content { max-width: var(--container-narrow); margin: 0 auto; padding: 64px 32px 80px; }
 .status-eyebrow { margin-bottom: 8px; color: var(--gold-hover); font-size: 11px; font-weight: 800; letter-spacing: 1.2px; }
 .status-page-subtitle { max-width: 620px; margin: 10px 0 28px; color: var(--grey-4); font-size: 14px; }
-.status-search-bar { display: flex; gap: 10px; margin-bottom: 32px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.status-search-bar { display: flex; gap: 10px; margin-bottom: 24px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-sm); }
 .status-search-bar input { flex: 1; }
 .status-search-bar .btn { min-width: 112px; }
 

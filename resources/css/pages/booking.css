@@ -2,7 +2,7 @@
 #booking { padding-top: 100px; }
 .booking-layout { display: grid; grid-template-columns: 1fr 380px; gap: 48px; padding: 60px 48px; max-width: 1200px; margin: 0 auto; }
 
-.page-title { font-size: 40px; font-weight: 800; letter-spacing: -1.5px; margin-bottom: 8px; }
+.page-title { font-size: 40px; font-weight: var(--title-weight); letter-spacing: -1.5px; margin-bottom: 8px; }
 .page-subtitle { color: var(--grey-4); font-size: 14px; margin-bottom: 48px; }
 
 .form-section { margin-bottom: 40px; padding-bottom: 40px; border-bottom: 1px solid var(--border); }
@@ -12,7 +12,7 @@
 .booking-account-notice div { display: grid; gap: 3px; }
 .booking-account-notice span { color: var(--grey-4); font-size: 13px; line-height: 1.45; }
 .form-section-title {
-  font-family: var(--display-font); font-size: 13px; font-weight: 900;
+  font-family: var(--display-font); font-size: 13px; font-weight: var(--title-weight);
   text-transform: uppercase; letter-spacing: 2px; color: var(--gold);
   margin-bottom: 24px; display: flex; align-items: center; gap: 12px;
 }
@@ -1131,7 +1131,7 @@ body.booking-page #booking {
   margin: 0 0 8px;
   font-size: clamp(32px, 4vw, 44px);
   line-height: 1.05;
-  font-weight: 750;
+  font-weight: var(--title-weight);
   letter-spacing: -1.35px;
 }
 
@@ -1179,14 +1179,15 @@ body.booking-page #booking {
 
 #booking .form-section {
   margin: 24px 0 0;
-  padding: 28px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  padding: 4px 0 28px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
 }
 
 #booking .form-section:last-child {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
 }
 
 #booking .form-section-heading {
@@ -1217,7 +1218,7 @@ body.booking-page #booking {
   color: var(--text-main);
   font-family: 'DM Sans', sans-serif;
   font-size: 17px;
-  font-weight: 750;
+  font-weight: var(--title-weight);
   letter-spacing: -0.2px;
   line-height: 1.25;
   text-transform: none;
@@ -1244,10 +1245,10 @@ body.booking-page #booking {
 }
 
 #booking .form-group > label:not(.upload-zone) {
-  color: #504E48;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.75px;
+  color: var(--grey-5);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
   line-height: 1.4;
 }
 
@@ -1508,15 +1509,15 @@ body.booking-page #booking {
 }
 
 #booking .booking-submit-button {
-  background: var(--text-main);
-  border-color: var(--text-main);
+  background: var(--gold);
+  border-color: var(--gold);
   box-shadow: none;
 }
 
 #booking .booking-submit-button:hover {
-  background: var(--grey-5);
-  border-color: var(--grey-5);
-  box-shadow: 0 4px 12px rgba(24, 33, 29, 0.14);
+  background: var(--gold-hover);
+  border-color: var(--gold-hover);
+  box-shadow: 0 3px 8px var(--gold-ring);
 }
 
 #booking .booking-sidebar {
@@ -1716,8 +1717,8 @@ body.booking-page #booking {
 
   #booking .form-section {
     margin-top: 18px;
-    padding: 21px;
-    border-radius: 15px;
+    padding: 4px 0 24px;
+    border-radius: 0;
   }
 
   #booking .form-section-heading {
@@ -1765,7 +1766,7 @@ body.booking-page #booking {
   }
 
   #booking .form-section {
-    padding: 18px;
+    padding: 4px 0 24px;
   }
 
   #booking .form-section-number {

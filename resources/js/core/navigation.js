@@ -4,8 +4,15 @@ let psAuthState = {
   role: null,
   user: null,
 };
+let psAuthRequest = null;
+let psClientNavigationPending = false;
 
-async function refreshAuthState() {
+function refreshAuthState() {
+  if (!psAuthRequest) psAuthRequest = fetchAuthState().finally(() => { psAuthRequest = null; });
+  return psAuthRequest;
+}
+
+async function fetchAuthState() {
   try {
     const result = await getCurrentUser();
     psAuthState = {
@@ -104,13 +111,14 @@ function updateProtectedNavLinks(loggedIn) {
 
     if (!isProtectedLink) return;
 
-    button.disabled = !loggedIn;
-    button.classList.toggle('nav-link-disabled', !loggedIn);
+    button.disabled = false;
+    button.classList.remove('nav-link-disabled');
     button.title = loggedIn ? '' : 'Sila log masuk dahulu';
   });
 }
 
 function isProtectedRouteAction(action) {
+  if (action.includes('navigateToClientPage(')) return true;
   return [
     ROUTES.booking,
     ROUTES.status,
@@ -121,8 +129,35 @@ function isProtectedRouteAction(action) {
   ].some((route) => action.includes(route));
 }
 
+async function navigateToClientPage(route) {
+  if (![ROUTES.booking, ROUTES.dashboard, ROUTES.status].includes(route)) return;
+  if (psClientNavigationPending) return;
+  psClientNavigationPending = true;
+  try {
+    if (!psAuthState.checked) await refreshAuthState();
+    // Resolve the destination before loading a document; avoid booking -> login.
+    const destination = isAdminLoggedIn() ? ROUTES.adminDashboard : isClientLoggedIn() ? route : ROUTES.login;
+    if (window.location.pathname === destination) {
+      if (destination === ROUTES.login) document.getElementById('login-email')?.focus();
+      return;
+    }
+    window.location.assign(destination);
+  } finally {
+    psClientNavigationPending = false;
+  }
+}
+
 function updateNavActions(navActions, loggedIn) {
   if (!navActions) return;
+
+  // Keep a neutral account icon while the session is checked, rather than
+  // briefly presenting the guest menu to an authenticated user.
+  if (!psAuthState.checked) {
+    navActions.setAttribute('aria-busy', 'true');
+    navActions.innerHTML = '<button class="btn-nav-icon" type="button" aria-label="Menyemak akaun" disabled><i class="bi bi-person-circle" aria-hidden="true"></i></button>';
+    return;
+  }
+  navActions.setAttribute('aria-busy', 'false');
 
   if (!loggedIn) {
     navActions.innerHTML = `
@@ -310,12 +345,111 @@ function closeMobileNavigation() {
   toggle.innerHTML = '<i class="bi bi-list" aria-hidden="true"></i>';
 }
 
+// The administrative drawer is independent of public navigation.
+function toggleAdminNavigation() {
+  if (document.body.classList.contains('admin-menu-open')) {
+    closeAdminNavigation();
+    return;
+  }
+  const sidebar = document.getElementById('adminSidebar');
+  if (!sidebar) return;
+  document.body.classList.add('admin-menu-open');
+  document.querySelector('.admin-nav-toggle')?.setAttribute('aria-expanded', 'true');
+  document.querySelector('.admin-nav-backdrop').hidden = false;
+  document.getElementById('adminWorkspace').inert = true;
+  document.getElementById('main-nav').inert = true;
+  sidebar.querySelector('.admin-menu-item.active')?.focus();
+}
+
+function closeAdminNavigation(returnFocus = true) {
+  const wasOpen = document.body.classList.contains('admin-menu-open');
+  document.body.classList.remove('admin-menu-open');
+  document.querySelector('.admin-nav-toggle')?.setAttribute('aria-expanded', 'false');
+  const backdrop = document.querySelector('.admin-nav-backdrop');
+  if (backdrop) backdrop.hidden = true;
+  const workspace = document.getElementById('adminWorkspace');
+  if (workspace) workspace.inert = false;
+  const nav = document.getElementById('main-nav');
+  if (nav) nav.inert = false;
+  if (wasOpen && returnFocus) document.querySelector('.admin-nav-toggle')?.focus();
+}
+
+function setupAdminWorkspace() {
+  if (!document.getElementById('adminSidebar')) return;
+  document.querySelector('.admin-menu-item.active')?.setAttribute('aria-current', 'page');
+  window.matchMedia('(max-width: 1024px)').addEventListener('change', () => closeAdminNavigation(false));
+}
+
+function trapSurfaceFocus(event, surface) {
+  if (event.key !== 'Tab' || !surface) return;
+  const controls = [...surface.querySelectorAll('button, a[href], input, select, textarea, [tabindex="0"]')]
+    .filter((element) => !element.disabled && !element.closest('[inert]') && element.getClientRects().length);
+  const first = controls[0];
+  const last = controls[controls.length - 1];
+  if (!first) { event.preventDefault(); surface.focus(); return; }
+  if (event.shiftKey && (document.activeElement === first || !surface.contains(document.activeElement))) {
+    event.preventDefault(); last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !surface.contains(document.activeElement))) {
+    event.preventDefault(); first.focus();
+  }
+}
+
+// Keep dynamically rendered dialogs and scrollable tables keyboard accessible.
+function setupSurfaceAccessibility() {
+  const dialogState = new Map();
+  let lastOutsideDialogFocus = document.activeElement;
+  document.addEventListener('focusin', (event) => {
+    if (!event.target.closest('.modal-overlay')) lastOutsideDialogFocus = event.target;
+  });
+  const update = () => {
+    document.querySelectorAll('.data-table-wrap, .dash-table-wrap').forEach((wrap) => {
+      wrap.tabIndex = 0;
+      wrap.setAttribute('role', 'region');
+      wrap.setAttribute('aria-label', 'Jadual data, tatal ke sisi untuk melihat semua lajur');
+    });
+    document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+      const dialog = overlay.querySelector('.modal');
+      if (!dialog) return;
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'true');
+      dialog.tabIndex = -1;
+      const title = dialog.querySelector('.modal-title');
+      if (title) {
+        title.id = title.id || `${overlay.id || 'polispace'}Title`;
+        dialog.setAttribute('aria-labelledby', title.id);
+      }
+      dialog.querySelectorAll('.modal-close').forEach((button) => button.setAttribute('aria-label', 'Tutup dialog'));
+      const open = overlay.classList.contains('active');
+      if (open && !dialogState.has(overlay)) {
+        dialogState.set(overlay, lastOutsideDialogFocus);
+        if (!dialog.contains(document.activeElement)) dialog.focus();
+      } else if (!open && dialogState.has(overlay)) {
+        const trigger = dialogState.get(overlay);
+        dialogState.delete(overlay);
+        if (trigger?.isConnected && !trigger.closest('.modal-overlay')) trigger.focus();
+      }
+    });
+    const hasDialog = dialogState.size > 0;
+    if (document.body.classList.contains('dialog-open') !== hasDialog) document.body.classList.toggle('dialog-open', hasDialog);
+  };
+  update();
+  new MutationObserver(update).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+}
+
+document.addEventListener('keydown', (event) => {
+  const modals = document.querySelectorAll('.modal-overlay.active .modal');
+  const surface = modals.length ? modals[modals.length - 1]
+    : document.body.classList.contains('admin-menu-open') ? document.getElementById('adminSidebar') : null;
+  trapSurfaceFocus(event, surface);
+});
+
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
 
   document.querySelector('.account-menu')?.classList.remove('is-open');
   document.querySelector('.account-menu-trigger')?.setAttribute('aria-expanded', 'false');
   closeMobileNavigation();
+  closeAdminNavigation();
   if (typeof closeBookingCart === 'function') closeBookingCart();
 
   const activeModals = document.querySelectorAll('.modal-overlay.active');
@@ -329,12 +463,14 @@ function protectLoggedInPages() {
     || document.getElementById('dashboard');
 
   if (needsClientLogin && isAdminLoggedIn()) {
-    window.location.href = ROUTES.adminDashboard;
-    return;
+    window.location.replace(ROUTES.adminDashboard);
+    return false;
   }
 
   if (needsClientLogin && !isClientLoggedIn()) {
-    window.location.href = ROUTES.login;
+    window.location.replace(ROUTES.login);
+    return false;
   }
+  return true;
 }
 

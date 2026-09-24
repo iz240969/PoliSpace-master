@@ -18,7 +18,7 @@
 .hero-bg {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 0%, rgba(197, 155, 70, 0.12), transparent 36%);
+  background: var(--surface);
   pointer-events: none;
 }
 .hero-grid { display: none; }
@@ -46,10 +46,10 @@
   position: relative;
   width: min(100%, 880px);
   margin-bottom: 22px;
-  font-size: clamp(44px, 7vw, 76px);
-  font-weight: 750;
-  line-height: 0.98;
-  letter-spacing: -3.2px;
+  font-size: clamp(40px, 6vw, 64px);
+  font-weight: var(--title-weight);
+  line-height: 1.08;
+  letter-spacing: -2px;
 }
 .hero-title span span { color: var(--gold); }
 .hero-title-line { display: block; }
@@ -75,7 +75,7 @@
   text-align: left;
 }
 
-.hero-calendar-title { margin: 0 0 18px; font-size: 22px; font-weight: 700; letter-spacing: -0.3px; text-align: left; }
+.hero-calendar-title { margin: 0 0 18px; font-size: 22px; font-weight: var(--title-weight); letter-spacing: -0.3px; text-align: left; }
 .hero-calendar-notice {
   width: fit-content;
   display: flex;
@@ -102,9 +102,9 @@
 .full-booked-dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; background: var(--red); }
 
 .calendar-section { padding: 72px max(24px, calc((100vw - var(--container)) / 2)); }
-.calendar-section-title { margin-bottom: 22px; font-size: 24px; font-weight: 700; }
+.calendar-section-title { margin-bottom: 22px; font-size: 24px; font-weight: var(--title-weight); }
 .landing-calendar-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
-.landing-calendar-title { font-size: 20px; font-weight: 700; }
+.landing-calendar-title { font-size: 20px; font-weight: var(--title-weight); }
 .landing-calendar-controls { display: flex; gap: 7px; }
 
 .icon-btn {
@@ -157,7 +157,7 @@
 }
 .section-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
 .section-eyebrow { margin-bottom: 7px; color: var(--gold-hover); font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
-.section-title { font-size: clamp(30px, 4vw, 42px); font-weight: 750; letter-spacing: -1.3px; }
+.section-title { font-size: clamp(30px, 4vw, 42px); font-weight: var(--title-weight); letter-spacing: -1.3px; }
 
 .facilities-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 
@@ -184,7 +184,7 @@
 .facility-arrow { position: absolute; top: 23px; right: 23px; color: var(--grey-3); font-size: 17px; transition: color var(--transition), transform var(--transition); }
 .facility-card:hover .facility-arrow { transform: translate(2px, -2px); color: var(--gold); }
 .facility-icon { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; border-radius: var(--radius); background: var(--gold-dim); color: var(--gold-hover); font-size: 19px; }
-.facility-name { max-width: calc(100% - 28px); margin-bottom: 7px; font-size: 19px; font-weight: 750; letter-spacing: -0.3px; }
+.facility-name { max-width: calc(100% - 28px); margin-bottom: 7px; font-size: 19px; font-weight: var(--title-weight); letter-spacing: -0.3px; }
 .facility-desc { display: -webkit-box; overflow: hidden; margin-bottom: 14px; color: var(--grey-4); font-size: 13px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .facility-equipment { min-height: 37px; display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px; padding-top: 13px; border-top: 1px solid var(--border-light); color: var(--grey-4); font-size: 11px; line-height: 1.45; }
 .facility-equipment i { margin-top: 1px; color: var(--gold); }

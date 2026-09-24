@@ -1,14 +1,17 @@
 // ==================== INIT ====================
 async function init() {
+  setupAdminWorkspace();
+  setupSurfaceAccessibility();
   setupNavigationAccess();
   await refreshAuthState();
   setupNavigationAccess();
-  protectLoggedInPages();
+  if (!protectLoggedInPages()) return;
 
   if (document.getElementById('admin') && !isAdminLoggedIn()) {
-    window.location.href = ROUTES.login;
+    window.location.replace(ROUTES.login);
     return;
   }
+  document.documentElement.classList.remove('auth-pending');
 
   if (document.getElementById('adminCreateBookingPage')) {
     await renderAdminCreateBookingPage();

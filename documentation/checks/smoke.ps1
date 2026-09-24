@@ -1,7 +1,7 @@
 param([string]$BaseUrl = 'http://polispace-master.test')
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = Split-Path -Parent $PSScriptRoot
+$projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $php = Get-ChildItem 'C:\laragon\bin\php' -Recurse -Filter php.exe -ErrorAction Stop | Select-Object -First 1 -ExpandProperty FullName
 $node = Get-ChildItem 'C:\laragon\bin\nodejs' -Recurse -Filter node.exe -ErrorAction Stop | Select-Object -First 1 -ExpandProperty FullName
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -14,6 +14,9 @@ Get-ChildItem "$projectRoot\resources\js" -Recurse -Filter *.js | ForEach-Object
     & $node --check $_.FullName *> $null
     if ($LASTEXITCODE -ne 0) { $failures.Add("JavaScript syntax: $($_.FullName)") }
 }
+
+& $node --test (Join-Path $PSScriptRoot 'workspace.test.js')
+if ($LASTEXITCODE -ne 0) { $failures.Add('UI behaviour checks failed') }
 
 $publicChecks = @(
     '/',

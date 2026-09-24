@@ -35,7 +35,7 @@ Get-ChildItem -Recurse backend -Filter *.php | ForEach-Object { php -l $_.FullNa
 Run the repeatable application smoke checks while Laragon is active:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tests/smoke.ps1
+powershell -ExecutionPolicy Bypass -File documentation/checks/smoke.ps1
 ```
 
 Import a fresh database:

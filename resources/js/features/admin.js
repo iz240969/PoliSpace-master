@@ -1,4 +1,4 @@
-﻿// ==================== ADMIN ====================
+// ==================== ADMIN ====================
 let adminMessagesCache = [];
 let adminRecentBookingsCache = [];
 let adminBookingsCache = [];
@@ -9,7 +9,10 @@ let adminCreateReceiptFile = null;
 let adminReportBookings = [];
 let adminReportSummary = {};
 let adminReportMeta = {};
+let adminReportRequest = 0;
 let adminPicsCache = [];
+let adminClientFilter = 'all';
+let adminBookingFilterRequest = 0;
 const adminExpandedBookingGroups = new Set();
 
 function tableSortMode(selectId) {
@@ -43,12 +46,50 @@ function renderAdminRecentBookings() {
 }
 
 function renderAdminBookings() {
-  renderBookingsTable('allBookingsTbody', sortedAdminBookings(adminBookingsCache, 'adminBookingsSortSelect'), false);
+  const query = document.getElementById('adminBookingSearch')?.value || '';
+  const bookings = adminBookingsCache.filter((booking) => matchesAdminSearch(query, [booking.id, booking.cartGroupRef, booking.cart_group_ref, booking.name, booking.email, booking.facilityName, booking.org, booking.phone]));
+  setText('bookingResultCount', `${bookings.length} daripada ${adminBookingsCache.length} tempahan`);
+  renderBookingsTable('allBookingsTbody', sortedAdminBookings(bookings, 'adminBookingsSortSelect'), false);
 }
 
 function renderAdminClients() {
-  renderClientsTable(adminClientsCache);
+  const query = document.getElementById('adminClientSearch')?.value || '';
+  const clients = adminClientsCache.filter((client) =>
+    (adminClientFilter === 'all' || (adminClientFilter === 'staff' ? client.account_type === 'staff' : client.account_type !== 'staff'))
+    && matchesAdminSearch(query, [client.full_name, client.name, client.email, client.phone])
+  );
+  setText('clientResultCount', `${clients.length} daripada ${adminClientsCache.length} pelanggan`);
+  renderClientsTable(clients);
   renderStaffVerificationRequests(adminClientsCache);
+}
+
+function matchesAdminSearch(query, values) {
+  const words = String(query).trim().toLocaleLowerCase('ms-MY').split(/\s+/).filter(Boolean);
+  const text = values.filter((value) => value != null).join(' ').toLocaleLowerCase('ms-MY');
+  return words.every((word) => text.includes(word));
+}
+
+function setAdminFilterState(containerId, button) {
+  document.querySelectorAll(`#${containerId} .filter-tab`).forEach((item) => {
+    item.classList.toggle('active', item === button);
+    item.setAttribute('aria-pressed', String(item === button));
+  });
+}
+
+function filterAdminClients(type, button) {
+  adminClientFilter = type;
+  setAdminFilterState('clientFilterTabs', button);
+  renderAdminClients();
+}
+
+function toggleFacilityCreateForm(open) {
+  const form = document.getElementById('adminFacilityForm');
+  if (!form) return;
+  const expanded = typeof open === 'boolean' ? open : form.hidden;
+  form.hidden = !expanded;
+  document.getElementById('facilityCreateToggle')?.setAttribute('aria-expanded', String(expanded));
+  if (expanded) document.getElementById('facilityName')?.focus();
+  else document.getElementById('facilityCreateToggle')?.focus();
 }
 
 function adminAccountTypeLabel(value) {
@@ -108,6 +149,8 @@ async function renderAdminDashboard() {
   updatePendingBookingBadge(stats.pending);
   dashDate.textContent = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   document.getElementById('adminStats').innerHTML = buildStatsHTML(stats);
+  const bookingStats = document.getElementById('bookingStats');
+  if (bookingStats) bookingStats.innerHTML = buildStatsHTML(stats);
   adminRecentBookingsCache = bookings;
   adminBookingsCache = bookings;
   renderAdminRecentBookings();
@@ -130,21 +173,29 @@ function updatePendingBookingBadge(value) {
 }
 
 function buildStatsHTML(stats) {
-  return `
-    <div class="stat-card"><div class="stat-card-label">Jumlah Tempahan</div><div class="stat-card-value">${stats.total}</div></div>
-    <div class="stat-card"><div class="stat-card-label">Menunggu Semakan</div><div class="stat-card-value" style="color:var(--amber)">${stats.pending}</div></div>
-    <div class="stat-card"><div class="stat-card-label">Diluluskan</div><div class="stat-card-value" style="color:var(--green)">${stats.approved}</div></div>
-    <div class="stat-card"><div class="stat-card-label">Hari Ini</div><div class="stat-card-value">${stats.today || 0}</div></div>
-  `;
+  return [
+    ['Jumlah Tempahan', stats.total, 'bi-journal-text', 'neutral', 'Tidak termasuk belum bayar'],
+    ['Menunggu Semakan', stats.pending, 'bi-clock-history', 'warning', 'Memerlukan tindakan'],
+    ['Diluluskan', stats.approved, 'bi-check2-circle', 'success', 'Permohonan diluluskan'],
+    ['Hari Ini', stats.today, 'bi-calendar3', 'gold', 'Tempahan pada hari ini'],
+  ].map(([label, value, icon, tone, caption]) => `<div class="stat-card stat-${tone}"><div class="stat-card-top"><span class="stat-card-icon"><i class="bi ${icon}" aria-hidden="true"></i></span><div><div class="stat-card-label">${label}</div><div class="stat-card-value">${Number(value || 0).toLocaleString('ms-MY')}</div></div></div><div class="stat-card-caption">${caption}</div></div>`).join('');
 }
 
 async function loadAdminReports() {
   const content = document.getElementById('adminReportContent');
   if (!content) return;
-  content.innerHTML = '<div class="report-loading"><i class="bi bi-arrow-repeat"></i> Menyediakan laporan...</div>';
+  const request = ++adminReportRequest;
+  const hasReport = Boolean(adminReportMeta.generatedAt);
+  const printButton = document.getElementById('printAdminReportButton');
+  const sortSelect = document.getElementById('reportEvidenceSortSelect');
+  content.setAttribute('aria-busy', 'true');
+  if (printButton) printButton.disabled = true;
+  if (sortSelect) sortSelect.disabled = true;
+  setText('reportUpdateStatus', hasReport ? 'Mengemas kini laporan...' : 'Menyediakan laporan...');
   try {
     const period = document.getElementById('reportPeriodSelect')?.value || 'all';
     const result = await tryApi(`bookings.php?action=report&period=${encodeURIComponent(period)}`);
+    if (request !== adminReportRequest) return;
     adminReportBookings = result.data?.bookings || [];
     adminReportSummary = result.data?.summary || {};
     adminReportMeta = {
@@ -154,9 +205,24 @@ async function loadAdminReports() {
       generatedAt: result.data?.generated_at || '',
     };
     renderAdminReports(adminReportBookings);
+    setText('reportUpdateStatus', 'Laporan dikemas kini.');
   } catch (error) {
+    if (request !== adminReportRequest) return;
     if (handleAdminAuthorizationError(error)) return;
-    content.innerHTML = `<div class="report-empty"><i class="bi bi-exclamation-circle"></i><strong>Laporan tidak dapat dimuatkan</strong><span>${escapeHtml(error.message || 'Sila cuba lagi.')}</span></div>`;
+    if (hasReport) {
+      const periodSelect = document.getElementById('reportPeriodSelect');
+      if (periodSelect) periodSelect.value = adminReportMeta.period;
+      setText('reportUpdateStatus', 'Kemas kini gagal. Laporan sebelumnya masih dipaparkan. Sila cuba lagi.');
+      if (printButton) printButton.disabled = false;
+    } else {
+      content.innerHTML = `<div class="report-empty"><i class="bi bi-exclamation-circle"></i><strong>Laporan tidak dapat dimuatkan</strong><span>${escapeHtml(error.message || 'Sila cuba lagi.')}</span></div>`;
+      setText('reportUpdateStatus', 'Laporan tidak dapat dimuatkan. Sila cuba lagi.');
+    }
+  } finally {
+    if (request === adminReportRequest) {
+      content.setAttribute('aria-busy', 'false');
+      if (sortSelect) sortSelect.disabled = false;
+    }
   }
 }
 
@@ -465,7 +531,7 @@ function adminBookingGroupRowHtml(group, isRecent) {
       <td>${groupStatusBadgeHtml(group.bookings)}</td>
       <td>
         <div class="table-actions admin-booking-actions">
-          <button class="btn btn-secondary btn-sm dashboard-booking-group-action" type="button" onclick="toggleAdminBookingGroup('${escapeAttr(group.groupRef)}', event)" aria-expanded="${expanded ? 'true' : 'false'}" title="${expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan'}" aria-label="${expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan'}"><i class="bi ${expanded ? 'bi-chevron-up' : 'bi-chevron-down'}"></i></button>
+          <button class="btn btn-secondary btn-sm dashboard-booking-group-action" type="button" onclick="toggleAdminBookingGroup('${escapeAttr(group.groupRef)}', event)" aria-expanded="${expanded ? 'true' : 'false'}" title="${expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan'}" aria-label="${expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan'}"><i class="bi bi-chevron-down"></i></button>
         </div>
       </td>
     </tr>
@@ -490,15 +556,11 @@ function toggleAdminBookingGroup(groupRef, event = null) {
     action.setAttribute('aria-expanded', String(expanded));
     action.setAttribute('aria-label', label);
     action.title = expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan';
-    action.querySelector('i').className = `bi ${expanded ? 'bi-chevron-up' : 'bi-chevron-down'}`;
   });
 
-  document.querySelectorAll('.admin-bookings-table .dashboard-booking-child-row[data-admin-booking-group]').forEach((row) => {
-    if (row.dataset.adminBookingGroup !== groupRef) return;
-    row.classList.toggle('is-visible', expanded);
-    row.setAttribute('aria-hidden', String(!expanded));
-    row.inert = !expanded;
-  });
+  const rows = [...document.querySelectorAll('.admin-bookings-table .dashboard-booking-child-row[data-admin-booking-group]')]
+    .filter((row) => row.dataset.adminBookingGroup === groupRef);
+  setBookingGroupExpanded(rows, expanded);
 }
 
 function renderBookingsTable(tbodyId, bookings, isRecent = false, rowLimit = 0) {
@@ -518,18 +580,20 @@ function renderBookingsTable(tbodyId, bookings, isRecent = false, rowLimit = 0) 
 }
 
 async function filterBookings(filter, btn) {
-  document.querySelectorAll('#bookingFilterTabs .filter-tab').forEach((b) => b.classList.remove('active'));
-  btn?.classList.add('active');
+  const request = ++adminBookingFilterRequest;
+  setAdminFilterState('bookingFilterTabs', btn);
   let bookings = [];
   try {
     const suffix = filter === 'all' ? '' : `?status=${encodeURIComponent(filter)}`;
     const result = await tryApi(`bookings.php${suffix}`);
     bookings = result.data || [];
   } catch (error) {
+    if (request !== adminBookingFilterRequest) return;
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Senarai tempahan tidak dapat dimuatkan.', 'error');
     return;
   }
+  if (request !== adminBookingFilterRequest) return;
   adminBookingsCache = bookings;
   renderAdminBookings();
 }
@@ -1016,7 +1080,7 @@ function renderFacilityManagement(facilities) {
       <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
       <div class="fmc-footer">
         <div class="fmc-actions">${isAsramaRoomFacility(f) ? `<button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminAsrama"><i class="bi bi-sliders"></i> Urus Bilik</button>` : ''}<button class="btn btn-secondary btn-sm" type="button" onclick="openFacilityEditModal('${escapeAttr(f.id)}')"><i class="bi bi-pencil-square"></i> Edit</button></div>
-        <div class="fmc-availability"><span>${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><div class="toggle-switch ${f.is_available ? 'on' : ''}" onclick="toggleFacility('${escapeAttr(f.id)}')"></div></div>
+        <div class="fmc-availability"><span>${f.is_available ? 'Aktif' : 'Tidak Tersedia'}</span><button class="toggle-switch ${f.is_available ? 'on' : ''}" type="button" role="switch" aria-checked="${Boolean(f.is_available)}" aria-label="Ketersediaan ${escapeAttr(f.name)}" onclick="toggleFacility('${escapeAttr(f.id)}')"></button></div>
       </div>
     </div>
   `).join('');
@@ -1060,8 +1124,12 @@ function picSelectOptionsHtml(selectedId = '') {
 function renderPicManagement(pics = adminPicsCache) {
   const container = document.getElementById('picManageGrid');
   if (!container) return;
+  const total = pics.length;
+  const query = document.getElementById('adminPicSearch')?.value || '';
+  pics = pics.filter((pic) => matchesAdminSearch(query, [pic.full_name, pic.phone, pic.email, ...pic.facility_names]));
+  setText('picResultCount', `${pics.length} daripada ${total} PIC`);
   if (!pics.length) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada PIC</div><p>Tambah PIC untuk mula membuat tugasan fasiliti.</p></div>';
+    container.innerHTML = `<div class="admin-card empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">${query.trim() ? 'Tiada padanan PIC' : 'Tiada PIC'}</div><p>${query.trim() ? 'Cuba nama, e-mel atau fasiliti yang lain.' : 'Tambah PIC untuk mula membuat tugasan fasiliti.'}</p></div>`;
     return;
   }
 
@@ -1079,8 +1147,8 @@ function renderPicManagement(pics = adminPicsCache) {
                 ? pic.facility_names.map((name) => `<span>${escapeHtml(name)}</span>`).join('')
                 : '<em>Belum ditugaskan</em>'}</div></td>
               <td><div class="table-actions pic-table-actions">
-                <button class="btn btn-secondary btn-sm" type="button" onclick="openPicEditModal('${escapeAttr(pic.id)}')"><i class="bi bi-pencil-square"></i> Edit</button>
-                <button class="btn btn-secondary btn-sm table-icon-btn" type="button" onclick="sendPicTestEmailRequest('${escapeAttr(pic.id)}')" title="Hantar e-mel" aria-label="Hantar e-mel kepada ${escapeAttr(pic.full_name)}"><i class="bi bi-envelope-check"></i></button>
+                <button class="btn btn-secondary btn-sm table-icon-btn" type="button" onclick="openPicEditModal('${escapeAttr(pic.id)}')" title="Edit PIC" aria-label="Edit ${escapeAttr(pic.full_name)}"><i class="bi bi-pencil-square"></i></button>
+                <button class="btn btn-secondary btn-sm table-icon-btn" type="button" onclick="sendPicTestEmailRequest('${escapeAttr(pic.id)}')" title="Hantar E-mel" aria-label="Hantar E-mel kepada ${escapeAttr(pic.full_name)}"><i class="bi bi-envelope"></i></button>
                 <button class="btn btn-danger btn-sm table-icon-btn" type="button" onclick="deletePic('${escapeAttr(pic.id)}')" title="Padam PIC" aria-label="Padam ${escapeAttr(pic.full_name)}"><i class="bi bi-trash3"></i></button>
               </div></td>
             </tr>`).join('')}</tbody>
@@ -1516,7 +1584,7 @@ function renderClientsTable(clients) {
   );
   tbody.innerHTML = sortedClients.map((client) => `
     <tr>
-      <td><span class="table-email" title="${escapeAttr(client.email)}">${escapeHtml(client.email)}</span></td>
+      <td><span class="tenant-name">${escapeHtml(client.full_name || client.name || '')}</span><span class="table-email" title="${escapeAttr(client.email)}">${escapeHtml(client.email)}</span></td>
       <td><span class="status-badge ${client.account_type === 'staff' ? 'status-pending' : ''}">${escapeHtml(adminAccountTypeLabel(client.account_type))}</span></td>
       <td class="table-phone">${escapeHtml(client.phone || '-')}</td>
       <td>${client.account_type === 'staff' ? adminVerificationBadge(client.staff_verification_status) : '-'}</td>
@@ -1837,10 +1905,25 @@ function calendarStatusLabels(bookings = []) {
 }
 
 function showAdminPanel(name, btn) {
+  const target = document.getElementById(`panel-${name}`);
+  if (!target) return;
+  if (target.classList.contains('active')) {
+    closeAdminNavigation(false);
+    document.getElementById('adminWorkspace')?.focus({ preventScroll: true });
+    return;
+  }
   document.querySelectorAll('.admin-panel').forEach((p) => p.classList.remove('active'));
   document.querySelectorAll('.admin-menu-item').forEach((b) => b.classList.remove('active'));
   document.getElementById(`panel-${name}`)?.classList.add('active');
   btn?.classList.add('active');
+  document.querySelectorAll('.admin-menu-item').forEach((item) => {
+    if (item === btn) item.setAttribute('aria-current', 'page');
+    else item.removeAttribute('aria-current');
+  });
+  const panel = document.getElementById(`panel-${name}`);
+  setText('adminCurrentPage', panel?.querySelector('h1, h2')?.textContent || 'Dashboard');
+  closeAdminNavigation(false);
+  document.getElementById('adminWorkspace')?.focus({ preventScroll: true });
   if (name === 'bookings') filterBookings('all', document.querySelector('#bookingFilterTabs .filter-tab'));
   if (name === 'messages') loadMessages();
   if (name === 'clients') loadClients();

@@ -82,8 +82,7 @@
 
 .asrama-capacity-card { position: relative; overflow: hidden; padding: 24px; }
 .asrama-capacity-card::before { position: absolute; inset: 0 auto 0 0; width: 4px; content: ''; }
-.asrama-capacity-card.male::before { background: #3979c5; }
-.asrama-capacity-card.female::before { background: #a94c7b; }
+.asrama-capacity-card.male::before, .asrama-capacity-card.female::before { background: var(--gold-light); }
 
 .asrama-capacity-card-head {
   display: flex;
@@ -102,8 +101,7 @@
   font-size: 19px;
 }
 
-.male .asrama-block-icon { background: rgba(57,121,197,.1); color: #2d67aa; }
-.female .asrama-block-icon { background: rgba(169,76,123,.1); color: #914069; }
+.male .asrama-block-icon, .female .asrama-block-icon { background: var(--gold-dim); color: var(--gold-hover); }
 .asrama-capacity-card-head small,
 .asrama-holiday-heading small { color: var(--grey-4); font-size: 10px; font-weight: 900; letter-spacing: 1px; }
 .asrama-capacity-card-head h2,

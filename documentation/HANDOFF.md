@@ -1,4 +1,4 @@
-﻿# PoliSpace Handoff
+# PoliSpace Handoff
 
 This file is for the next developer or Codex agent continuing the PoliSpace project.
 
@@ -203,7 +203,7 @@ Get-ChildItem -Recurse backend -Filter *.php | ForEach-Object { php -l $_.FullNa
 The consolidated smoke suite also checks key pages, public APIs, JavaScript/PHP syntax, cross-origin mutation rejection, and HTTP method enforcement:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tests/smoke.ps1
+powershell -ExecutionPolicy Bypass -File documentation/checks/smoke.ps1
 ```
 
 Quick Laragon checks:

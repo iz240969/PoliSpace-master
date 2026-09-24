@@ -1,28 +1,33 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="ms" class="auth-pending">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PoliSpace - Admin Portal</title>
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260924-admin-table-fit">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260925-titles">
 </head>
-<body>
+<body class="admin-workspace">
+  <div class="session-loading" role="status">Menyemak sesi akaun...</div>
+  <a class="skip-link" href="#adminWorkspace">Langkau ke kandungan</a>
   <nav id="main-nav">
-    <div class="nav-logo nav-logo-static">
-      <div class="nav-logo-mark"></div>
-      <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
+    <div class="admin-nav-heading">
+      <button class="admin-nav-toggle btn-nav-icon" type="button" onclick="toggleAdminNavigation()" aria-label="Buka menu pentadbir" aria-controls="adminSidebar" aria-expanded="false"><i class="bi bi-list" aria-hidden="true"></i></button>
+      <div class="admin-breadcrumb"><span>PoliSpace / Pentadbiran</span><strong id="adminCurrentPage">Dashboard</strong></div>
     </div>
-    <div class="nav-links"><span class="nav-mode-label">Admin Mode</span></div>
+    <div class="nav-links"><span class="nav-mode-label"><i class="bi bi-shield-check" aria-hidden="true"></i> Pentadbir</span></div>
     <div class="nav-actions"></div>
   </nav>
   <div class="toast-container" id="toastContainer"></div>
 
   <div id="admin" class="active">
     <div class="admin-layout">
-      <div class="admin-sidebar">
+      <aside class="admin-sidebar" id="adminSidebar" aria-label="Navigasi pentadbir">
+        <div class="admin-sidebar-brand"><div class="nav-logo nav-logo-static"><div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Portal Pentadbir</div></div></div><button class="admin-sidebar-close" type="button" onclick="closeAdminNavigation()" aria-label="Tutup menu pentadbir"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
         <div class="admin-menu-label">Utama</div>
         <button class="admin-menu-item active" onclick="showAdminPanel('dashboard', this)"><span class="menu-icon"><i class="bi bi-bar-chart"></i></span> Dashboard</button>
         <button class="admin-menu-item" onclick="showAdminPanel('bookings', this)"><span class="menu-icon"><i class="bi bi-card-list"></i></span> Tempahan <span class="admin-badge" id="pendingBadge" hidden></span></button>
@@ -34,14 +39,19 @@
         <button class="admin-menu-item" onclick="showAdminPanel('pic', this)"><span class="menu-icon"><i class="bi bi-person-badge"></i></span> PIC</button>
         <button class="admin-menu-item" onclick="showAdminPanel('calendar', this)"><span class="menu-icon"><i class="bi bi-calendar3"></i></span> Kalendar</button>
         <button class="admin-menu-item" onclick="showAdminPanel('reports', this)"><span class="menu-icon"><i class="bi bi-bar-chart-line"></i></span> Laporan</button>
-      </div>
+        <div class="admin-sidebar-footer"><i class="bi bi-building" aria-hidden="true"></i><span>Politeknik Besut<small>Pengurusan fasiliti &amp; tempahan</small></span></div>
+      </aside>
+      <button class="admin-nav-backdrop" type="button" onclick="closeAdminNavigation()" aria-label="Tutup navigasi" tabindex="-1" hidden></button>
 
-      <div class="admin-content">
+      <main class="admin-content" id="adminWorkspace" tabindex="-1">
         <div class="admin-panel active" id="panel-dashboard">
-          <header class="admin-page-header">
+          <header class="admin-page-header admin-panel-toolbar">
+            <div>
             <div class="admin-page-eyebrow">RINGKASAN OPERASI</div>
             <h1>Dashboard</h1>
             <p id="dashDate"></p>
+            </div>
+            <button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminCreateBooking"><i class="bi bi-plus-lg" aria-hidden="true"></i> Tambah Tempahan</button>
           </header>
           <div class="stats-grid" id="adminStats"></div>
           <div class="admin-card">
@@ -61,9 +71,14 @@
             <div><div class="admin-page-eyebrow">TEMPAHAN</div><h2>Pengurusan Tempahan</h2><p class="admin-panel-subtitle">Semak permohonan, status bayaran dan tindakan kelulusan.</p></div>
             <div class="admin-toolbar-actions">
               <button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminCreateBooking"><i class="bi bi-plus-lg"></i> Tambah Tempahan</button>
-              <div class="table-sort"><i class="bi bi-sort-down"></i><select id="adminBookingsSortSelect" aria-label="Susun tempahan" onchange="renderAdminBookings()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div>
-              <div class="filter-tabs" id="bookingFilterTabs"><button class="filter-tab active" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
             </div>
+          </div>
+          <div class="stats-grid" id="bookingStats" aria-label="Ringkasan semua tempahan"></div>
+          <div class="admin-data-toolbar">
+            <label class="search-control"><i class="bi bi-search" aria-hidden="true"></i><span class="sr-only">Cari tempahan</span><input id="adminBookingSearch" type="search" placeholder="Cari ID, pemohon atau fasiliti..." oninput="renderAdminBookings()"></label>
+            <div class="table-sort"><i class="bi bi-sort-down" aria-hidden="true"></i><select id="adminBookingsSortSelect" aria-label="Susun tempahan" onchange="renderAdminBookings()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div>
+            <div class="filter-tabs toolbar-full" id="bookingFilterTabs" aria-label="Tapis status tempahan"><button class="filter-tab active" aria-pressed="true" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('unpaid', this)">Belum Bayar</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
+            <span class="admin-result-count" id="bookingResultCount" role="status"></span>
           </div>
           <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-full dashboard-booking-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div></div>
         </div>
@@ -83,8 +98,13 @@
 
         <div class="admin-panel" id="panel-clients">
           <div class="admin-panel-toolbar">
-            <div><div class="admin-page-eyebrow">PELANGGAN</div><h2>Pengurusan Pelanggan</h2><p class="admin-panel-subtitle">Lihat profil, jenis akaun dan sejarah tempahan.</p></div>
+            <div><div class="admin-page-eyebrow">PENGURUSAN</div><h2>Pelanggan</h2><p class="admin-panel-subtitle">Urus akaun orang awam dan kakitangan PoliSpace.</p></div>
             <div class="admin-toolbar-actions"><div class="table-sort"><i class="bi bi-sort-down"></i><select id="clientsSortSelect" aria-label="Susun pelanggan" onchange="renderAdminClients()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div><button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
+          </div>
+          <div class="admin-data-toolbar">
+            <label class="search-control"><i class="bi bi-search" aria-hidden="true"></i><span class="sr-only">Cari pelanggan</span><input id="adminClientSearch" type="search" placeholder="Cari nama, e-mel atau telefon..." oninput="renderAdminClients()"></label>
+            <div class="filter-tabs" id="clientFilterTabs" aria-label="Tapis jenis akaun"><button class="filter-tab active" aria-pressed="true" onclick="filterAdminClients('all', this)">Semua</button><button class="filter-tab" aria-pressed="false" onclick="filterAdminClients('public', this)">Orang Awam</button><button class="filter-tab" aria-pressed="false" onclick="filterAdminClients('staff', this)">Kakitangan</button></div>
+            <span class="admin-result-count" id="clientResultCount" role="status"></span>
           </div>
           <div class="admin-card">
             <div class="data-table-wrap"><table class="data-table admin-clients-table">
@@ -96,7 +116,7 @@
 
         <div class="admin-panel" id="panel-staff-verification">
           <div class="admin-panel-toolbar">
-            <div><h2>Pengesahan Akaun Kakitangan</h2><p class="admin-panel-subtitle">Semak nombor kakitangan sebelum memberikan pengecualian bayaran.</p></div>
+            <div><div class="admin-page-eyebrow">PENGURUSAN</div><h2>Pengesahan Akaun Kakitangan</h2><p class="admin-panel-subtitle">Semak nombor kakitangan sebelum memberikan pengecualian bayaran.</p></div>
             <button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
           </div>
           <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-staff-verification-table"><thead><tr><th>Nama</th><th>E-mel</th><th>No. Kakitangan</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="staffVerificationTbody"></tbody></table></div></div>
@@ -105,9 +125,9 @@
         <div class="admin-panel" id="panel-facilities">
           <div class="admin-panel-toolbar">
             <div><div class="admin-page-eyebrow">FASILITI</div><h2>Pengurusan Fasiliti</h2><p class="admin-panel-subtitle">Urus ketersediaan, peralatan dan tugasan PIC.</p></div>
-            <button class="btn btn-secondary btn-sm" type="button" onclick="loadFacilities().then(renderFacilityManagement)"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
+            <div class="admin-toolbar-actions"><button class="btn btn-primary btn-sm" type="button" onclick="toggleFacilityCreateForm()" id="facilityCreateToggle" aria-expanded="false" aria-controls="adminFacilityForm"><i class="bi bi-plus-lg"></i> Tambah Fasiliti</button><button class="btn btn-secondary btn-sm" type="button" onclick="loadFacilities().then(renderFacilityManagement)"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
           </div>
-          <form class="admin-card admin-facility-form" id="adminFacilityForm" onsubmit="addFacility(event)">
+          <form class="admin-card admin-facility-form" id="adminFacilityForm" onsubmit="addFacility(event)" hidden>
             <div class="admin-card-header">
               <div class="admin-facility-form-heading">
                 <span><i class="bi bi-building-add"></i></span>
@@ -183,6 +203,7 @@
               </section>
             </div>
             <div class="admin-facility-form-actions">
+              <button class="btn btn-secondary" type="button" onclick="toggleFacilityCreateForm(false)">Tutup</button>
               <button class="btn btn-primary" id="addFacilityButton" type="submit"><i class="bi bi-plus-lg"></i> Tambah Fasiliti</button>
             </div>
           </form>
@@ -192,6 +213,7 @@
         <div class="admin-panel" id="panel-pic">
           <div class="admin-panel-toolbar">
             <div>
+              <div class="admin-page-eyebrow">PENGURUSAN</div>
               <h2>Pengurusan PIC</h2>
               <p class="admin-panel-subtitle">Urus orang bertanggungjawab untuk setiap fasiliti dan hantar e-mel kepada PIC.</p>
             </div>
@@ -200,6 +222,7 @@
               <button class="btn btn-secondary btn-sm" type="button" onclick="refreshPicAndFacilityManagement()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
             </div>
           </div>
+          <div class="admin-data-toolbar"><label class="search-control"><i class="bi bi-search" aria-hidden="true"></i><span class="sr-only">Cari PIC</span><input id="adminPicSearch" type="search" placeholder="Cari nama, e-mel atau fasiliti..." oninput="renderPicManagement()"></label><span class="admin-result-count" id="picResultCount" role="status"></span></div>
           <div class="pic-manage-grid" id="picManageGrid"></div>
         </div>
 
@@ -210,29 +233,30 @@
 
         <div class="admin-panel" id="panel-reports">
           <div class="admin-panel-toolbar report-toolbar">
-            <div><h2>Laporan Tempahan</h2><p class="admin-panel-subtitle">Pantau trend tempahan, prestasi fasiliti dan bukti bayaran.</p></div>
+            <div><div class="admin-page-eyebrow">ANALISIS</div><h2>Laporan Tempahan</h2><p class="admin-panel-subtitle">Pantau trend tempahan, prestasi fasiliti dan bukti bayaran.</p></div>
             <div class="admin-toolbar-actions report-toolbar-actions">
               <label class="report-filter" for="reportPeriodSelect"><span>Tempoh Permohonan</span><select id="reportPeriodSelect" onchange="loadAdminReports()"><option value="all">Semua Masa</option><option value="month">Bulan Ini</option><option value="year">Tahun Ini</option></select></label>
               <label class="report-filter" for="reportEvidenceSortSelect"><span>Susun Bukti</span><select id="reportEvidenceSortSelect" onchange="renderSortedAdminReports()"><option value="recent">Permohonan Terkini</option><option value="date-asc">Tarikh Tempahan: Awal</option><option value="date-desc">Tarikh Tempahan: Akhir</option></select></label>
               <button class="btn btn-secondary btn-sm" type="button" onclick="loadAdminReports()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
               <button class="btn btn-primary btn-sm" id="printAdminReportButton" type="button" onclick="printAdminReport()" disabled><i class="bi bi-printer"></i> Cetak Laporan</button>
             </div>
+            <p class="report-update-status" id="reportUpdateStatus" role="status" aria-live="polite"></p>
           </div>
           <div id="adminReportContent"><div class="report-loading"><i class="bi bi-arrow-repeat"></i> Menyediakan laporan...</div></div>
         </div>
-      </div>
+      </main>
     </div>
   </div>
 
   <div class="modal-overlay" id="bookingModal">
-    <div class="modal">
-      <div class="modal-header"><div class="modal-title" id="modalTitle"></div><button class="modal-close" onclick="closeModal('bookingModal')"><i class="bi bi-x-lg"></i></button></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+      <div class="modal-header"><div class="modal-title" id="modalTitle"></div><button class="modal-close" onclick="closeModal('bookingModal')" aria-label="Tutup dialog"><i class="bi bi-x-lg"></i></button></div>
       <div class="modal-body" id="modalBody"></div>
       <div class="modal-footer" id="modalFooter"></div>
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260924-admin-table-fixes"></script>
+  <script src="/resources/js/script.js?v=20260925-navigation"></script>
 </body>
 </html>
 

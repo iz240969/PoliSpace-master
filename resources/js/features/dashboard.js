@@ -253,7 +253,7 @@ function bookingGroupRowHtml(group) {
       <td>
         <div class="booking-row-actions">
           <button class="btn btn-secondary btn-sm dashboard-booking-group-action" type="button" onclick="toggleDashboardBookingGroup('${escapeAttr(group.groupRef)}', event)" aria-expanded="${expanded ? 'true' : 'false'}" title="${expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan'}" aria-label="${expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan'}">
-            <i class="bi ${expanded ? 'bi-chevron-up' : 'bi-chevron-down'}"></i>
+            <i class="bi bi-chevron-down"></i>
           </button>
         </div>
       </td>
@@ -287,27 +287,11 @@ function toggleDashboardBookingGroup(groupRef, event = null) {
     action.setAttribute('aria-expanded', String(expanded));
     action.setAttribute('aria-label', label);
     action.title = expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan';
-    action.querySelector('i').className = `bi ${expanded ? 'bi-chevron-up' : 'bi-chevron-down'}`;
   }
 
-  document.querySelectorAll('.dashboard-booking-child-row[data-booking-group]').forEach((row) => {
-    if (row.dataset.bookingGroup !== groupRef) return;
-    if (expanded) {
-      row.style.display = 'table-row';
-      // Force reflow
-      void row.offsetHeight;
-      row.classList.add('is-visible');
-    } else {
-      row.classList.remove('is-visible');
-      setTimeout(() => {
-        if (!row.classList.contains('is-visible')) {
-          row.style.display = 'none';
-        }
-      }, 220); // wait for CSS transition
-    }
-    row.setAttribute('aria-hidden', String(!expanded));
-    row.inert = !expanded;
-  });
+  const rows = [...document.querySelectorAll('.dashboard-booking-child-row[data-booking-group]')]
+    .filter((row) => row.dataset.bookingGroup === groupRef);
+  setBookingGroupExpanded(rows, expanded);
 }
 
 function renderUserBookings(bookings, container, totalCount = bookings.length, comparator = getDashboardBookingComparator()) {

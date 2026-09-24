@@ -24,7 +24,7 @@
   margin-bottom: 26px;
 }
 .admin-create-eyebrow { margin-bottom: 6px; color: var(--gold-hover); font-size: 10px; font-weight: 800; letter-spacing: 1.15px; }
-.admin-create-page-header h1 { margin: 0; font-size: 32px; font-weight: 750; letter-spacing: -0.8px; }
+.admin-create-page-header h1 { margin: 0; font-size: 32px; font-weight: var(--title-weight); letter-spacing: -0.8px; }
 .admin-create-page-header p { margin: 8px 0 0; color: var(--grey-4); font-size: 14px; }
 .admin-create-header-mark { width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid #ead9af; border-radius: var(--radius-md); background: var(--gold-dim); color: var(--gold-hover); font-size: 24px; }
 
@@ -54,7 +54,7 @@
 .admin-create-help-card.accent { display: flex; gap: 13px; border-color: #ead9af; background: var(--surface-accent); color: var(--text-main); }
 .admin-create-help-card.accent > i { color: var(--gold); font-size: 21px; }
 .admin-create-help-card.accent p { margin: 6px 0 0; color: var(--grey-4); font-size: 12px; line-height: 1.55; }
-.admin-create-help-title { margin-bottom: 13px; color: var(--grey-5); font-size: 11px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; }
+.admin-create-help-title { margin-bottom: 13px; color: var(--grey-5); font-size: 11px; font-weight: var(--title-weight); letter-spacing: 0.7px; text-transform: uppercase; }
 .admin-create-help-card ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .admin-create-help-card li { display: flex; align-items: center; gap: 8px; color: var(--grey-4); font-size: 12px; font-weight: 650; }
 .admin-create-help-card li i { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--green-soft); color: var(--green); }
