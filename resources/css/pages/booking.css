@@ -1068,7 +1068,7 @@ textarea {
 
 /* ===== BOOKING FORM REDESIGN ===== */
 body.booking-page {
-  background: var(--bg-main);
+  background: transparent;
 }
 
 body.booking-page #booking {

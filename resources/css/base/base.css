@@ -8,6 +8,10 @@
   --gold-dim: #f7f0df;
   --gold-ring: rgba(154, 109, 22, 0.18);
   --bg-main: #f5f4f1;
+  --page-background:
+    radial-gradient(ellipse 72rem 48rem at 8% 0%, rgba(197, 155, 70, 0.10), transparent 68%),
+    radial-gradient(ellipse 58rem 44rem at 96% 24%, rgba(75, 112, 83, 0.075), transparent 70%),
+    linear-gradient(155deg, #faf9f6 0%, #f3f2ee 54%, #f7f6f2 100%);
   --surface: #ffffff;
   --surface-2: #faf9f7;
   --surface-3: #f0efeb;
@@ -66,7 +70,8 @@ html {
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background: var(--bg-main);
+  background: var(--page-background);
+  background-attachment: fixed;
   color: var(--text-main);
   font-family: var(--body-font);
   font-size: 15px;

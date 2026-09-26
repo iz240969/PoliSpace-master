@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: center;
   padding: 112px 24px 56px;
-  background: var(--bg-main);
+  background: transparent;
 }
 
 .unified-login-card,
