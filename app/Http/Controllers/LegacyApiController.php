@@ -28,6 +28,14 @@ class LegacyApiController extends Controller
             throw new NotFoundHttpException;
         }
 
+        // Legacy handlers read query parameters from $_GET. Restore them from
+        // the routed request when PHP's variables_order omits the GET array.
+        $queryParameters = $request->query->all();
+        if ($queryParameters === []) {
+            parse_str((string) $request->server('QUERY_STRING', ''), $queryParameters);
+        }
+        $_GET = array_replace($_GET, $queryParameters);
+
         require base_path('backend/api/'.$endpoint);
 
         // Existing API scripts terminate after writing their JSON response.
