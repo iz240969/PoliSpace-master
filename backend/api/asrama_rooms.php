@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/validation.php';
 require_once __DIR__ . '/../includes/booking_availability.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -93,7 +94,10 @@ try {
         $normalFemale = normalizeAsramaLimit($input, 'normal_female_limit', ASRAMA_NORMAL_ROOM_LIMIT_MAX, 'Had biasa Blok Perempuan');
         $holidayMale = normalizeAsramaLimit($input, 'holiday_male_limit', ASRAMA_HOLIDAY_ROOM_LIMIT_MAX, 'Had Cuti Panjang Blok Lelaki');
         $holidayFemale = normalizeAsramaLimit($input, 'holiday_female_limit', ASRAMA_HOLIDAY_ROOM_LIMIT_MAX, 'Had Cuti Panjang Blok Perempuan');
-        $holidayEnabled = filter_var($input['holiday_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $holidayEnabled = strictBooleanInput($input['holiday_enabled'] ?? false);
+        if ($holidayEnabled === null) {
+            jsonResponse(['success' => false, 'error' => 'Status Mod Cuti Panjang tidak sah.'], 422);
+        }
         $holidayStart = normalizeAsramaSettingsDate($input['holiday_start_date'] ?? null, 'Tarikh mula', $holidayEnabled);
         $holidayEnd = normalizeAsramaSettingsDate($input['holiday_end_date'] ?? null, 'Tarikh tamat', $holidayEnabled);
         if ($holidayStart !== null && $holidayEnd !== null && $holidayEnd < $holidayStart) {

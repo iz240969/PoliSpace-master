@@ -54,7 +54,14 @@ ini_set('session.cookie_httponly', '1');
 ini_set('session.use_only_cookies', '1');
 ini_set('session.use_strict_mode', '1');
 ini_set('session.cookie_samesite', 'Lax');
-if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+$httpsDetected = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+$trustProxyHttps = filter_var(envValue('TRUST_PROXY_HTTPS', 'false'), FILTER_VALIDATE_BOOLEAN);
+$forwardedProtocol = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
+if (!$httpsDetected && $trustProxyHttps && $forwardedProtocol === 'https') {
+    $httpsDetected = true;
+}
+$secureCookiesConfigured = filter_var(envValue('SESSION_COOKIE_SECURE', 'false'), FILTER_VALIDATE_BOOLEAN);
+if ($httpsDetected || $secureCookiesConfigured) {
     ini_set('session.cookie_secure', '1');
 }
 session_start();
@@ -67,7 +74,7 @@ header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: frame-ancestors 'self'");
 if (!empty($_SERVER['HTTP_ORIGIN'])) {
     $origin = (string)$_SERVER['HTTP_ORIGIN'];
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $scheme = $httpsDetected ? 'https' : 'http';
     $requestOrigin = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? '');
     $sameOrigin = rtrim($origin, '/') === rtrim($requestOrigin, '/');
     $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));

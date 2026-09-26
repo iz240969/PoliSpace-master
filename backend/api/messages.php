@@ -14,19 +14,18 @@ $action = $_GET['action'] ?? '';
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if ($action !== '' && $action !== 'my') {
+            jsonResponse(['success' => false, 'error' => 'Invalid action'], 400);
+        }
         if ($action === 'my') {
-            $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-            $sessionEmail = trim((string)($_SESSION['user_email'] ?? ''));
-            if ($userId <= 0 || !filter_var($sessionEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
-                jsonResponse(['success' => false, 'error' => 'User login required'], 401);
-            }
+            $user = requireUserAccount($db);
 
             $messages = $db->fetchAll(
                 'SELECT id, subject, message, admin_reply, replied_at, created_at
                  FROM contact_messages
                  WHERE email = ?
                  ORDER BY created_at DESC',
-                [$sessionEmail]
+                [$user['email']]
             );
             jsonResponse(['success' => true, 'data' => $messages]);
         }
@@ -41,14 +40,13 @@ try {
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-        $sessionEmail = trim((string)($_SESSION['user_email'] ?? ''));
-        if ($userId <= 0 || !filter_var($sessionEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
-            jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+        if ($action !== '') {
+            jsonResponse(['success' => false, 'error' => 'Invalid action'], 400);
         }
+        $user = requireUserAccount($db);
 
         $input = jsonInput();
-        $input['email'] = $sessionEmail;
+        $input['email'] = (string)$user['email'];
         $errors = validateContactMessage($input);
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Validation failed', 'details' => $errors], 400);

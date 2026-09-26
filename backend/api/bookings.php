@@ -363,17 +363,22 @@ function createBooking(Database $db, bool $adminCreate = false): void
     if (!(bool)$facility['is_available']) {
         jsonResponse(['success' => false, 'error' => 'Fasiliti ini tidak tersedia untuk tempahan.'], 409);
     }
-    if (!isAsramaRoomFacilityName((string)$facility['name']) && (int)$data['participant_count'] > (int)$facility['capacity']) {
+    $isAsramaFacility = isAsramaRoomFacilityName((string)$facility['name']);
+    $durationUnitError = bookingFacilityDurationUnitError(
+        $isAsramaFacility,
+        (string)($data['duration_unit'] ?? 'hour')
+    );
+    if ($durationUnitError !== null) {
+        jsonResponse(['success' => false, 'error' => $durationUnitError], 400);
+    }
+    if (!$isAsramaFacility && (int)$data['participant_count'] > (int)$facility['capacity']) {
         jsonResponse(['success' => false, 'error' => 'Jumlah pengguna melebihi kapasiti fasiliti.'], 400);
     }
     $packageOnlyFacilities = ['dewan utama', 'dewan syarahan', 'bilik persidangan', 'bilik seminar'];
     if ($facility && in_array(strtolower((string)$facility['name']), $packageOnlyFacilities, true)) {
         $data['setup_required'] = 'full';
     }
-    if (isAsramaRoomFacilityName((string)$facility['name'])) {
-        if (($data['duration_unit'] ?? 'hour') !== 'day') {
-            jsonResponse(['success' => false, 'error' => 'Asrama - Bilik hanya boleh ditempah mengikut hari.'], 400);
-        }
+    if ($isAsramaFacility) {
         $data['start_time'] = '00:00';
         $data['end_time'] = '';
         $data['equipment_required'] = '';
@@ -416,13 +421,18 @@ function createBooking(Database $db, bool $adminCreate = false): void
         if (!$latestFacility || !(bool)$latestFacility['is_available']) {
             throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
         }
-        if (!isAsramaRoomFacilityName((string)$latestFacility['name']) && (int)$data['participant_count'] > (int)$latestFacility['capacity']) {
+        $latestIsAsramaFacility = isAsramaRoomFacilityName((string)$latestFacility['name']);
+        $durationUnitError = bookingFacilityDurationUnitError(
+            $latestIsAsramaFacility,
+            (string)($data['duration_unit'] ?? 'hour')
+        );
+        if ($durationUnitError !== null) {
+            throw new BookingAvailabilityException($durationUnitError, 400);
+        }
+        if (!$latestIsAsramaFacility && (int)$data['participant_count'] > (int)$latestFacility['capacity']) {
             throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
         }
-        if (isAsramaRoomFacilityName((string)$latestFacility['name']) && ($data['duration_unit'] ?? 'hour') !== 'day') {
-            throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
-        }
-        if (isAsramaRoomFacilityName((string)$latestFacility['name'])) {
+        if ($latestIsAsramaFacility) {
             validateAsramaBookingMeta($data, ASRAMA_TOTAL_ROOM_LIMIT_MAX);
             $data['asrama_type'] = normalizeAsramaTypeFromRooms($data);
             assertAsramaCapacityAvailable(
@@ -545,14 +555,9 @@ function updateBookingStatus(Database $db, string $id, array $data): void
             throw new BookingAvailabilityException('Booking not found', 404);
         }
 
-        if ($status === 'approved' && $current['status'] !== 'pending') {
-            throw new BookingAvailabilityException('Hanya permohonan berstatus menunggu boleh diluluskan.');
-        }
-        if ($status === 'rejected' && !in_array($current['status'], ['unpaid', 'pending', 'approved'], true)) {
-            throw new BookingAvailabilityException('Tempahan ini tidak boleh ditolak dalam status semasa.');
-        }
-        if ($status === 'cancelled' && $current['status'] !== 'approved') {
-            throw new BookingAvailabilityException('Hanya tempahan yang telah diluluskan boleh dibatalkan oleh pentadbir.');
+        $transitionError = bookingStatusTransitionError((string)$current['status'], (string)$status);
+        if ($transitionError !== null) {
+            throw new BookingAvailabilityException($transitionError);
         }
         if (in_array($status, BLOCKING_BOOKING_STATUSES, true)) {
             if ((bool)$current['payment_required'] && empty($current['payment_file'])) {
@@ -760,15 +765,17 @@ function updateOwnPendingBooking(Database $db, string $id, array $data): void
             if (!(bool)$current['is_available']) {
                 throw new BookingAvailabilityException('Fasiliti ini tidak tersedia untuk tempahan.');
             }
-            if (!isAsramaRoomFacilityName((string)$current['facility_name']) && $participantCount > (int)$current['capacity']) {
-                throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
+            $isAsramaFacility = isAsramaRoomFacilityName((string)$current['facility_name']);
+            $durationUnitError = bookingFacilityDurationUnitError($isAsramaFacility, $durationUnit);
+            if ($durationUnitError !== null) {
+                throw new BookingAvailabilityException($durationUnitError, 400);
             }
-            if (isAsramaRoomFacilityName((string)$current['facility_name']) && $durationUnit !== 'day') {
-                throw new BookingAvailabilityException('Asrama - Bilik hanya boleh ditempah mengikut hari.', 400);
+            if (!$isAsramaFacility && $participantCount > (int)$current['capacity']) {
+                throw new BookingAvailabilityException('Jumlah pengguna melebihi kapasiti fasiliti.', 400);
             }
 
             $updatedDates = bookingBlockedDates($bookingDate, $duration, $durationUnit);
-            if (isAsramaRoomFacilityName((string)$current['facility_name'])) {
+            if ($isAsramaFacility) {
                 assertAsramaCapacityAvailable(
                     $db,
                     (int)$current['facility_id'],
@@ -950,9 +957,12 @@ function normalizeAsramaTypeFromRooms(array $data): string
 
 function validateAsramaBookingMeta(array $data, int $maxRooms): void
 {
-    $lelakiRooms = (int)($data['asrama_lelaki_rooms'] ?? 0);
-    $perempuanRooms = (int)($data['asrama_perempuan_rooms'] ?? 0);
-    $roomCount = (int)($data['room_count'] ?? 0);
+    $lelakiRooms = strictIntegerInput($data['asrama_lelaki_rooms'] ?? 0);
+    $perempuanRooms = strictIntegerInput($data['asrama_perempuan_rooms'] ?? 0);
+    $roomCount = strictIntegerInput($data['room_count'] ?? null);
+    if ($lelakiRooms === null || $perempuanRooms === null || $roomCount === null) {
+        throw new BookingAvailabilityException('Bilangan bilik mesti menggunakan nombor bulat yang sah.', 400);
+    }
     $type = normalizeAsramaTypeFromRooms($data) ?: normalizeAsramaType((string)($data['asrama_type'] ?? ''));
     if ($type === '') {
         throw new BookingAvailabilityException('Sila pilih Asrama Lelaki, Asrama Perempuan, atau kedua-duanya.', 400);
@@ -1031,7 +1041,7 @@ function uploadOwnReceipt(Database $db, string $id): void
                 'duration' => $current['duration'] ?? '1',
                 'duration_unit' => $current['duration_unit'] ?? 'hour',
                 'participant_count' => $current['participant_count'],
-            ]);
+            ], false);
             if ($scheduleErrors) {
                 throw new BookingAvailabilityException(array_values($scheduleErrors)[0], 400);
             }

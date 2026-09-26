@@ -1,0 +1,84 @@
+#admin.admin-create-page {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 108px 32px 64px;
+}
+
+.admin-create-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: var(--grey-4);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.admin-create-back:hover { color: var(--gold); }
+
+.admin-create-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+.admin-create-eyebrow { margin-bottom: 6px; color: var(--gold-hover); font-size: 10px; font-weight: 800; letter-spacing: 1.15px; }
+.admin-create-page-header h1 { margin: 0; font-size: 32px; font-weight: var(--title-weight); letter-spacing: -0.8px; }
+.admin-create-page-header p { margin: 8px 0 0; color: var(--grey-4); font-size: 14px; }
+.admin-create-header-mark { width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid #ead9af; border-radius: var(--radius-md); background: var(--gold-dim); color: var(--gold-hover); font-size: 24px; }
+
+.admin-create-page-layout { display: grid; grid-template-columns: minmax(0, 1fr) 288px; align-items: start; gap: 20px; }
+.admin-create-form-card { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-sm); }
+.admin-create-form-intro { display: flex; align-items: center; justify-content: space-between; padding: 20px 26px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.admin-create-form-intro > div { display: flex; align-items: center; gap: 13px; }
+.admin-create-form-intro > div > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--radius); background: var(--text-main); color: var(--text-inverse); font-size: 11px; font-weight: 800; }
+.admin-create-form-intro > div > div { display: grid; gap: 3px; }
+.admin-create-form-intro strong { font-size: 17px; font-weight: 750; }
+.admin-create-form-intro small { color: var(--grey-4); font-size: 11px; }
+.admin-create-form-intro > i { color: var(--gold); font-size: 20px; }
+.admin-create-page-body { padding: 26px; }
+
+.admin-create-page .admin-create-booking-form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 18px; }
+.admin-create-page .form-group { position: relative; }
+.admin-create-page .form-group label { font-size: 11px; font-weight: 750; letter-spacing: 0.25px; }
+.admin-create-page .form-group textarea { min-height: 118px; }
+.admin-create-page .admin-create-equipment-grid { min-height: 58px; padding: 12px; border-radius: var(--radius); background: var(--surface-2); }
+.admin-create-page .admin-create-payment-options { margin-top: 2px; border-color: #ead9af; background: var(--surface-accent); }
+
+.admin-create-page-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 18px 26px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.admin-create-page-actions .btn { min-height: 44px; }
+
+.admin-create-sidebar { position: sticky; top: 92px; display: grid; gap: 12px; }
+.admin-create-help-card { padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+.admin-create-help-card.accent { display: flex; gap: 13px; border-color: #ead9af; background: var(--surface-accent); color: var(--text-main); }
+.admin-create-help-card.accent > i { color: var(--gold); font-size: 21px; }
+.admin-create-help-card.accent p { margin: 6px 0 0; color: var(--grey-4); font-size: 12px; line-height: 1.55; }
+.admin-create-help-title { margin-bottom: 13px; color: var(--grey-5); font-size: 11px; font-weight: var(--title-weight); letter-spacing: 0.7px; text-transform: uppercase; }
+.admin-create-help-card ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.admin-create-help-card li { display: flex; align-items: center; gap: 8px; color: var(--grey-4); font-size: 12px; font-weight: 650; }
+.admin-create-help-card li i { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--green-soft); color: var(--green); }
+.admin-create-method { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--border-light); }
+.admin-create-method > i { width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--radius); background: var(--surface-2); color: var(--gold); }
+.admin-create-method > span { display: grid; gap: 2px; }
+.admin-create-method strong { font-size: 12px; }
+.admin-create-method small { color: var(--grey-4); font-size: 10px; }
+
+@media (max-width: 1000px) {
+  .admin-create-page-layout { grid-template-columns: 1fr; }
+  .admin-create-sidebar { position: static; grid-template-columns: repeat(3, minmax(0, 1fr)); order: -1; }
+}
+
+@media (max-width: 720px) {
+  #admin.admin-create-page { padding: 88px 14px 38px; }
+  .admin-create-page-header { align-items: flex-start; }
+  .admin-create-header-mark { display: none; }
+  .admin-create-page-header h1 { font-size: 28px; }
+  .admin-create-sidebar { grid-template-columns: 1fr; }
+  .admin-create-page .admin-create-booking-form { grid-template-columns: 1fr; }
+  .admin-create-page .admin-create-booking-form .span-2 { grid-column: auto; }
+  .admin-create-page-body { padding: 20px; }
+  .admin-create-form-intro { padding: 18px 20px; }
+  .admin-create-page-actions { align-items: stretch; flex-direction: column-reverse; padding: 16px 20px; }
+  .admin-create-page-actions .btn { width: 100%; }
+}

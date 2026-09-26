@@ -28,7 +28,7 @@ function validatePicInput(array $input): array
     if (!preg_match('/^[0-9+()\-\s]{7,20}$/', $phone)) {
         $errors['phone'] = 'Nombor telefon PIC tidak sah.';
     }
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if ($email !== '' && (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100)) {
         $errors['email'] = 'Alamat e-mel PIC tidak sah.';
     }
 
@@ -38,13 +38,18 @@ function validatePicInput(array $input): array
 function normalizeFacilityIds(Database $db, mixed $value): array
 {
     if (!is_array($value)) {
-        return [];
+        jsonResponse(['success' => false, 'error' => 'Senarai fasiliti tidak sah.'], 422);
     }
 
-    $ids = array_values(array_unique(array_filter(
-        array_map(static fn(mixed $id): int => (int)$id, $value),
-        static fn(int $id): bool => $id > 0
-    )));
+    $ids = [];
+    foreach ($value as $id) {
+        if (!(is_int($id) && $id > 0)
+            && !(is_string($id) && ctype_digit($id) && (int)$id > 0)) {
+            jsonResponse(['success' => false, 'error' => 'Satu atau lebih fasiliti tidak sah.'], 422);
+        }
+        $ids[] = (int)$id;
+    }
+    $ids = array_values(array_unique($ids));
     if (!$ids) {
         return [];
     }
@@ -100,6 +105,9 @@ function fetchPic(Database $db, int $id): array|false
 }
 
 try {
+    if ($action !== '' && !($method === 'POST' && $action === 'test-email')) {
+        jsonResponse(['success' => false, 'error' => 'Invalid action'], 400);
+    }
     if ($method === 'GET') {
         $pics = $db->fetchAll(
             "SELECT p.id, p.full_name, p.phone, p.email, p.created_at, p.updated_at,

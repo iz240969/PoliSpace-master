@@ -114,8 +114,56 @@ function handlePaymentUpload(array $file): array
 function requireAdmin(): void
 {
     if (empty($_SESSION['admin_id']) || !empty($_SESSION['user_id'])) {
+        if (!empty($_SESSION['admin_id']) && !empty($_SESSION['user_id'])) {
+            unset(
+                $_SESSION['admin_id'],
+                $_SESSION['admin_email'],
+                $_SESSION['admin_name'],
+                $_SESSION['user_id'],
+                $_SESSION['user_email']
+            );
+        }
         jsonResponse(['success' => false, 'error' => 'Admin login required'], 401);
     }
+
+    $admin = Database::getInstance()->fetchOne(
+        "SELECT id FROM users WHERE id = ? AND role = 'admin'",
+        [(int)$_SESSION['admin_id']]
+    );
+    if (!$admin) {
+        unset($_SESSION['admin_id'], $_SESSION['admin_email'], $_SESSION['admin_name']);
+        jsonResponse(['success' => false, 'error' => 'Admin login required'], 401);
+    }
+}
+
+function requireUserAccount(Database $db): array
+{
+    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
+    if ($userId <= 0 || !empty($_SESSION['admin_id'])) {
+        if ($userId > 0 && !empty($_SESSION['admin_id'])) {
+            unset(
+                $_SESSION['admin_id'],
+                $_SESSION['admin_email'],
+                $_SESSION['admin_name'],
+                $_SESSION['user_id'],
+                $_SESSION['user_email']
+            );
+        }
+        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    }
+
+    $user = $db->fetchOne(
+        "SELECT id, email, full_name, phone, account_type, staff_number, staff_verification_status
+         FROM users WHERE id = ? AND role = 'user'",
+        [$userId]
+    );
+    if (!$user) {
+        unset($_SESSION['user_id'], $_SESSION['user_email']);
+        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    }
+
+    $_SESSION['user_email'] = (string)$user['email'];
+    return $user;
 }
 
 function sendPlainEmail(string $to, string $subject, string $body): bool

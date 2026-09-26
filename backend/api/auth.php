@@ -14,8 +14,16 @@ ensureAccountTypeSchema($db);
 $input = $_POST ?: jsonInput();
 $action = $_GET['action'] ?? '';
 
-if (in_array($action, ['auto', 'signup', 'login', 'user', 'logout'], true)
-    && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+$actionMethods = [
+    'auto' => 'POST',
+    'signup' => 'POST',
+    'login' => 'POST',
+    'user' => 'POST',
+    'logout' => 'POST',
+    'me' => 'GET',
+    'profile' => 'PUT',
+];
+if (isset($actionMethods[$action]) && $_SERVER['REQUEST_METHOD'] !== $actionMethods[$action]) {
     jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);
 }
 
@@ -127,8 +135,8 @@ if ($action === 'signup') {
         jsonResponse(['success' => false, 'error' => 'Valid phone number required'], 400);
     }
 
-    if (strlen($password) < 6) {
-        jsonResponse(['success' => false, 'error' => 'Password must be at least 6 characters'], 400);
+    if (strlen($password) < 6 || strlen($password) > 128) {
+        jsonResponse(['success' => false, 'error' => 'Password must be between 6 and 128 characters'], 400);
     }
 
     if ($password !== $confirm) {
@@ -136,49 +144,25 @@ if ($action === 'signup') {
     }
 
     $user = $db->fetchOne('SELECT id, email, password, role FROM users WHERE email = ?', [$email]);
-    if ($user && $user['role'] === 'admin') {
-        jsonResponse(['success' => false, 'error' => 'Admin account cannot use client signup'], 400);
-    }
-
-    if ($user && !empty($user['password'])) {
+    if ($user) {
         jsonResponse(['success' => false, 'error' => 'Account already exists. Please login.'], 409);
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
-    if ($user) {
-        $db->update(
-            "UPDATE users
-             SET password = ?, full_name = COALESCE(NULLIF(?, ''), full_name),
-                 phone = COALESCE(NULLIF(?, ''), phone), role = 'user', account_type = ?,
-                 staff_number = ?, staff_verification_status = ?
-             WHERE id = ?",
-            [
-                $hash,
-                $fullName,
-                $phone,
-                $accountType,
-                $staffNumber !== '' ? $staffNumber : null,
-                $accountType === ACCOUNT_TYPE_STAFF ? STAFF_VERIFICATION_PENDING : null,
-                $user['id'],
-            ]
-        );
-        $userId = (int)$user['id'];
-    } else {
-        $userId = (int)$db->insert(
-            'INSERT INTO users (email, password, full_name, phone, role, account_type, staff_number, staff_verification_status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-                $email,
-                $hash,
-                $fullName,
-                $phone,
-                'user',
-                $accountType,
-                $staffNumber !== '' ? $staffNumber : null,
-                $accountType === ACCOUNT_TYPE_STAFF ? STAFF_VERIFICATION_PENDING : null,
-            ]
-        );
-    }
+    $userId = (int)$db->insert(
+        'INSERT INTO users (email, password, full_name, phone, role, account_type, staff_number, staff_verification_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+            $email,
+            $hash,
+            $fullName,
+            $phone,
+            'user',
+            $accountType,
+            $staffNumber !== '' ? $staffNumber : null,
+            $accountType === ACCOUNT_TYPE_STAFF ? STAFF_VERIFICATION_PENDING : null,
+        ]
+    );
 
     establishUserSession($userId, $email);
 
@@ -225,10 +209,26 @@ if ($action === 'me') {
                 ],
             ]);
         }
+        unset($_SESSION['user_id'], $_SESSION['user_email']);
     }
 
     if (!empty($_SESSION['admin_id'])) {
-        jsonResponse(['success' => true, 'role' => 'admin']);
+        $admin = $db->fetchOne(
+            "SELECT id, email, full_name FROM users WHERE id = ? AND role = 'admin'",
+            [$_SESSION['admin_id']]
+        );
+        if ($admin) {
+            jsonResponse([
+                'success' => true,
+                'role' => 'admin',
+                'user' => [
+                    'id' => (int)$admin['id'],
+                    'email' => $admin['email'],
+                    'name' => $admin['full_name'],
+                ],
+            ]);
+        }
+        unset($_SESSION['admin_id'], $_SESSION['admin_email'], $_SESSION['admin_name']);
     }
 
     jsonResponse(['success' => false, 'error' => 'Login required'], 401);
@@ -341,7 +341,7 @@ if ($action === 'user') {
     }
 
     establishUserSession((int)$user['id'], (string)$user['email']);
-    jsonResponse(['success' => true, 'message' => 'Login successful', 'email' => $email]);
+    jsonResponse(['success' => true, 'message' => 'Login successful', 'email' => $user['email']]);
 }
 
 if ($action === 'logout') {

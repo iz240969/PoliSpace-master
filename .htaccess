@@ -1,4 +1,19 @@
 RewriteEngine On
+Options -Indexes
+
+<FilesMatch "(?i)^(?:\.env(?:\..*)?|.*\.(?:sql|md|log|bak|ini|dist|example))$">
+  Require all denied
+</FilesMatch>
+
+RewriteRule ^(?:\.git|database|documentation|docker|vendor|node_modules)(?:/|$) - [F,L,NC]
+RewriteRule ^backend/(?:config|db)\.php$ - [F,L,NC]
+RewriteRule ^backend/includes/ - [F,L,NC]
+
+# Keep the Laragon project-root URL usable during local development. Production
+# Apache should point its document root directly at /public instead.
+RewriteCond %{REQUEST_URI} !^/resources/(?:css|js|images)/ [NC]
+RewriteCond %{REQUEST_URI} !^/resources/favicon\.svg$ [NC]
+RewriteRule ^ public/index.php [L]
 
 <IfModule mod_headers.c>
   Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"

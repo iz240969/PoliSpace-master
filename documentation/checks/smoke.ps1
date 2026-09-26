@@ -15,8 +15,16 @@ Get-ChildItem "$projectRoot\resources\js" -Recurse -Filter *.js | ForEach-Object
     if ($LASTEXITCODE -ne 0) { $failures.Add("JavaScript syntax: $($_.FullName)") }
 }
 
-& $node --test (Join-Path $PSScriptRoot 'workspace.test.js')
-if ($LASTEXITCODE -ne 0) { $failures.Add('UI behaviour checks failed') }
+$testFiles = Get-ChildItem $PSScriptRoot -Filter *.test.js |
+    Where-Object { $_.Name -ne 'api-integration.test.js' } |
+    ForEach-Object { $_.FullName }
+if ($testFiles.Count -gt 0) {
+    & $node --test $testFiles
+    if ($LASTEXITCODE -ne 0) { $failures.Add('JavaScript behaviour checks failed') }
+}
+
+& $php (Join-Path $PSScriptRoot 'backend_booking_regression.php')
+if ($LASTEXITCODE -ne 0) { $failures.Add('Backend booking validation checks failed') }
 
 $publicChecks = @(
     '/',

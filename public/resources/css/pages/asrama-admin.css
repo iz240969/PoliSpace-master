@@ -1,0 +1,307 @@
+#admin.asrama-admin-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 112px 36px 60px;
+}
+
+.asrama-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 20px;
+}
+
+.asrama-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: var(--grey-4);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.asrama-back-link:hover { color: var(--gold); }
+.asrama-title-row { display: flex; align-items: center; gap: 17px; }
+
+.asrama-title-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  background: var(--gold-dim);
+  border: 1px solid rgba(166,124,30,.2);
+  border-radius: 16px;
+  color: #795b16;
+  font-size: 24px;
+}
+
+.asrama-eyebrow {
+  margin-bottom: 3px;
+  color: #795b16;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+}
+
+.asrama-title-row h1 { margin: 0; font-size: 30px; letter-spacing: -.5px; }
+.asrama-title-row p { margin: 7px 0 0; color: var(--grey-4); font-size: 14px; line-height: 1.5; }
+
+.asrama-scope-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  background: var(--gold-dim);
+  border: 1px solid rgba(166,124,30,.2);
+  border-radius: 10px;
+  color: #5f512f;
+}
+
+.asrama-scope-note > i { margin-top: 2px; color: #795b16; }
+.asrama-scope-note > div { display: grid; gap: 2px; }
+.asrama-scope-note strong { color: var(--text-main); font-size: 12px; }
+.asrama-scope-note span { font-size: 12px; line-height: 1.5; }
+
+.asrama-capacity-form { display: grid; gap: 18px; }
+.asrama-capacity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+
+.asrama-capacity-card,
+.asrama-holiday-card {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.asrama-capacity-card { position: relative; overflow: hidden; padding: 24px; }
+.asrama-capacity-card::before { position: absolute; inset: 0 auto 0 0; width: 4px; content: ''; }
+.asrama-capacity-card.male::before, .asrama-capacity-card.female::before { background: var(--gold-light); }
+
+.asrama-capacity-card-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 24px;
+}
+
+.asrama-block-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  font-size: 19px;
+}
+
+.male .asrama-block-icon, .female .asrama-block-icon { background: var(--gold-dim); color: var(--gold-hover); }
+.asrama-capacity-card-head small,
+.asrama-holiday-heading small { color: var(--grey-4); font-size: 10px; font-weight: 900; letter-spacing: 1px; }
+.asrama-capacity-card-head h2,
+.asrama-holiday-heading h2 { margin: 3px 0 0; font-size: 18px; }
+
+.asrama-capacity-control-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.asrama-capacity-control-label span { font-size: 12px; font-weight: 800; }
+.asrama-capacity-control-label small { color: var(--grey-4); font-size: 11px; }
+
+.asrama-limit-control {
+  display: grid;
+  grid-template-columns: 48px minmax(80px, 120px) 48px;
+  justify-content: center;
+  gap: 9px;
+}
+
+.asrama-limit-control button,
+.asrama-limit-control input {
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-main);
+}
+
+.asrama-limit-control button {
+  cursor: pointer;
+  font-size: 17px;
+  transition: var(--transition);
+}
+
+.asrama-limit-control button:hover { border-color: var(--gold); background: var(--gold-dim); color: #795b16; }
+.asrama-limit-control button:focus-visible,
+.asrama-limit-control input:focus-visible { border-color: var(--gold); outline: 3px solid rgba(166,124,30,.18); }
+
+.asrama-limit-control input {
+  padding: 0 8px;
+  background: var(--surface);
+  font-family: var(--display-font);
+  font-size: 24px;
+  text-align: center;
+}
+
+.asrama-limit-control input::-webkit-inner-spin-button,
+.asrama-limit-control input::-webkit-outer-spin-button { margin: 0; appearance: none; }
+
+.asrama-limit-caption {
+  margin: 12px 0 22px;
+  color: var(--grey-4);
+  font-size: 12px;
+  text-align: center;
+}
+
+.asrama-limit-caption strong { color: var(--text-main); }
+
+.asrama-capacity-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+}
+
+.asrama-capacity-stats > div { display: grid; gap: 4px; padding: 13px; border-right: 1px solid var(--border); }
+.asrama-capacity-stats > div:last-child { border-right: 0; }
+.asrama-capacity-stats span { color: var(--grey-4); font-size: 11px; line-height: 1.3; }
+.asrama-capacity-stats strong { font-family: var(--display-font); font-size: 20px; }
+.asrama-capacity-stats .remaining strong { color: var(--green); }
+
+.asrama-holiday-card { padding: 24px; }
+.asrama-holiday-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.asrama-holiday-heading { display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+.asrama-holiday-heading > span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  background: var(--gold-dim);
+  border-radius: 12px;
+  color: #795b16;
+  font-size: 19px;
+}
+
+.asrama-holiday-heading p { margin: 5px 0 0; color: var(--grey-4); font-size: 12px; line-height: 1.5; }
+
+.asrama-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.asrama-mode-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.asrama-mode-switch > span { position: relative; width: 48px; height: 27px; flex: 0 0 auto; background: var(--grey-2); border-radius: 99px; transition: var(--transition); }
+.asrama-mode-switch > span::after { position: absolute; top: 4px; left: 4px; width: 19px; height: 19px; background: var(--surface); border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.18); content: ''; transition: var(--transition); }
+.asrama-mode-switch input:checked + span { background: var(--green); }
+.asrama-mode-switch input:checked + span::after { left: 25px; }
+.asrama-mode-switch input:focus-visible + span { outline: 3px solid rgba(46,133,76,.2); outline-offset: 2px; }
+.asrama-mode-switch strong { min-width: 68px; }
+
+.asrama-holiday-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.asrama-holiday-fields[hidden] { display: none; }
+.asrama-holiday-fields > label { display: grid; gap: 7px; }
+.asrama-holiday-fields > label > span,
+.asrama-holiday-limit > div > span { color: var(--grey-5); font-size: 12px; font-weight: 800; }
+.asrama-holiday-fields .form-control { min-height: 46px; font-size: 13px; }
+
+.asrama-holiday-limit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+
+.asrama-holiday-limit > div { display: grid; gap: 3px; }
+.asrama-holiday-limit small { color: var(--grey-4); font-size: 11px; }
+.asrama-holiday-limit .asrama-limit-control { grid-template-columns: 42px 76px 42px; gap: 6px; }
+.asrama-holiday-limit .asrama-limit-control button,
+.asrama-holiday-limit .asrama-limit-control input { height: 42px; }
+.asrama-holiday-limit .asrama-limit-control input { font-size: 19px; }
+
+.asrama-holiday-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  color: var(--grey-4);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.asrama-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+.asrama-form-footer p { display: flex; align-items: flex-start; gap: 9px; margin: 0; color: var(--grey-4); font-size: 12px; line-height: 1.5; }
+.asrama-form-footer p i { margin-top: 2px; color: #795b16; }
+.asrama-form-footer .btn { flex: 0 0 auto; }
+
+.asrama-loading,
+.asrama-error {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 300px;
+  padding: 40px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--grey-4);
+  text-align: center;
+}
+
+.asrama-loading i { font-size: 28px; animation: asramaSpin 1s linear infinite; }
+.asrama-error i { color: var(--red); font-size: 30px; }
+@keyframes asramaSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 820px) {
+  .asrama-capacity-grid { grid-template-columns: 1fr; }
+  .asrama-holiday-head,
+  .asrama-form-footer { align-items: flex-start; flex-direction: column; }
+  .asrama-holiday-fields { grid-template-columns: 1fr; width: 100%; }
+}
+
+@media (max-width: 640px) {
+  #admin.asrama-admin-page { padding: 88px 16px 36px; }
+  .asrama-page-header { align-items: stretch; flex-direction: column; }
+  .asrama-page-header > .btn,
+  .asrama-form-footer .btn { width: 100%; }
+  .asrama-title-row { align-items: flex-start; }
+  .asrama-title-icon { width: 50px; height: 50px; }
+  .asrama-title-row h1 { font-size: 25px; }
+  .asrama-capacity-card,
+  .asrama-holiday-card { padding: 19px; }
+  .asrama-capacity-stats { grid-template-columns: 1fr; }
+  .asrama-capacity-stats > div { grid-template-columns: 1fr auto; align-items: center; border-right: 0; border-bottom: 1px solid var(--border); }
+  .asrama-capacity-stats > div:last-child { border-bottom: 0; }
+  .asrama-holiday-heading { align-items: flex-start; }
+  .asrama-holiday-limit { align-items: stretch; flex-direction: column; }
+  .asrama-holiday-limit .asrama-limit-control { grid-template-columns: 48px minmax(80px, 1fr) 48px; }
+  .asrama-holiday-limit .asrama-limit-control button,
+  .asrama-holiday-limit .asrama-limit-control input { height: 48px; }
+}

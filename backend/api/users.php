@@ -21,6 +21,9 @@ requireAdmin();
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if ($action !== '' && $action !== 'detail') {
+        jsonResponse(['success' => false, 'error' => 'Invalid action'], 400);
+    }
     if ($action === 'detail') {
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         if ($id <= 0) {
@@ -89,6 +92,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         jsonResponse(['success' => false, 'error' => 'Client not found'], 404);
     }
 
+    if ($action !== '' && $action !== 'staff-verification') {
+        jsonResponse(['success' => false, 'error' => 'Invalid action'], 400);
+    }
+
     if ($action === 'staff-verification') {
         $status = (string)($input['status'] ?? '');
         if ($user['account_type'] !== ACCOUNT_TYPE_STAFF) {
@@ -111,8 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     }
 
     $password = (string)($input['password'] ?? '');
-    if (strlen($password) < 6) {
-        jsonResponse(['success' => false, 'error' => 'Password must be at least 6 characters'], 400);
+    if (strlen($password) < 6 || strlen($password) > 128) {
+        jsonResponse(['success' => false, 'error' => 'Password must be between 6 and 128 characters'], 400);
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);

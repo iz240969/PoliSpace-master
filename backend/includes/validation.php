@@ -16,7 +16,55 @@ function bookingTimeValueToMinutes(string $time): ?int
     return ($hours * 60) + $minutes;
 }
 
-function validateBookingScheduleData(array $data): array
+function strictIntegerInput(mixed $value): ?int
+{
+    if (is_int($value)) {
+        return $value;
+    }
+    if (!is_string($value)) {
+        return null;
+    }
+
+    $value = trim($value);
+    if (!preg_match('/^-?(?:0|[1-9]\d*)$/', $value)) {
+        return null;
+    }
+    return filter_var($value, FILTER_VALIDATE_INT) !== false ? (int)$value : null;
+}
+
+function strictDecimalInput(mixed $value): ?float
+{
+    if (is_int($value) || is_float($value)) {
+        $number = (float)$value;
+        return is_finite($number) ? $number : null;
+    }
+    if (!is_string($value)) {
+        return null;
+    }
+
+    $value = trim($value);
+    if (!preg_match('/^-?(?:\d+(?:\.\d+)?|\.\d+)$/', $value)) {
+        return null;
+    }
+    $number = (float)$value;
+    return is_finite($number) ? $number : null;
+}
+
+function strictBooleanInput(mixed $value): ?bool
+{
+    if (is_bool($value)) {
+        return $value;
+    }
+    if ($value === 1 || $value === '1' || $value === 'true') {
+        return true;
+    }
+    if ($value === 0 || $value === '0' || $value === 'false') {
+        return false;
+    }
+    return null;
+}
+
+function validateBookingScheduleData(array $data, bool $enforceMinimumBookingDate = true): array
 {
     $errors = [];
     $bookingDate = trim((string)($data['booking_date'] ?? ''));
@@ -24,8 +72,10 @@ function validateBookingScheduleData(array $data): array
         $date = DateTimeImmutable::createFromFormat('!Y-m-d', $bookingDate);
         if (!$date || $date->format('Y-m-d') !== $bookingDate) {
             $errors['booking_date'] = 'Tarikh tempahan tidak sah.';
-        } elseif ($bookingDate < minimumBookingDate()) {
+        } elseif ($enforceMinimumBookingDate && $bookingDate < minimumBookingDate()) {
             $errors['booking_date'] = 'Tempahan mesti dibuat sekurang-kurangnya 3 hari lebih awal.';
+        } elseif (!$enforceMinimumBookingDate && $bookingDate < (new DateTimeImmutable('today'))->format('Y-m-d')) {
+            $errors['booking_date'] = 'Tarikh tempahan telah berlalu.';
         }
     }
 
@@ -64,13 +114,39 @@ function validateBookingScheduleData(array $data): array
         }
     }
 
-    if (!isset($data['participant_count']) || (int)$data['participant_count'] < 1) {
+    $participantCount = isset($data['participant_count'])
+        && preg_match('/^[1-9]\d*$/', trim((string)$data['participant_count']))
+        ? (int)$data['participant_count']
+        : null;
+    if ($participantCount === null) {
         $errors['participant_count'] = 'Jumlah pengguna mesti sekurang-kurangnya 1.';
-    } elseif ((int)$data['participant_count'] > 5000) {
+    } elseif ($participantCount > 5000) {
         $errors['participant_count'] = 'Jumlah pengguna terlalu besar.';
     }
 
     return $errors;
+}
+
+function bookingStatusTransitionError(string $currentStatus, string $newStatus): ?string
+{
+    if ($newStatus === 'approved' && $currentStatus !== 'pending') {
+        return 'Hanya permohonan berstatus menunggu boleh diluluskan.';
+    }
+    if ($newStatus === 'rejected' && $currentStatus !== 'pending') {
+        return 'Hanya permohonan berstatus menunggu boleh ditolak.';
+    }
+    if ($newStatus === 'cancelled' && $currentStatus !== 'approved') {
+        return 'Hanya tempahan yang telah diluluskan boleh dibatalkan oleh pentadbir.';
+    }
+    return null;
+}
+
+function bookingFacilityDurationUnitError(bool $isAsramaRoomFacility, string $durationUnit): ?string
+{
+    if ($isAsramaRoomFacility && $durationUnit !== 'day') {
+        return 'Asrama - Bilik hanya boleh ditempah mengikut hari.';
+    }
+    return null;
 }
 
 function validateBookingData(array $data): array

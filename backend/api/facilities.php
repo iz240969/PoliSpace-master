@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/validation.php';
 require_once __DIR__ . '/../includes/booking_availability.php';
 require_once __DIR__ . '/../includes/pic_mail.php';
 
@@ -67,8 +68,8 @@ function normalizeFacilityPicId(Database $db, mixed $value): ?int
     if ($value === null || $value === '') {
         return null;
     }
-    $picId = (int)$value;
-    if ($picId <= 0 || !$db->fetchOne('SELECT id FROM pics WHERE id = ?', [$picId])) {
+    $picId = strictIntegerInput($value);
+    if ($picId === null || $picId <= 0 || !$db->fetchOne('SELECT id FROM pics WHERE id = ?', [$picId])) {
         jsonResponse(['success' => false, 'error' => 'PIC yang dipilih tidak sah.'], 422);
     }
     return $picId;
@@ -192,15 +193,16 @@ try {
 
         $name = trim((string)($input['name'] ?? ''));
         $icon = trim((string)($input['icon'] ?? 'bi-building'));
-        $capacity = (int)($input['capacity'] ?? 0);
-        $pricePerHour = (float)($input['price_per_hour'] ?? 0);
-        $maxRooms = array_key_exists('max_rooms', $input) && $input['max_rooms'] !== null && $input['max_rooms'] !== ''
-            ? (int)$input['max_rooms']
+        $capacity = strictIntegerInput($input['capacity'] ?? null);
+        $pricePerHour = strictDecimalInput($input['price_per_hour'] ?? null);
+        $hasMaxRoomsValue = array_key_exists('max_rooms', $input) && $input['max_rooms'] !== null && $input['max_rooms'] !== '';
+        $maxRooms = $hasMaxRoomsValue
+            ? strictIntegerInput($input['max_rooms'])
             : null;
         $description = trim((string)($input['description'] ?? ''));
         $picId = normalizeFacilityPicId($db, $input['pic_id'] ?? null);
         $equipmentOptions = normalizeFacilityEquipmentOptions($input['equipment_options'] ?? '');
-        $isAvailable = (int)(bool)($input['is_available'] ?? true);
+        $isAvailable = strictBooleanInput($input['is_available'] ?? true);
         $errors = [];
 
         if ($name === '' || strlen($name) > 100) {
@@ -213,19 +215,22 @@ try {
             $errors['icon'] = 'Ikon Bootstrap tidak sah.';
         }
 
-        if ($capacity < 1 || $capacity > 5000) {
+        if ($capacity === null || $capacity < 1 || $capacity > 5000) {
             $errors['capacity'] = 'Kapasiti mesti antara 1 hingga 5000.';
         }
 
-        if ($pricePerHour < 0 || $pricePerHour > 999999.99) {
+        if ($pricePerHour === null || $pricePerHour < 0 || $pricePerHour > 999999.99) {
             $errors['price_per_hour'] = 'Harga tidak sah.';
         }
-        if ($maxRooms !== null && ($maxRooms < 1 || $maxRooms > 500)) {
+        if ($hasMaxRoomsValue && ($maxRooms === null || $maxRooms < 1 || $maxRooms > 500)) {
             $errors['max_rooms'] = 'Had bilik mesti antara 1 hingga 500.';
         }
 
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
+        }
+        if ($isAvailable === null) {
+            $errors['is_available'] = 'Status ketersediaan tidak sah.';
         }
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
@@ -234,7 +239,7 @@ try {
         $id = $db->insert(
             'INSERT INTO facilities (name, icon, capacity, price_per_hour, max_rooms, description, pic_id, equipment_options, is_available)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picId, $equipmentOptions, $isAvailable]
+            [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picId, $equipmentOptions, (int)$isAvailable]
         );
         $facility = $db->fetchOne(
             facilitySelectSql(true) . ' WHERE f.id = ?',
@@ -267,10 +272,11 @@ try {
 
         $name = array_key_exists('name', $input) ? trim((string)$input['name']) : (string)$facility['name'];
         $icon = array_key_exists('icon', $input) ? trim((string)$input['icon']) : (string)$facility['icon'];
-        $capacity = array_key_exists('capacity', $input) ? (int)$input['capacity'] : (int)$facility['capacity'];
-        $pricePerHour = array_key_exists('price_per_hour', $input) ? (float)$input['price_per_hour'] : (float)$facility['price_per_hour'];
+        $capacity = array_key_exists('capacity', $input) ? strictIntegerInput($input['capacity']) : (int)$facility['capacity'];
+        $pricePerHour = array_key_exists('price_per_hour', $input) ? strictDecimalInput($input['price_per_hour']) : (float)$facility['price_per_hour'];
+        $hasMaxRoomsValue = array_key_exists('max_rooms', $input) && $input['max_rooms'] !== null && $input['max_rooms'] !== '';
         $maxRooms = array_key_exists('max_rooms', $input)
-            ? (($input['max_rooms'] === null || $input['max_rooms'] === '') ? null : (int)$input['max_rooms'])
+            ? (($input['max_rooms'] === null || $input['max_rooms'] === '') ? null : strictIntegerInput($input['max_rooms']))
             : ($facility['max_rooms'] === null ? null : (int)$facility['max_rooms']);
         $description = array_key_exists('description', $input) ? trim((string)$input['description']) : (string)($facility['description'] ?? '');
         $picId = array_key_exists('pic_id', $input)
@@ -279,7 +285,9 @@ try {
         $equipmentOptions = array_key_exists('equipment_options', $input)
             ? normalizeFacilityEquipmentOptions($input['equipment_options'])
             : (string)($facility['equipment_options'] ?? '[]');
-        $isAvailable = array_key_exists('is_available', $input) ? (int)(bool)$input['is_available'] : (int)$facility['is_available'];
+        $isAvailable = array_key_exists('is_available', $input)
+            ? strictBooleanInput($input['is_available'])
+            : (bool)$facility['is_available'];
         $errors = [];
 
         if ($name === '' || strlen($name) > 100) {
@@ -290,17 +298,20 @@ try {
         } elseif (!preg_match('/^bi-[a-z0-9-]+$/', $icon) || strlen($icon) > 50) {
             $errors['icon'] = 'Ikon Bootstrap tidak sah.';
         }
-        if ($capacity < 1 || $capacity > 5000) {
+        if ($capacity === null || $capacity < 1 || $capacity > 5000) {
             $errors['capacity'] = 'Kapasiti mesti antara 1 hingga 5000.';
         }
-        if ($pricePerHour < 0 || $pricePerHour > 999999.99) {
+        if ($pricePerHour === null || $pricePerHour < 0 || $pricePerHour > 999999.99) {
             $errors['price_per_hour'] = 'Harga tidak sah.';
         }
-        if ($maxRooms !== null && ($maxRooms < 1 || $maxRooms > 500)) {
+        if ($hasMaxRoomsValue && ($maxRooms === null || $maxRooms < 1 || $maxRooms > 500)) {
             $errors['max_rooms'] = 'Had bilik mesti antara 1 hingga 500.';
         }
         if (strlen($description) > 2000) {
             $errors['description'] = 'Keterangan terlalu panjang.';
+        }
+        if ($isAvailable === null) {
+            $errors['is_available'] = 'Status ketersediaan tidak sah.';
         }
         if ($errors) {
             jsonResponse(['success' => false, 'error' => 'Maklumat fasiliti tidak lengkap.', 'errors' => $errors], 422);
@@ -311,7 +322,7 @@ try {
                 'UPDATE facilities
                  SET name = ?, icon = ?, capacity = ?, price_per_hour = ?, max_rooms = ?, description = ?, pic_id = ?, equipment_options = ?, is_available = ?
                  WHERE id = ?',
-                [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picId, $equipmentOptions, $isAvailable, $id]
+                [$name, $icon, $capacity, $pricePerHour, $maxRooms, $description, $picId, $equipmentOptions, (int)$isAvailable, $id]
             );
         });
         $updated = $db->fetchOne(

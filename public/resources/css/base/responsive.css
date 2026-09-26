@@ -1,0 +1,66 @@
+/* Cross-page responsive rules */
+@media (max-width: 1120px) {
+  .booking-layout { max-width: 880px; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .booking-sidebar { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .sidebar-card { margin-bottom: 0; }
+  .dash-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  #booking, #dashboard, #status { padding-top: 64px; }
+  .booking-layout, .status-page-content { padding: 34px 18px; }
+  .booking-sidebar { grid-template-columns: 1fr; }
+  .form-grid, .contact-form-grid { grid-template-columns: 1fr; }
+  .form-group.span-2 { grid-column: auto; }
+  .page-title { font-size: 30px; letter-spacing: -0.7px; }
+  .page-subtitle { margin-bottom: 28px; }
+  .form-section { margin-bottom: 28px; padding-bottom: 28px; }
+  .upload-zone { padding: 24px 16px; }
+  .booking-date-picker { right: 0; left: 0; width: 100%; }
+
+  #calendarView { overflow-x: auto; }
+  .booking-calendar-header { align-items: flex-start; flex-direction: column; }
+  .booking-calendar-weekdays, .booking-calendar-grid { min-width: 650px; }
+
+  .dash-hero, .dash-section { padding-right: 18px; padding-left: 18px; }
+  .dash-hero h1 { font-size: 32px; letter-spacing: -0.8px; }
+  .dash-section-header { align-items: stretch; flex-direction: column; }
+  .dash-booking-tools, .dash-search, .dash-search input, .dash-sort, .dash-sort select { width: 100%; }
+  .dash-filter-chips { flex-wrap: nowrap; overflow-x: auto; }
+
+  .modal-overlay { align-items: flex-end; padding: 12px; }
+  .modal { max-height: calc(100vh - 24px); border-radius: var(--radius-lg); }
+  .modal-header, .modal-body, .modal-footer { padding-right: 20px; padding-left: 20px; }
+  .modal-footer { align-items: stretch; flex-direction: column-reverse; }
+  .modal-footer .btn { width: 100%; }
+
+  .admin-card { overflow-x: auto; }
+  .admin-layout { padding-top: 0; }
+}
+
+@media (max-width: 560px) {
+  .booking-layout, .status-page-content { padding: 26px 14px; }
+  .equipment-add-row, .equipment-item { grid-template-columns: 1fr; }
+  .equipment-add-button { width: 100%; }
+  .equipment-name { min-height: 44px; }
+  .equipment-qty-control { grid-template-columns: 42px minmax(0, 1fr) 42px; }
+  .equipment-remove-button { min-height: 38px; }
+  .sidebar-card { padding: 20px; }
+
+  .dash-hero, .dash-section { padding-right: 14px; padding-left: 14px; }
+  .dash-actions { grid-template-columns: 1fr; }
+  .dash-action-card { min-height: auto; padding: 20px; }
+  .user-booking-summary { grid-template-columns: 1fr; align-items: stretch; }
+  .booking-row-actions { justify-content: flex-start; }
+
+  .admin-content { padding: 20px 14px; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .toast-container { right: 12px; bottom: 12px; left: 12px; }
+  .toast { width: 100%; min-width: 0; }
+}
+
+@media (max-width: 380px) {
+  .page-title, .dash-hero h1 { font-size: 27px; }
+  input, select, textarea { padding-right: 11px; padding-left: 11px; }
+}

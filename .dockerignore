@@ -1,0 +1,12 @@
+.git/
+.env
+.env.*
+node_modules/
+vendor/
+documentation/
+database/
+docker/init/
+*.log
+uploads/payments/*
+!uploads/payments/.htaccess
+!uploads/payments/.gitkeep

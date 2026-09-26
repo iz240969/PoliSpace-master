@@ -1,0 +1,55 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_NAME: ${APP_NAME:-PoliSpace}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kuala_Lumpur}
+      APP_URL: ${APP_URL:?Set APP_URL in .env}
+      APP_KEY: ${APP_KEY:?Set APP_KEY in .env}
+      SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_NAME:-polspace}
+      DB_USERNAME: ${DB_USER:-polspace}
+      DB_PASSWORD: ${DB_PASS:?Set DB_PASS in .env}
+      DB_NAME: polspace
+      DB_USER: ${DB_USER:-polspace}
+      DB_PASS: ${DB_PASS:?Set DB_PASS in .env}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@example.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-PoliSpace}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      TRUST_PROXY_HTTPS: "true"
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8080}:80"
+    volumes:
+      - payment_uploads:/var/www/html/uploads/payments
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: polspace
+      MARIADB_USER: ${DB_USER:-polspace}
+      MARIADB_PASSWORD: ${DB_PASS:?Set DB_PASS in .env}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - database_data:/var/lib/mysql
+      - ./database/polspace.sql:/docker-entrypoint-initdb.d/01-polispace.sql:ro
+      - ./docker/init/02-remove-demo-admin.sql:/docker-entrypoint-initdb.d/02-remove-demo-admin.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  database_data:
+  payment_uploads:

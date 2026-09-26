@@ -1,6 +1,6 @@
 # PoliSpace
 
-PoliSpace is a Laragon-based facility booking system for Politeknik Besut. It uses HTML, CSS, JavaScript, PHP APIs, and MySQL.
+PoliSpace is a facility booking and management system for Politeknik Besut, built on Laravel 13, PHP 8.3+, and MySQL/MariaDB. The current browser screens and database schema remain in place while requests are routed through Laravel.
 
 ## Current Status
 
@@ -10,13 +10,18 @@ The active project folder in this checkout is:
 C:\laragon\www\PoliSpace-master
 ```
 
-Root HTML files are compatibility redirects. The maintained pages live in `resources/views/`, with shared browser code in `resources/js/` and PHP API endpoints in `backend/api/`.
+Laravel views are in `resources/views/legacy/`, browser assets are served from `public/resources/`, and routes are in `routes/`. Previous `.html` URLs remain available through Laravel route aliases; root-level HTML redirect files are no longer needed. Existing API handlers remain in `backend/api/` behind Laravel's API router during migration.
 
 ## Documentation
 
 - [Code Map](documentation/CODE_MAP.md)
 - [Project Documentation](documentation/README.md)
 - [Developer Handoff](documentation/HANDOFF.md)
+- [Publishing and deployment](documentation/DEPLOYMENT.md)
+
+## Framework and publishing
+
+This project requires Laravel 13 and PHP 8.3 or newer. Install dependencies with `composer install`, configure `.env`, and generate an application key using `php artisan key:generate`. Point Apache's document root to `public/`. See the [deployment guide](documentation/DEPLOYMENT.md) for Laragon, Docker, and shared-hosting setup.
 
 ## Quick Start
 
@@ -25,17 +30,10 @@ C:\laragon\www\PoliSpace-master
 http://localhost/
 ```
 
-Run verification after changes:
+Start Laravel's local server after configuring `.env` and importing the database:
 
 ```powershell
-Get-ChildItem -Recurse resources/js -Filter *.js | ForEach-Object { node --check $_.FullName }
-Get-ChildItem -Recurse backend -Filter *.php | ForEach-Object { php -l $_.FullName }
-```
-
-Run the repeatable application smoke checks while Laragon is active:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File documentation/checks/smoke.ps1
+php artisan serve
 ```
 
 Import a fresh database:
