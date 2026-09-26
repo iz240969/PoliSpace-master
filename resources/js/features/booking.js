@@ -408,10 +408,7 @@ async function submitBooking() {
 
   const submitButton = document.getElementById('submitBookingButton');
   bookingSubmissionInProgress = true;
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
-  }
+  if (submitButton) setButtonLoading(submitButton, true, 'Sedang menghantar permohonan...');
 
   try {
     const ref = await createBookingRecord(data, receiptFile);
@@ -421,10 +418,7 @@ async function submitBooking() {
     showToast(error.message || 'Tempahan gagal dihantar.', 'error');
   } finally {
     bookingSubmissionInProgress = false;
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.innerHTML = 'Hantar Permohonan <i class="bi bi-arrow-right ms-2"></i>';
-    }
+    if (submitButton) setButtonLoading(submitButton, false);
   }
 }
 
@@ -578,9 +572,6 @@ async function createBookingRecord(data, receiptFile = null) {
     const result = await createBookingApi(payload);
     return result?.booking_ref || '';
   } catch (error) {
-    if (!error.status) {
-      throw new Error('Tempahan tidak dapat dihantar kerana sambungan server terputus. Sila cuba lagi.');
-    }
     throw error;
   }
 }
@@ -685,10 +676,7 @@ async function addBookingToCart() {
   if (receiptFile) {
     const addButton = document.getElementById('addToCartButton');
     bookingSubmissionInProgress = true;
-    if (addButton) {
-      addButton.disabled = true;
-      addButton.innerHTML = '<i class="bi bi-arrow-repeat"></i><span>Menghantar</span>';
-    }
+    if (addButton) setButtonLoading(addButton, true, 'Menghantar permohonan...');
 
     try {
       const ref = await createBookingRecord(data, receiptFile);
@@ -703,7 +691,7 @@ async function addBookingToCart() {
     } finally {
       bookingSubmissionInProgress = false;
       updateBookingCartFormState();
-      if (addButton) addButton.disabled = false;
+      if (addButton) setButtonLoading(addButton, false);
     }
     return;
   }
@@ -952,6 +940,7 @@ function updateBookingCartFormState() {
 }
 
 async function submitBookingCart() {
+  if (bookingSubmissionInProgress) return;
   if (!isClientLoggedIn()) {
     showToast('Sila log masuk sebagai pelanggan sebelum menghantar troli.', 'error');
     return;
@@ -959,6 +948,10 @@ async function submitBookingCart() {
 
   const items = getBookingCartItems();
   if (!items.length) return;
+  if (isBrowserOffline()) {
+    showToast('Tindakan ini memerlukan sambungan internet.', 'error');
+    return;
+  }
   const receiptFile = isVerifiedStaffUser() ? null : getBookingCartReceiptFile();
   if (!isVerifiedStaffUser() && !receiptFile) {
     showToast('Sila muat naik resit sebelum menghantar troli.', 'error');
@@ -977,10 +970,8 @@ async function submitBookingCart() {
   }
 
   const submitButton = document.getElementById('submitBookingCartButton');
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
-  }
+  bookingSubmissionInProgress = true;
+  if (submitButton) setButtonLoading(submitButton, true, 'Sedang menghantar permohonan...');
 
   const submittedIds = [];
   const references = [];
@@ -1026,9 +1017,10 @@ async function submitBookingCart() {
   const remainingItems = getBookingCartItems().filter((item) => !submittedIds.includes(item.id));
   saveBookingCartItems(remainingItems);
   renderBookingCart();
+  bookingSubmissionInProgress = false;
   if (submitButton) {
+    setButtonLoading(submitButton, false);
     submitButton.disabled = remainingItems.length === 0;
-    submitButton.innerHTML = '<i class="bi bi-send-check"></i> Hantar Semua';
   }
 
   if (!failures.length) {

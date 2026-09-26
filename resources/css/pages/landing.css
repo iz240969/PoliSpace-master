@@ -151,7 +151,7 @@
 .landing-calendar-empty { padding: 12px; border-radius: var(--radius); background: var(--surface-2); color: var(--grey-4); font-size: 13px; }
 
 .section {
-  max-width: var(--container);
+  max-width: 1600px;
   margin: 0 auto;
   padding: 72px 32px 88px;
 }
@@ -159,40 +159,80 @@
 .section-eyebrow { margin-bottom: 7px; color: var(--gold-hover); font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
 .section-title { font-size: clamp(30px, 4vw, 42px); font-weight: var(--title-weight); letter-spacing: -1.3px; }
 
-.facilities-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.facilities-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; gap: 28px; }
 
 .facility-card {
-  position: relative;
   min-width: 0;
-  min-height: 310px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 20px;
   background: var(--surface);
   color: var(--text-main);
+  box-shadow: 0 10px 28px rgba(35, 35, 26, .07);
   cursor: pointer;
-  font-family: var(--body-font);
   text-align: left;
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
 }
-.facility-card:hover { transform: translateY(-2px); border-color: #dac590; box-shadow: 0 8px 22px rgba(24, 33, 29, 0.07); }
-.facility-card:focus-visible { outline-offset: 3px; }
-.facility-card-accent { position: absolute; top: 0; right: 0; width: 84px; height: 3px; background: var(--gold); pointer-events: none; }
-.facility-arrow { position: absolute; top: 23px; right: 23px; color: var(--grey-3); font-size: 17px; transition: color var(--transition), transform var(--transition); }
-.facility-card:hover .facility-arrow { transform: translate(2px, -2px); color: var(--gold); }
-.facility-icon { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; border-radius: var(--radius); background: var(--gold-dim); color: var(--gold-hover); font-size: 19px; }
-.facility-name { max-width: calc(100% - 28px); margin-bottom: 7px; font-size: 19px; font-weight: var(--title-weight); letter-spacing: -0.3px; }
-.facility-desc { display: -webkit-box; overflow: hidden; margin-bottom: 14px; color: var(--grey-4); font-size: 13px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.facility-equipment { min-height: 37px; display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px; padding-top: 13px; border-top: 1px solid var(--border-light); color: var(--grey-4); font-size: 11px; line-height: 1.45; }
-.facility-equipment i { margin-top: 1px; color: var(--gold); }
-.facility-meta { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
-.facility-facts { min-width: 0; display: grid; gap: 3px; }
-.facility-cap { min-width: 0; display: flex; align-items: flex-start; gap: 6px; color: var(--grey-4); font-size: 11px; line-height: 1.35; }
-.facility-cap i { flex: 0 0 auto; color: var(--grey-3); }
-.facility-price { color: var(--text-main); font-size: 13px; font-weight: 750; }
+.facility-card:hover { transform: translateY(-3px); border-color: #d8c7a3; box-shadow: 0 15px 34px rgba(35, 35, 26, .11); }
+.facility-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.facility-photo {
+  position: relative;
+  aspect-ratio: 2.08 / 1;
+  flex: 0 0 auto;
+  background-image: url('../../images/facility-photos.png');
+  background-repeat: no-repeat;
+  background-size: 300% auto;
+  background-color: var(--surface-3);
+}
+.facility-photo--0 { background-position: 0% 17%; }
+.facility-photo--1 { background-position: 50% 17%; }
+.facility-photo--2 { background-position: 100% 17%; }
+.facility-photo--3 { background-position: 0% 83%; }
+.facility-photo--4 { background-position: 50% 83%; }
+.facility-photo--5 { background-position: 100% 83%; }
+.facility-photo-top { position: absolute; inset: 18px 18px auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.facility-category { min-width: 62px; display: grid; justify-items: center; gap: 4px; padding: 10px 11px 9px; border: 1px solid rgba(154, 109, 22, .14); border-radius: 16px; background: rgba(255, 252, 244, .96); color: var(--gold-hover); font-size: 12px; font-weight: 650; line-height: 1.25; box-shadow: 0 4px 14px rgba(30, 24, 15, .1); }
+.facility-category-icon { width: 36px; height: 36px; display: grid; place-items: center; font-size: 22px; }
+.facility-category-icon i { line-height: 1; }
+.facility-arrow {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(154, 109, 22, .4);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .97);
+  color: var(--grey-4);
+  pointer-events: none;
+  font-size: 17px;
+  box-shadow: 0 3px 10px rgba(30, 24, 15, .08);
+  transition: background-color var(--transition), color var(--transition), transform var(--transition);
+}
+.facility-card:hover .facility-arrow, .facility-card:focus-visible .facility-arrow { transform: translate(1px, -1px); background: var(--gold-dim); color: var(--gold-hover); }
+.facility-availability { position: absolute; bottom: 14px; left: 18px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border: 1px solid rgba(33, 114, 66, .12); border-radius: 999px; background: #e8f7e9; color: #176b2d; font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 3px 10px rgba(22, 74, 32, .12); }
+.facility-availability.is-unavailable { border-color: rgba(184, 60, 60, .15); background: var(--red-soft); color: var(--red); }
+.facility-body { min-width: 0; flex: 1; display: flex; flex-direction: column; padding: 18px 24px 22px; }
+.facility-name { margin: 0 0 5px; font-size: 22px; font-weight: 800; line-height: 1.3; letter-spacing: -.5px; overflow-wrap: anywhere; }
+.facility-desc { margin: 0; color: var(--grey-4); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.facility-equipment { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--border-light); }
+.facility-equipment-item { max-width: 100%; display: inline-flex; align-items: center; gap: 7px; color: var(--grey-4); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.facility-equipment-icon { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border-radius: 12px; background: var(--surface-accent); color: var(--gold-hover); font-size: 16px; }
+.facility-equipment-note { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 11px 13px; border-radius: 10px; background: var(--surface-accent); color: var(--grey-5); font-size: 12px; line-height: 1.5; }
+.facility-equipment-note i { flex: 0 0 auto; color: var(--gold-hover); font-size: 16px; }
+.facility-meta { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 18px; }
+.facility-facts { min-width: 0; display: grid; gap: 5px; }
+.facility-cap { min-width: 0; display: flex; align-items: center; gap: 10px; color: var(--grey-4); font-size: 14px; line-height: 1.4; }
+.facility-cap i, .facility-price i { flex: 0 0 auto; color: var(--gold-hover); font-size: 18px; }
+.facility-quota { margin: -1px 0 0 28px; color: var(--grey-4); font-size: 12px; line-height: 1.45; }
+.facility-price { display: flex; align-items: center; gap: 10px; color: #141613; font-size: 17px; font-weight: 800; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.facility-details-link { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 42px; padding: 0 17px; border: 1px solid var(--gold); border-radius: 999px; background: var(--surface); color: var(--gold-hover); font-size: 13px; font-weight: 700; white-space: nowrap; transition: background-color var(--transition), color var(--transition), border-color var(--transition); }
+.facility-card:hover .facility-details-link, .facility-card:focus-visible .facility-details-link { border-color: var(--gold-hover); background: var(--gold); color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  .facility-card, .facility-arrow, .facility-details-link { transition: none; }
+  .facility-card:hover { transform: none; }
+}
 
 @media (max-width: 1000px) {
   .facilities-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -208,11 +248,18 @@
   .section { padding: 54px 18px 64px; }
   .section-header { align-items: flex-start; flex-direction: column; margin-bottom: 24px; }
   .facilities-grid { grid-template-columns: 1fr; }
-  .facility-card { min-height: 0; }
+  .facility-photo { aspect-ratio: 2.05 / 1; }
 }
 
 @media (max-width: 480px) {
   .hero-actions { width: 100%; }
   .hero-actions .btn { width: 100%; }
-  .facility-meta { align-items: flex-start; flex-direction: column; }
+  .facility-photo-top { inset: 12px 12px auto; }
+  .facility-availability { bottom: 11px; left: 12px; }
+  .facility-body { padding: 16px 17px 18px; }
+  .facility-name { font-size: 20px; }
+  .facility-equipment { gap: 9px 13px; }
+  .facility-meta { align-items: flex-start; }
+  .facility-facts { gap: 6px; }
+  .facility-details-link { min-height: 39px; padding: 0 13px; font-size: 12px; }
 }

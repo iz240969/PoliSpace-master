@@ -34,6 +34,7 @@ function harness() {
       },
       setAttribute: (name, value) => { attributes[name] = value; },
       getAttribute: (name) => attributes[name],
+      removeAttribute: (name) => { delete attributes[name]; },
       focus: () => { document.activeElement = item; },
       querySelector: (selector) => document.querySelector(selector),
     };
@@ -41,8 +42,12 @@ function harness() {
     return item;
   }
   document.body = element('body');
-  const context = vm.createContext({ document, console });
-  for (const file of ['core/config.js', 'core/helpers.js', 'core/navigation.js', 'core/motion.js', 'features/admin.js']) {
+  const context = vm.createContext({
+    document,
+    console,
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  });
+  for (const file of ['core/config.js', 'core/helpers.js', 'core/navigation.js', 'core/motion.js', 'features/admin.js', 'features/dashboard.js']) {
     vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js', file), 'utf8'), context);
   }
   const run = (code) => vm.runInContext(code, context);
@@ -77,6 +82,78 @@ test('malformed successful HTTP responses are rejected', async () => {
   await assert.rejects(context.apiRequest('facilities.php'), /Respons pelayan tidak sah/);
 });
 
+test('mutations are blocked before fetch while offline', async () => {
+  let requests = 0;
+  const context = vm.createContext({
+    API_BASE: '/backend/api',
+    navigator: { onLine: false },
+    fetch: async () => { requests += 1; return { ok: true, status: 200, json: async () => ({ success: true }) }; },
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+  await assert.rejects(context.apiRequest('bookings.php', 'POST', { purpose: 'test' }), (error) => {
+    assert.equal(error.offline, true);
+    assert.match(error.message, /memerlukan sambungan internet/);
+    return true;
+  });
+  assert.equal(requests, 0);
+});
+
+test('identical writes share one in-flight request', async () => {
+  let requests = 0;
+  let finishRequest;
+  const context = vm.createContext({
+    API_BASE: '/backend/api',
+    fetch: () => {
+      requests += 1;
+      return new Promise((resolve) => { finishRequest = resolve; });
+    },
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+  const first = context.apiRequest('bookings.php', 'POST', { booking_ref: 'PS-01' });
+  const second = context.apiRequest('bookings.php', 'POST', { booking_ref: 'PS-01' });
+  await new Promise(setImmediate);
+  assert.equal(requests, 1);
+  finishRequest({ ok: true, status: 200, json: async () => ({ success: true, booking_ref: 'PS-01' }) });
+  assert.deepEqual(await first, await second);
+});
+
+test('slow API requests abort at their configured timeout', async () => {
+  class TestAbortController {
+    constructor() {
+      const listeners = [];
+      this.signal = { aborted: false, addEventListener: (event, listener) => { if (event === 'abort') listeners.push(listener); } };
+      this.abort = () => {
+        this.signal.aborted = true;
+        listeners.forEach((listener) => listener());
+      };
+    }
+  }
+  const context = vm.createContext({
+    API_BASE: '/backend/api',
+    AbortController: TestAbortController,
+    setTimeout,
+    clearTimeout,
+    fetch: (url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    }),
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+  await assert.rejects(context.requestApiJson('/backend/api/slow.php', {}, 'Fallback', 5), (error) => {
+    assert.equal(error.timeout, true);
+    assert.match(error.message, /terlalu lama/);
+    return true;
+  });
+});
+
+test('technical API errors are replaced with a friendly message', async () => {
+  const context = vm.createContext({
+    API_BASE: '/backend/api',
+    fetch: async () => ({ ok: false, status: 500, json: async () => ({ success: false, error: 'SQLSTATE[HY000] PDOException in bookings.php:44' }) }),
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+  await assert.rejects(context.apiRequest('bookings.php'), /Permintaan gagal\. Sila cuba lagi\./);
+});
+
 test('landing sections initialize together without delaying other pages', async () => {
   const started = [];
   let finishFacilities;
@@ -87,7 +164,8 @@ test('landing sections initialize together without delaying other pages', async 
       documentElement: { classList: { remove() {} } },
       getElementById: (id) => id === 'facilitiesGrid' ? {} : null,
     },
-    setupAdminWorkspace() {}, setupSurfaceAccessibility() {}, setupNavigationAccess() {},
+    setupAdminWorkspace() {}, setupSurfaceAccessibility() {}, setupNetworkStatus() {}, setupNavigationAccess() {},
+    psAuthState: { checked: true, role: null, user: null },
     refreshAuthState: async () => {}, protectLoggedInPages: () => true,
     renderFacilities: () => { started.push('facilities'); return new Promise((resolve) => { finishFacilities = resolve; }); },
     renderLandingCalendar: () => { started.push('legacy calendar'); },
@@ -204,6 +282,82 @@ test('facility form disclosure preserves entered values', () => {
   assert.equal(form.hidden, true);
   assert.equal(name.value, 'Bilik Mesyuarat');
   assert.equal(h.document.activeElement, toggle);
+});
+
+test('shared button loading feedback restores its original state', () => {
+  const h = harness();
+  const button = h.element('asyncButton');
+  button.innerHTML = '<i>Save</i> Simpan';
+  h.run("setButtonLoading(document.getElementById('asyncButton'), true, 'Menyimpan...')");
+  assert.equal(button.disabled, true);
+  assert.equal(button.getAttribute('aria-busy'), 'true');
+  assert.match(button.innerHTML, /Menyimpan/);
+  h.run("setButtonLoading(document.getElementById('asyncButton'), false)");
+  assert.equal(button.disabled, false);
+  assert.equal(button.getAttribute('aria-busy'), undefined);
+  assert.equal(button.innerHTML, '<i>Save</i> Simpan');
+});
+
+test('network banner reflects offline and restored states', () => {
+  const elements = new Map();
+  const listeners = new Map();
+  const timers = new Map();
+  let nextTimer = 1;
+  const document = {
+    getElementById: (id) => elements.get(id) || null,
+    createElement: () => {
+      const classes = new Set();
+      return {
+        id: '', innerHTML: '', hidden: false,
+        setAttribute() {},
+        classList: {
+          add: (name) => classes.add(name),
+          remove: (name) => classes.delete(name),
+        },
+      };
+    },
+    body: { prepend: (element) => elements.set(element.id, element) },
+  };
+  const window = {
+    addEventListener: (event, handler) => listeners.set(event, handler),
+    setTimeout: (handler) => { const id = nextTimer++; timers.set(id, handler); return id; },
+    clearTimeout: (id) => timers.delete(id),
+  };
+  const navigator = { onLine: false };
+  const context = vm.createContext({ document, window, navigator });
+  vm.runInContext('function isBrowserOffline() { return navigator.onLine === false; }', context);
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/helpers.js'), 'utf8'), context);
+  context.setupNetworkStatus();
+  const banner = elements.get('networkStatusBanner');
+  assert.equal(banner.hidden, false);
+  assert.match(banner.innerHTML, /luar talian/);
+  navigator.onLine = true;
+  listeners.get('online')();
+  assert.equal(banner.hidden, false);
+  assert.match(banner.innerHTML, /dipulihkan/);
+  [...timers.values()][0]();
+  assert.equal(banner.hidden, true);
+});
+
+test('dashboard shows loading and retry feedback instead of a false empty state', async () => {
+  const h = harness();
+  const container = h.element('dashBookingsContainer');
+  h.element('bookingCountLabel');
+  h.element('userStatTotal');
+  h.element('userStatPending');
+  h.element('userStatApproved');
+  h.run("psCurrentUserEmail = 'person@example.test';");
+  let rejectRequest;
+  h.context.tryApi = () => new Promise((resolve, reject) => { rejectRequest = reject; });
+  const loading = h.run('loadUserBookings()');
+  await new Promise(setImmediate);
+  assert.match(container.innerHTML, /Memuatkan tempahan/);
+  assert.doesNotMatch(container.innerHTML, /Tiada tempahan/i);
+  rejectRequest(new Error('Sambungan gagal'));
+  await loading;
+  assert.match(container.innerHTML, /Data tidak dapat dimuatkan/);
+  assert.match(container.innerHTML, /Cuba Lagi/);
+  assert.equal(container.getAttribute('aria-busy'), undefined);
 });
 
 test('report refresh retains content, ignores stale responses and restores controls', async () => {

@@ -3,7 +3,9 @@ let psCurrentUserEmail = localStorage.getItem('ps_user_email') || '';
 let pendingCancelBookingId = '';
 let pendingReceiptBookingId = '';
 let psDashboardBookings = [];
+let psDashboardBookingsLoaded = false;
 let psContactMessages = [];
+let psContactMessagesLoaded = false;
 const psExpandedBookingGroups = new Set();
 
 function initDashboard() {
@@ -47,22 +49,42 @@ async function loadUserBookings() {
     return;
   }
 
+  if (!psDashboardBookingsLoaded) {
+    setText('userStatTotal', '—');
+    setText('userStatPending', '—');
+    setText('userStatApproved', '—');
+    setText('bookingCountLabel', 'Memuatkan...');
+    showLoadingState(container, 'Memuatkan tempahan...', 4);
+  } else container.setAttribute('aria-busy', 'true');
+
   let bookings = [];
   try {
     const result = await tryApi('bookings.php?action=user');
     bookings = result.data || [];
   } catch (error) {
-    if (error.status === 401 || error.status === 403) {
+    if (error.sessionRedirectPending) return;
+    if (error.status === 401 || error.status === 403 || error.status === 419) {
+      showToast('Sesi anda telah tamat. Sila log masuk semula.', 'error');
       psCurrentUserEmail = '';
       clearStoredAuthState();
-      window.location.href = ROUTES.login;
+      window.setTimeout(() => window.location.replace(ROUTES.login), 700);
       return;
     }
-    setText('bookingCountLabel', '0 tempahan');
-    container.innerHTML = '<div class="dash-empty"><div class="empty-icon"><i class="bi bi-cloud-slash"></i></div><div class="empty-title">Tempahan Tidak Dapat Dimuatkan</div><div class="empty-sub">Sila semak sambungan server dan cuba semula.</div></div>';
+    container.removeAttribute('aria-busy');
+    if (psDashboardBookingsLoaded) {
+      showToast(error.message || 'Tempahan tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
+    } else {
+      setText('userStatTotal', '—');
+      setText('userStatPending', '—');
+      setText('userStatApproved', '—');
+      setText('bookingCountLabel', '— tempahan');
+      showErrorState(container, error.message || 'Sambungan ke pelayan gagal. Sila cuba lagi.', () => loadUserBookings());
+    }
     return;
   }
   psDashboardBookings = bookings;
+  psDashboardBookingsLoaded = true;
+  container.removeAttribute('aria-busy');
   setText('userStatTotal', bookings.length);
   setText('userStatPending', bookings.filter((booking) => booking.status === 'pending').length);
   setText('userStatApproved', bookings.filter((booking) => booking.status === 'approved').length);
@@ -652,10 +674,7 @@ async function submitDashboardReceipt() {
   try {
     await uploadBookingReceiptApi(id, file);
   } catch (error) {
-    const message = canUseLocalFallback(error)
-      ? 'Ketersediaan tidak dapat disahkan. Resit belum dihantar; sila cuba lagi apabila sambungan server pulih.'
-      : error.message || 'Resit gagal dimuat naik.';
-    showToast(message, 'error');
+    showToast(error.message || 'Muat naik gagal. Sila cuba lagi.', 'error');
     return;
   }
 
@@ -676,14 +695,18 @@ async function loadContactMessages() {
   const container = document.getElementById('contactHistory');
   if (!container) return;
 
-  container.innerHTML = '<div class="contact-history-empty">Memuatkan mesej...</div>';
+  if (!psContactMessagesLoaded) showLoadingState(container, 'Memuatkan mesej...', 2);
+  else container.setAttribute('aria-busy', 'true');
   try {
     const result = await tryApi('messages.php?action=my');
     psContactMessages = result.data || [];
+    psContactMessagesLoaded = true;
+    container.removeAttribute('aria-busy');
     renderContactMessages();
   } catch (error) {
-    psContactMessages = [];
-    container.innerHTML = '<div class="contact-history-empty">Sejarah mesej tidak dapat dimuatkan.</div>';
+    container.removeAttribute('aria-busy');
+    if (psContactMessagesLoaded) showToast(error.message || 'Sejarah mesej tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
+    else showErrorState(container, error.message || 'Sambungan ke pelayan gagal. Sila cuba lagi.', () => loadContactMessages());
   }
 }
 
@@ -727,10 +750,7 @@ async function sendContactMessage() {
   }
 
   const submitButton = document.getElementById('contactSubmitButton');
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
-  }
+  if (submitButton) setButtonLoading(submitButton, true, 'Menghantar mesej...');
 
   try {
     await tryApi('messages.php', 'POST', { email, subject, message });
@@ -738,10 +758,7 @@ async function sendContactMessage() {
     showToast(error.message || 'Mesej tidak dapat dihantar. Sila cuba lagi.', 'error');
     return;
   } finally {
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.innerHTML = '<i class="bi bi-send"></i> Hantar Mesej';
-    }
+    if (submitButton) setButtonLoading(submitButton, false);
   }
 
   const subjectEl = document.getElementById('contactSubject');

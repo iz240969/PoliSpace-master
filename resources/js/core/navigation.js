@@ -22,12 +22,24 @@ async function fetchAuthState() {
     };
     syncStoredAuthState();
   } catch (error) {
-    psAuthState = {
-      checked: true,
-      role: null,
-      user: null,
-    };
-    clearStoredAuthState();
+    const adminEmail = localStorage.getItem('ps_admin_logged_in') === '1';
+    const userEmail = localStorage.getItem('ps_user_email') || '';
+    const hadStoredSession = adminEmail || isValidEmail(userEmail);
+    const canKeepReadOnlySession = Boolean(error.networkFailure || error.offline || error.status >= 500);
+    if (canKeepReadOnlySession && adminEmail) {
+      psAuthState = { checked: true, role: 'admin', user: null };
+    } else if (canKeepReadOnlySession && isValidEmail(userEmail)) {
+      psAuthState = { checked: true, role: 'user', user: { email: userEmail } };
+    } else {
+      psAuthState = { checked: true, role: null, user: null };
+      if (hadStoredSession && [401, 419].includes(error.status)) {
+        psAuthState.sessionExpired = true;
+        showToast('Sesi anda telah tamat. Sila log masuk semula.', 'error');
+        const loginRoute = adminEmail ? ROUTES.adminLogin : ROUTES.login;
+        window.setTimeout(() => window.location.replace(loginRoute), 700);
+      }
+      clearStoredAuthState();
+    }
   }
   return psAuthState;
 }
@@ -288,10 +300,7 @@ async function saveUserProfile(event) {
     return;
   }
 
-  if (saveButton) {
-    saveButton.disabled = true;
-    saveButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menyimpan';
-  }
+  if (saveButton) setButtonLoading(saveButton, true, 'Menyimpan profil...');
 
   try {
     const result = await apiRequest('auth.php?action=profile', 'PUT', { full_name: name, phone });
@@ -305,10 +314,7 @@ async function saveUserProfile(event) {
   } catch (error) {
     showToast(error.message || 'Profil tidak dapat dikemas kini.', 'error');
   } finally {
-    if (saveButton) {
-      saveButton.disabled = false;
-      saveButton.innerHTML = '<i class="bi bi-check-lg"></i> Simpan';
-    }
+    if (saveButton) setButtonLoading(saveButton, false);
   }
 }
 
@@ -468,6 +474,7 @@ function protectLoggedInPages() {
   }
 
   if (needsClientLogin && !isClientLoggedIn()) {
+    if (psAuthState.sessionExpired) return false;
     window.location.replace(ROUTES.login);
     return false;
   }

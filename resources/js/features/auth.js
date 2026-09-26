@@ -18,7 +18,14 @@ function showInlineFieldError(fieldId, message) {
 function setActionButtonLoading(button, loading, idleHtml, loadingLabel) {
   if (!button) return;
   button.disabled = loading;
-  button.innerHTML = loading ? `<i class="bi bi-arrow-repeat"></i>${escapeHtml(loadingLabel)}` : idleHtml;
+  button.classList.toggle('button-loading', loading);
+  if (loading) {
+    button.setAttribute('aria-busy', 'true');
+    button.innerHTML = `<span class="loading-spinner" aria-hidden="true"></span><span>${escapeHtml(loadingLabel)}</span>`;
+  } else {
+    button.removeAttribute('aria-busy');
+    button.innerHTML = idleHtml;
+  }
 }
 
 async function doAutoLogin() {

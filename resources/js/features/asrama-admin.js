@@ -5,15 +5,24 @@ async function loadAsramaRoomManagement() {
   const container = document.getElementById('asramaBuildings');
   if (!container) return;
   container.classList.add('is-loading');
+  if (!asramaCapacityCache) showLoadingState(container, 'Memuatkan tetapan kapasiti...', 4);
+  else container.setAttribute('aria-busy', 'true');
   try {
     const result = await tryApi('asrama_rooms.php');
     asramaCapacityCache = result.data || null;
+    container.removeAttribute('aria-busy');
     renderAsramaCapacityManagement();
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
-    container.innerHTML = `<div class="asrama-error"><i class="bi bi-exclamation-triangle"></i><strong>Tetapan kapasiti tidak dapat dimuatkan</strong><span>${escapeHtml(error.message || 'Sila cuba lagi.')}</span></div>`;
+    container.removeAttribute('aria-busy');
+    if (asramaCapacityCache) showToast(error.message || 'Tetapan tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
+    else {
+      container.innerHTML = `<div class="asrama-error feedback-state" role="status"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><strong>Tetapan kapasiti tidak dapat dimuatkan</strong><span>${escapeHtml(error.message || 'Sila cuba lagi.')}</span><button class="btn btn-secondary btn-sm" id="retryAsramaCapacityButton" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button></div>`;
+      document.getElementById('retryAsramaCapacityButton')?.addEventListener('click', () => loadAsramaRoomManagement());
+    }
   } finally {
     container.classList.remove('is-loading');
+    container.removeAttribute('aria-busy');
   }
 }
 
@@ -124,10 +133,7 @@ async function saveAsramaCapacitySettings(event) {
     return;
   }
 
-  if (saveButton) {
-    saveButton.disabled = true;
-    saveButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menyimpan';
-  }
+  if (saveButton) setButtonLoading(saveButton, true, 'Menyimpan tetapan...');
   try {
     const result = await tryApi('asrama_rooms.php', 'PUT', payload);
     asramaCapacityCache = result.data || asramaCapacityCache;
@@ -138,8 +144,7 @@ async function saveAsramaCapacitySettings(event) {
     showToast(error.message || 'Tetapan kapasiti gagal disimpan.', 'error');
   } finally {
     if (saveButton?.isConnected) {
-      saveButton.disabled = false;
-      saveButton.innerHTML = '<i class="bi bi-check2-circle"></i> Simpan Tetapan';
+      setButtonLoading(saveButton, false);
     }
   }
 }

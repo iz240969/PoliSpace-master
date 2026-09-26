@@ -1,9 +1,19 @@
 // ==================== HELPERS ====================
+const buttonLoadingStates = new WeakMap();
+const recentToasts = new Map();
+
 function showToast(msg, type = 'success') {
   const container = document.getElementById('toastContainer');
   if (!container) return;
+  const toastKey = `${type}:${String(msg)}`;
+  const now = Date.now();
+  if (now - (recentToasts.get(toastKey) || 0) < 1400) return;
+  recentToasts.set(toastKey, now);
+  window.setTimeout(() => recentToasts.delete(toastKey), 1600);
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
   toast.innerHTML = `<span class="toast-icon">${type === 'success' ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-x-circle-fill text-danger"></i>'}</span><span>${escapeHtml(msg)}</span>`;
   container.appendChild(toast);
   setTimeout(() => {
@@ -11,6 +21,77 @@ function showToast(msg, type = 'success') {
     toast.style.transform = 'translateX(20px)';
     setTimeout(() => toast.remove(), 300);
   }, 3500);
+}
+
+function setButtonLoading(button, loading, label = 'Memproses...') {
+  if (!button) return;
+  if (loading) {
+    if (!buttonLoadingStates.has(button)) {
+      buttonLoadingStates.set(button, {
+        html: button.innerHTML,
+        disabled: Boolean(button.disabled),
+        ariaBusy: button.getAttribute('aria-busy'),
+      });
+    }
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.classList.add('button-loading');
+    button.innerHTML = `<span class="loading-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span>`;
+    return;
+  }
+
+  const previous = buttonLoadingStates.get(button);
+  if (!previous) return;
+  button.innerHTML = previous.html;
+  button.disabled = previous.disabled;
+  if (previous.ariaBusy === null) button.removeAttribute('aria-busy');
+  else button.setAttribute('aria-busy', previous.ariaBusy);
+  button.classList.remove('button-loading');
+  buttonLoadingStates.delete(button);
+}
+
+function showLoadingState(container, label = 'Memuatkan data...', count = 3) {
+  if (!container) return;
+  const skeletons = Array.from({ length: Math.max(1, Math.min(8, count)) }, () => '<span class="skeleton" aria-hidden="true"></span>').join('');
+  container.setAttribute('aria-busy', 'true');
+  container.innerHTML = `<div class="loading-state" role="status" aria-live="polite"><span class="loading-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span><div class="loading-skeletons">${skeletons}</div></div>`;
+}
+
+function showErrorState(container, message = 'Data tidak dapat dimuatkan.', onRetry = null) {
+  if (!container) return;
+  container.removeAttribute('aria-busy');
+  container.innerHTML = `<div class="feedback-state feedback-state-error"><span class="feedback-state-icon" aria-hidden="true"><i class="bi bi-cloud-slash"></i></span><strong>Data tidak dapat dimuatkan</strong><span>${escapeHtml(message)}</span>${typeof onRetry === 'function' ? '<button class="btn btn-secondary btn-sm feedback-retry" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button>' : ''}</div>`;
+  if (typeof onRetry === 'function') container.querySelector('.feedback-retry')?.addEventListener('click', onRetry);
+}
+
+function setupNetworkStatus() {
+  if (document.getElementById('networkStatusBanner')) return;
+  const banner = document.createElement('div');
+  banner.className = 'network-status-banner';
+  banner.id = 'networkStatusBanner';
+  banner.setAttribute('role', 'status');
+  banner.setAttribute('aria-live', 'polite');
+  banner.hidden = true;
+  document.body.prepend(banner);
+
+  let hideTimer = null;
+  const renderOffline = () => {
+    window.clearTimeout(hideTimer);
+    banner.innerHTML = '<i class="bi bi-wifi-off" aria-hidden="true"></i><span>Anda sedang luar talian. Tindakan yang memerlukan pelayan dinyahaktifkan.</span>';
+    banner.classList.add('is-offline');
+    banner.hidden = false;
+  };
+  const renderOnline = () => {
+    window.clearTimeout(hideTimer);
+    banner.innerHTML = '<i class="bi bi-wifi" aria-hidden="true"></i><span>Sambungan internet dipulihkan.</span>';
+    banner.classList.remove('is-offline');
+    banner.hidden = false;
+    hideTimer = window.setTimeout(() => { banner.hidden = true; }, 2800);
+  };
+
+  window.addEventListener('offline', renderOffline);
+  window.addEventListener('online', renderOnline);
+  if (isBrowserOffline()) renderOffline();
 }
 
 function statusBadgeHtml(status) {

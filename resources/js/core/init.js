@@ -2,13 +2,15 @@
 async function init() {
   setupAdminWorkspace();
   setupSurfaceAccessibility();
+  setupNetworkStatus();
   setupNavigationAccess();
   await refreshAuthState();
   setupNavigationAccess();
+  if (psAuthState.sessionExpired) return;
   if (!protectLoggedInPages()) return;
 
   if (document.getElementById('admin') && !isAdminLoggedIn()) {
-    window.location.replace(ROUTES.login);
+    window.location.replace(ROUTES.adminLogin);
     return;
   }
   document.documentElement.classList.remove('auth-pending');

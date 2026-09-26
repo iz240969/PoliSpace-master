@@ -1,6 +1,19 @@
 // ==================== FACILITIES ====================
 let unavailableBookingDates = new Set();
 let bookingDatePickerRequestId = 0;
+const publicCalendarBookingsCache = new Map();
+const publicCalendarLoadErrors = new Map();
+const publicCalendarPendingRequests = new Map();
+
+function publicCalendarCacheKey(year, month, facilityId = '') {
+  return `${year}-${String(month).padStart(2, '0')}:${facilityId || 'all'}`;
+}
+
+function publicCalendarRetryNotice(year, month, facilityId = '') {
+  const key = publicCalendarCacheKey(year, month, facilityId);
+  if (!publicCalendarLoadErrors.has(key)) return '';
+  return `<div class="calendar-load-warning" role="status"><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span>Kalendar mungkin belum dikemas kini.</span><button class="btn btn-secondary btn-sm calendar-retry-button" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button></div>`;
+}
 
 function normalizeFacilities(facilities) {
   return facilities.map((f) => ({
@@ -73,6 +86,38 @@ function facilityPriceLabel(facility) {
   return `RM ${price} / ${String(facility.name || '').toLowerCase().includes('asrama') ? 'bilik' : 'jam'}`;
 }
 
+function facilityCategoryLabel(facility) {
+  const name = String(facility.name || '').toLowerCase();
+  if (name.includes('asrama')) return 'Asrama';
+  if (name.includes('makmal') || name.includes('komputer')) return 'Makmal';
+  if (name.includes('dewan')) return 'Dewan';
+  if (name.includes('bilik')) return 'Bilik';
+  return 'Fasiliti';
+}
+
+function facilityPhotoIndex(facility) {
+  const name = String(facility.name || '').toLowerCase();
+  if (name.includes('asrama')) return 5;
+  if (name.includes('makmal') || name.includes('komputer')) return 4;
+  if (name.includes('seminar')) return 3;
+  if (name.includes('persidangan')) return 2;
+  if (name.includes('syarahan')) return 1;
+  return 0;
+}
+
+function facilityEquipmentIcon(name) {
+  const item = String(name || '').toLowerCase();
+  if (item.includes('mikrofon')) return 'bi-mic';
+  if (item.includes('projektor')) return 'bi-projector';
+  if (item.includes('pa system')) return 'bi-speaker';
+  if (item.includes('tv') || item.includes('lcd')) return 'bi-display';
+  if (item.includes('komputer')) return 'bi-pc-display';
+  if (item.includes('papan')) return 'bi-easel';
+  if (item.includes('meja')) return 'bi-layout-text-window';
+  if (item.includes('kerusi')) return 'bi-grid-3x3';
+  return 'bi-check2';
+}
+
 function isBlockingBookingStatus(status) {
   return ['pending', 'approved'].includes(status);
 }
@@ -95,29 +140,64 @@ async function renderFacilities() {
   const grid = document.getElementById('facilitiesGrid');
   if (!grid) return;
 
+  if (!grid.querySelector('.facility-card')) {
+    grid.setAttribute('aria-busy', 'true');
+    const placeholders = Array.from({ length: 6 }, () => '<article class="facility-card-skeleton" aria-hidden="true"><span class="facility-card-skeleton-photo skeleton"></span><div class="facility-card-skeleton-body"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div></article>').join('');
+    grid.innerHTML = `<span class="sr-only" role="status" aria-live="polite">Memuatkan fasiliti...</span>${placeholders}`;
+  }
+  else grid.setAttribute('aria-busy', 'true');
   const facilities = await loadFacilities();
-  grid.innerHTML = facilities.map((f) => {
-    const equipment = f.equipment_options.slice(0, 3).map((item) => item.name).join(' · ');
+  const cardsHtml = facilities.map((f) => {
+    const equipment = f.equipment_options;
+    const isAsrama = String(f.name || '').toLowerCase().includes('asrama');
     return `
-    <button type="button" class="facility-card" onclick="selectFacilityAndBook('${escapeAttr(f.id)}')" aria-label="Tempah ${escapeAttr(f.name)}">
-      <div class="facility-card-accent"></div>
-      <div class="facility-arrow"><i class="bi bi-arrow-up-right"></i></div>
-      <div class="facility-icon">${facilityIconHtml(f)}</div>
-      <div class="facility-name">${escapeHtml(f.name)}</div>
-      <div class="facility-desc">${escapeHtml(f.description)}</div>
-      <div class="facility-equipment">${equipment ? `<i class="bi bi-tools"></i><span>${escapeHtml(equipment)}</span>` : '<i class="bi bi-info-circle"></i><span>Keperluan boleh dipilih semasa tempahan</span>'}</div>
-      <div class="facility-meta">
-        <div class="facility-facts">
-          <div class="facility-cap"><i class="bi bi-people"></i><span>${escapeHtml(facilityCapacityLabel(f))}</span></div>
-          <div class="facility-price">${escapeHtml(facilityPriceLabel(f))}</div>
+    <article class="facility-card" role="button" tabindex="0" data-facility-id="${escapeAttr(f.id)}" aria-label="Lihat butiran ${escapeAttr(f.name)}">
+      <div class="facility-photo facility-photo--${facilityPhotoIndex(f)}">
+        <div class="facility-photo-top">
+          <span class="facility-category">
+            <span class="facility-category-icon" aria-hidden="true">${facilityIconHtml(f)}</span>
+            <span>${escapeHtml(facilityCategoryLabel(f))}</span>
+          </span>
+          <span class="facility-arrow" aria-hidden="true"><i class="bi bi-arrow-up-right"></i></span>
         </div>
-        <div class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}">
-          ${f.is_available ? '<i class="bi bi-check-circle"></i> Tersedia' : '<i class="bi bi-x-circle"></i> Tidak Tersedia'}
+        <span class="facility-availability ${f.is_available ? '' : 'is-unavailable'}"><i class="bi ${f.is_available ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}" aria-hidden="true"></i>${f.is_available ? 'Tersedia' : 'Tidak Tersedia'}</span>
+      </div>
+      <div class="facility-body">
+        <h3 class="facility-name">${escapeHtml(f.name)}</h3>
+        <p class="facility-desc">${escapeHtml(f.description)}</p>
+        ${equipment.length ? `<div class="facility-equipment" aria-label="Peralatan">${equipment.map((item) => `<span class="facility-equipment-item"><span class="facility-equipment-icon"><i class="bi ${facilityEquipmentIcon(item.name)}" aria-hidden="true"></i></span><span>${escapeHtml(item.name)}</span></span>`).join('')}</div>` : ''}
+        ${isAsrama || !equipment.length ? '<div class="facility-equipment-note"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Keperluan boleh dipilih semasa tempahan</span></div>' : ''}
+        <div class="facility-meta">
+          <div class="facility-facts">
+            <div class="facility-cap"><i class="bi bi-people" aria-hidden="true"></i><span>${escapeHtml(isAsrama ? `${Number(f.capacity || 0)} orang / bilik` : facilityCapacityLabel(f))}</span></div>
+            ${isAsrama ? `<p class="facility-quota">Had biasa: ${Number(f.asrama_normal_male_limit || 0)} lelaki, ${Number(f.asrama_normal_female_limit || 0)} perempuan</p>` : ''}
+            <div class="facility-price"><i class="bi bi-coin" aria-hidden="true"></i><span>${escapeHtml(facilityPriceLabel(f))}</span></div>
+          </div>
+          <span class="facility-details-link" aria-hidden="true">Lihat Butiran <i class="bi bi-arrow-right"></i></span>
         </div>
       </div>
-    </button>
+    </article>
   `;
   }).join('');
+  const retryNotice = facilitiesLoadError
+    ? `<div class="facilities-load-warning" role="status"><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span>Senarai fasiliti mungkin belum dikemas kini.</span><button class="btn btn-secondary btn-sm" id="retryFacilitiesButton" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button></div>`
+    : '';
+  const emptyNotice = !facilities.length && !facilitiesLoadError
+    ? '<div class="feedback-state"><span class="feedback-state-icon" aria-hidden="true"><i class="bi bi-building"></i></span><strong>Tiada fasiliti tersedia</strong><span>Sila semak semula kemudian.</span></div>'
+    : '';
+  grid.innerHTML = `${retryNotice}${emptyNotice}${cardsHtml}`;
+  grid.removeAttribute('aria-busy');
+  grid.querySelector('#retryFacilitiesButton')?.addEventListener('click', () => renderFacilities());
+
+  grid.querySelectorAll('[data-facility-id]').forEach((card) => {
+    const openFacility = () => selectFacilityAndBook(card.dataset.facilityId);
+    card.addEventListener('click', openFacility);
+    card.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openFacility();
+    });
+  });
 
   setText('stat-facilities', facilities.filter((f) => f.is_available).length);
   try {
@@ -140,26 +220,41 @@ function selectFacilityAndBook(fid) {
 }
 
 async function loadPublicCalendarBookings(year, month, facilityId = '') {
+  const cacheKey = publicCalendarCacheKey(year, month, facilityId);
+  if (publicCalendarPendingRequests.has(cacheKey)) return publicCalendarPendingRequests.get(cacheKey);
+  const request = (async () => {
+    try {
+      const facilityQuery = facilityId ? `&facility_id=${encodeURIComponent(facilityId)}` : '';
+      const result = await apiRequest(`bookings.php?action=calendar&year=${year}&month=${month}${facilityQuery}`);
+      const bookings = result.data || [];
+      publicCalendarBookingsCache.set(cacheKey, bookings);
+      publicCalendarLoadErrors.delete(cacheKey);
+      return bookings;
+    } catch (error) {
+      publicCalendarLoadErrors.set(cacheKey, error);
+      if (publicCalendarBookingsCache.has(cacheKey)) return publicCalendarBookingsCache.get(cacheKey);
+      const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+      return getBookings()
+        .filter((b) => (b.date || '').startsWith(monthPrefix))
+        .filter((b) => isBlockingBookingStatus(b.status))
+        .filter((b) => !facilityId || String(b.facilityId || b.facility_id) === String(facilityId))
+        .map((b) => ({
+          id: b.id || b.booking_ref,
+          facilityId: b.facilityId || b.facility_id || '',
+          date: b.date,
+          start: b.start,
+          end: b.end,
+          status: b.status,
+          facilityName: b.facilityName || 'Fasiliti',
+          facilityIcon: b.facilityIcon || '<i class="bi bi-building"></i>',
+        }));
+    }
+  })();
+  publicCalendarPendingRequests.set(cacheKey, request);
   try {
-    const facilityQuery = facilityId ? `&facility_id=${encodeURIComponent(facilityId)}` : '';
-    const result = await apiRequest(`bookings.php?action=calendar&year=${year}&month=${month}${facilityQuery}`);
-    return result.data || [];
-  } catch (error) {
-    const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
-    return getBookings()
-      .filter((b) => (b.date || '').startsWith(monthPrefix))
-      .filter((b) => isBlockingBookingStatus(b.status))
-      .filter((b) => !facilityId || String(b.facilityId || b.facility_id) === String(facilityId))
-      .map((b) => ({
-        id: b.id || b.booking_ref,
-        facilityId: b.facilityId || b.facility_id || '',
-        date: b.date,
-        start: b.start,
-        end: b.end,
-        status: b.status,
-        facilityName: b.facilityName || 'Fasiliti',
-        facilityIcon: b.facilityIcon || '<i class="bi bi-building"></i>',
-      }));
+    return await request;
+  } finally {
+    if (publicCalendarPendingRequests.get(cacheKey) === request) publicCalendarPendingRequests.delete(cacheKey);
   }
 }
 
@@ -174,7 +269,11 @@ async function renderLandingCalendar() {
   const displayMonth = month + 1;
   const monthNames = ['Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun', 'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'];
   const weekdays = ['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'];
+  if (!list.dataset.loaded) showLoadingState(list, 'Memuatkan kalendar...', 2);
+  else list.setAttribute('aria-busy', 'true');
   const bookings = await loadPublicCalendarBookings(year, displayMonth);
+  list.removeAttribute('aria-busy');
+  list.dataset.loaded = 'true';
   const bookingsByDate = bookings.reduce((groups, booking) => {
     if (!groups[booking.date]) groups[booking.date] = [];
     groups[booking.date].push(booking);
@@ -221,12 +320,14 @@ async function renderLandingCalendar() {
     .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`))
     .slice(0, 4);
 
+  const retryNotice = publicCalendarRetryNotice(year, displayMonth);
   if (!visibleBookings.length) {
-    list.innerHTML = '<div class="landing-calendar-empty">Tiada tempahan untuk bulan ini.</div>';
+    list.innerHTML = retryNotice || '<div class="landing-calendar-empty">Tiada tempahan untuk bulan ini.</div>';
+    list.querySelector('.calendar-retry-button')?.addEventListener('click', () => renderLandingCalendar());
     return;
   }
 
-  list.innerHTML = visibleBookings.map((booking) => `
+  list.innerHTML = `${retryNotice}${visibleBookings.map((booking) => `
     <div class="landing-calendar-event">
       <div>${booking.facilityIcon || '<i class="bi bi-building"></i>'}</div>
       <div>
@@ -235,7 +336,8 @@ async function renderLandingCalendar() {
       </div>
       ${statusBadgeHtml(booking.status)}
     </div>
-  `).join('');
+  `).join('')}`;
+  list.querySelector('.calendar-retry-button')?.addEventListener('click', () => renderLandingCalendar());
 }
 
 async function renderPublicCalendarView() {
@@ -244,13 +346,17 @@ async function renderPublicCalendarView() {
 
   const year = bookingCalendarDate.getFullYear();
   const month = bookingCalendarDate.getMonth() + 1;
-  let bookings = [];
-  try {
-    bookings = await loadPublicCalendarBookings(year, month);
-  } catch (error) {
-    bookings = getBookings();
-  }
+  if (!calendar.dataset.loaded) showLoadingState(calendar, 'Memuatkan kalendar...', 3);
+  else calendar.setAttribute('aria-busy', 'true');
+  const bookings = await loadPublicCalendarBookings(year, month);
+  calendar.removeAttribute('aria-busy');
+  calendar.dataset.loaded = 'true';
   renderCalendar(bookings, bookingCalendarDate);
+  const retryNotice = publicCalendarRetryNotice(year, month);
+  if (retryNotice) {
+    calendar.insertAdjacentHTML('afterbegin', retryNotice);
+    calendar.querySelector('.calendar-retry-button')?.addEventListener('click', () => renderPublicCalendarView());
+  }
 }
 
 function changeLandingCalendarMonth(delta) {
@@ -267,12 +373,14 @@ async function refreshBookingCalendar() {
     return;
   }
 
+  if (adminDashboardLoaded) renderCalendar(adminBookingsCache, bookingCalendarDate);
   let bookings = [];
   try {
     const result = await tryApi('bookings.php');
     bookings = result.data || [];
   } catch (error) {
-    bookings = getBookings();
+    bookings = adminDashboardLoaded ? adminBookingsCache : getBookings();
+    if (adminDashboardLoaded) showToast(error.message || 'Kalendar tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
   }
   renderCalendar(bookings, bookingCalendarDate);
 }
@@ -310,6 +418,10 @@ async function populateBookingFacilities() {
         </span>
       </button>
     `).join('');
+    if (facilitiesLoadError) {
+      list.insertAdjacentHTML('afterbegin', '<div class="facilities-load-warning" role="status"><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span>Senarai fasiliti mungkin belum dikemas kini.</span><button class="btn btn-secondary btn-sm" id="retryBookingFacilitiesButton" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button></div>');
+      list.querySelector('#retryBookingFacilitiesButton')?.addEventListener('click', () => populateBookingFacilities());
+    }
   }
 
   const selected = localStorage.getItem('ps_selected_facility');
@@ -527,7 +639,9 @@ async function renderBookingDatePicker() {
     html += `<button type="button" class="${classes}" ${disabled ? 'disabled' : ''} title="${unavailableLabel}" aria-label="${day} ${monthNames[month]} - ${unavailableLabel}" onclick="selectBookingDate('${date}')">${day}</button>`;
   }
 
-  picker.innerHTML = `${html}</div><div class="booking-date-picker-legend"><span><i class="available"></i> Tersedia</span><span><i class="booked"></i> Telah ditempah</span></div>`;
+  const calendarNotice = selectedFacilityId ? publicCalendarRetryNotice(year, displayMonth, selectedFacilityId) : '';
+  picker.innerHTML = `${calendarNotice}${html}</div><div class="booking-date-picker-legend"><span><i class="available"></i> Tersedia</span><span><i class="booked"></i> Telah ditempah</span></div>`;
+  picker.querySelector('.calendar-retry-button')?.addEventListener('click', () => renderBookingDatePicker());
 }
 
 function toggleBookingDatePicker() {

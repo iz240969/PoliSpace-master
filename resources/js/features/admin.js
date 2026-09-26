@@ -11,6 +11,11 @@ let adminReportSummary = {};
 let adminReportMeta = {};
 let adminReportRequest = 0;
 let adminPicsCache = [];
+let adminPicsLoaded = false;
+let adminPicsLoadError = null;
+let adminClientsLoaded = false;
+let adminMessagesLoaded = false;
+let adminDashboardLoaded = false;
 let adminClientFilter = 'all';
 let adminBookingFilterRequest = 0;
 const adminExpandedBookingGroups = new Set();
@@ -114,52 +119,87 @@ function renderSortedAdminReports() {
 }
 
 function handleAdminAuthorizationError(error) {
-  if (![401, 403].includes(error?.status)) return false;
+  if (![401, 403, 419].includes(error?.status)) return false;
+  if (error.sessionRedirectPending) return true;
   clearStoredAuthState();
-  window.location.href = ROUTES.login;
+  showToast('Sesi anda telah tamat. Sila log masuk semula.', 'error');
+  window.setTimeout(() => window.location.replace(ROUTES.adminLogin), 700);
   return true;
+}
+
+function showAdminTableLoading(tbody, colspan, rows = 3) {
+  if (!tbody) return;
+  tbody.setAttribute('aria-busy', 'true');
+  tbody.innerHTML = Array.from({ length: rows }, () => `<tr><td colspan="${colspan}"><div class="table-loading"><span class="skeleton" aria-hidden="true"></span><span class="skeleton" aria-hidden="true"></span><span class="skeleton" aria-hidden="true"></span></div></td></tr>`).join('');
+}
+
+function showAdminTableError(tbody, colspan, message, retry) {
+  if (!tbody) return;
+  tbody.removeAttribute('aria-busy');
+  tbody.innerHTML = `<tr><td colspan="${colspan}"><div class="feedback-state feedback-state-error" role="status"><span class="feedback-state-icon" aria-hidden="true"><i class="bi bi-cloud-slash"></i></span><strong>Data tidak dapat dimuatkan</strong><span>${escapeHtml(message)}</span><button class="btn btn-secondary btn-sm feedback-retry" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button></div></td></tr>`;
+  tbody.querySelector('.feedback-retry')?.addEventListener('click', retry);
 }
 
 async function renderAdminDashboard() {
   const dashDate = document.getElementById('dashDate');
   if (!dashDate) return;
 
-  let bookings = [];
-  let stats = null;
+  const statsContainer = document.getElementById('adminStats');
+  const recentBody = document.getElementById('recentBookingsTbody');
+  const allBody = document.getElementById('allBookingsTbody');
+  if (!adminDashboardLoaded) {
+    if (statsContainer) {
+      statsContainer.setAttribute('aria-busy', 'true');
+      statsContainer.innerHTML = Array.from({ length: 4 }, () => '<div class="stat-card stat-loading"><span class="skeleton" aria-hidden="true"></span><span class="skeleton" aria-hidden="true"></span><span class="skeleton" aria-hidden="true"></span></div>').join('');
+    }
+    showAdminTableLoading(recentBody, 6);
+    showAdminTableLoading(allBody, 7);
+  } else {
+    statsContainer?.setAttribute('aria-busy', 'true');
+    recentBody?.setAttribute('aria-busy', 'true');
+    allBody?.setAttribute('aria-busy', 'true');
+  }
+
+  loadClients();
+  loadMessages();
   const facilities = await loadFacilities();
   await loadPics();
 
   try {
     const statsResult = await tryApi('bookings.php?action=stats');
     const bookingsResult = await tryApi('bookings.php');
-    stats = statsResult.data;
-    bookings = bookingsResult.data || [];
+    const stats = statsResult.data;
+    const bookings = bookingsResult.data || [];
+    statsContainer?.removeAttribute('aria-busy');
+    recentBody?.removeAttribute('aria-busy');
+    allBody?.removeAttribute('aria-busy');
+
+    updatePendingBookingBadge(stats.pending);
+    dashDate.textContent = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (statsContainer) statsContainer.innerHTML = buildStatsHTML(stats);
+    const bookingStats = document.getElementById('bookingStats');
+    if (bookingStats) bookingStats.innerHTML = buildStatsHTML(stats);
+    adminRecentBookingsCache = bookings;
+    adminBookingsCache = bookings;
+    renderAdminRecentBookings();
+    renderAdminBookings();
+    renderFacilityManagement(facilities);
+    renderPicManagement(adminPicsCache);
+    renderCalendar(bookings, bookingCalendarDate);
+    adminDashboardLoaded = true;
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
-    bookings = [];
-    stats = {
-      total: 0,
-      pending: 0,
-      approved: 0,
-      today: 0,
-    };
-    showToast(error.message || 'Data dashboard tidak dapat dimuatkan.', 'error');
+    statsContainer?.removeAttribute('aria-busy');
+    recentBody?.removeAttribute('aria-busy');
+    allBody?.removeAttribute('aria-busy');
+    if (!adminDashboardLoaded) {
+      showErrorState(statsContainer, error.message || 'Sambungan ke pelayan gagal. Sila cuba lagi.', () => renderAdminDashboard());
+      showAdminTableError(recentBody, 6, error.message || 'Sambungan ke pelayan gagal.', () => renderAdminDashboard());
+      showAdminTableError(allBody, 7, error.message || 'Sambungan ke pelayan gagal.', () => renderAdminDashboard());
+    } else {
+      showToast(error.message || 'Data dashboard tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
+    }
   }
-
-  updatePendingBookingBadge(stats.pending);
-  dashDate.textContent = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  document.getElementById('adminStats').innerHTML = buildStatsHTML(stats);
-  const bookingStats = document.getElementById('bookingStats');
-  if (bookingStats) bookingStats.innerHTML = buildStatsHTML(stats);
-  adminRecentBookingsCache = bookings;
-  adminBookingsCache = bookings;
-  renderAdminRecentBookings();
-  renderAdminBookings();
-  renderFacilityManagement(facilities);
-  renderPicManagement(adminPicsCache);
-  renderCalendar(bookings, bookingCalendarDate);
-  loadClients();
-  loadMessages();
 }
 
 function updatePendingBookingBadge(value) {
@@ -215,7 +255,8 @@ async function loadAdminReports() {
       setText('reportUpdateStatus', 'Kemas kini gagal. Laporan sebelumnya masih dipaparkan. Sila cuba lagi.');
       if (printButton) printButton.disabled = false;
     } else {
-      content.innerHTML = `<div class="report-empty"><i class="bi bi-exclamation-circle"></i><strong>Laporan tidak dapat dimuatkan</strong><span>${escapeHtml(error.message || 'Sila cuba lagi.')}</span></div>`;
+      content.innerHTML = `<div class="report-empty"><i class="bi bi-exclamation-circle"></i><strong>Laporan tidak dapat dimuatkan</strong><span>${escapeHtml(error.message || 'Sila cuba lagi.')}</span><button class="btn btn-secondary btn-sm" id="retryAdminReportButton" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button></div>`;
+      document.getElementById('retryAdminReportButton')?.addEventListener('click', () => loadAdminReports());
       setText('reportUpdateStatus', 'Laporan tidak dapat dimuatkan. Sila cuba lagi.');
     }
   } finally {
@@ -908,12 +949,11 @@ async function createAdminBookingRequest(data, receiptFile = null) {
   });
   if (receiptFile) formData.append('payment_file', receiptFile);
 
-  const response = await fetch(`${API_BASE}/bookings.php?action=admin-create`, {
+  return requestApiJson(`${API_BASE}/bookings.php?action=admin-create`, {
     method: 'POST',
     body: formData,
     credentials: 'include',
-  });
-  return readApiResponse(response, 'Tempahan gagal dicipta.');
+  }, 'Tempahan gagal dicipta. Sila cuba lagi.', receiptFile ? API_TIMEOUT_UPLOAD : API_TIMEOUT_BOOKING);
 }
 
 function openAdminPhysicalPaymentWindow() {
@@ -1033,7 +1073,7 @@ async function submitAdminCreateBooking(event) {
     return;
   }
 
-  if (button) button.disabled = true;
+  if (button) setButtonLoading(button, true, adminCreatePaymentMode === 'receipt' ? 'Muat naik sedang diproses...' : 'Menyimpan tempahan...');
   try {
     const result = await createAdminBookingRequest(data, adminCreatePaymentMode === 'receipt' ? adminCreateReceiptFile : null);
     if (printWindow) printAdminPhysicalPayment(printWindow, result.booking_ref || '-', data, facility);
@@ -1050,7 +1090,7 @@ async function submitAdminCreateBooking(event) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Tempahan gagal dicipta.', 'error');
   } finally {
-    if (button) button.disabled = false;
+    if (button) setButtonLoading(button, false);
   }
 }
 
@@ -1062,9 +1102,7 @@ function renderFacilityManagement(facilities) {
   }
   if (!facilities.length) {
     grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i class="bi bi-building-slash"></i></div><div class="empty-state-title">Tiada Fasiliti</div></div>';
-    return;
-  }
-  grid.innerHTML = facilities.map((f) => `
+  } else grid.innerHTML = facilities.map((f) => `
     <div class="facility-manage-card">
       <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
@@ -1078,6 +1116,10 @@ function renderFacilityManagement(facilities) {
       </div>
     </div>
   `).join('');
+  if (facilitiesLoadError) {
+    grid.insertAdjacentHTML('afterbegin', '<div class="facilities-load-warning" role="status"><i class="bi bi-exclamation-circle" aria-hidden="true"></i><span>Senarai fasiliti mungkin belum dikemas kini.</span><button class="btn btn-secondary btn-sm" id="retryAdminFacilitiesButton" type="button"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Cuba Lagi</button></div>');
+    grid.querySelector('#retryAdminFacilitiesButton')?.addEventListener('click', () => refreshPicAndFacilityManagement());
+  }
 }
 
 function normalizePics(pics = []) {
@@ -1095,15 +1137,21 @@ async function loadPics() {
   try {
     const result = await tryApi('pics.php');
     adminPicsCache = normalizePics(result.data || []);
+    adminPicsLoaded = true;
+    adminPicsLoadError = null;
     const facilityPicSelect = document.getElementById('facilityPicId');
     if (facilityPicSelect) {
       const selected = facilityPicSelect.value;
       facilityPicSelect.innerHTML = picSelectOptionsHtml(selected);
     }
+    if (document.getElementById('picManageGrid')) renderPicManagement(adminPicsCache);
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return [];
-    adminPicsCache = [];
-    showToast(error.message || 'Senarai PIC tidak dapat dimuatkan.', 'error');
+    adminPicsLoadError = error;
+    if (adminPicsLoaded) showToast(error.message || 'Senarai PIC tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
+    else if (document.getElementById('picManageGrid')) {
+      showErrorState(document.getElementById('picManageGrid'), error.message || 'Sambungan ke pelayan gagal. Sila cuba lagi.', () => loadPics());
+    } else showToast(error.message || 'Senarai PIC tidak dapat dimuatkan.', 'error');
   }
   return adminPicsCache;
 }
@@ -1118,6 +1166,10 @@ function picSelectOptionsHtml(selectedId = '') {
 function renderPicManagement(pics = adminPicsCache) {
   const container = document.getElementById('picManageGrid');
   if (!container) return;
+  if (!adminPicsLoaded && adminPicsLoadError) {
+    showErrorState(container, adminPicsLoadError.message || 'Sambungan ke pelayan gagal. Sila cuba lagi.', () => loadPics());
+    return;
+  }
   const total = pics.length;
   const query = document.getElementById('adminPicSearch')?.value || '';
   pics = pics.filter((pic) => matchesAdminSearch(query, [pic.full_name, pic.phone, pic.email, ...pic.facility_names]));
@@ -1285,7 +1337,7 @@ async function addFacility(event) {
     return;
   }
 
-  if (button) button.disabled = true;
+  if (button) setButtonLoading(button, true, 'Menyimpan fasiliti...');
   try {
     const result = await tryApi('facilities.php', 'POST', data);
     const created = normalizeFacilities([result.data])[0];
@@ -1305,7 +1357,7 @@ async function addFacility(event) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Fasiliti gagal ditambah.', 'error');
   } finally {
-    if (button) button.disabled = false;
+    if (button) setButtonLoading(button, false);
   }
 }
 
@@ -1397,7 +1449,7 @@ async function updateFacility(id) {
     return;
   }
 
-  if (button) button.disabled = true;
+  if (button) setButtonLoading(button, true, 'Menyimpan perubahan...');
   try {
     const result = await tryApi(`facilities.php?id=${encodeURIComponent(id)}`, 'PUT', data);
     const updated = normalizeFacilities([result.data])[0];
@@ -1412,7 +1464,7 @@ async function updateFacility(id) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Fasiliti gagal dikemas kini.', 'error');
   } finally {
-    if (button) button.disabled = false;
+    if (button) setButtonLoading(button, false);
   }
 }
 
@@ -1504,7 +1556,7 @@ async function savePic(id = '') {
     return;
   }
 
-  if (button) button.disabled = true;
+  if (button) setButtonLoading(button, true, 'Menyimpan maklumat PIC...');
   try {
     await tryApi(id ? `pics.php?id=${encodeURIComponent(id)}` : 'pics.php', id ? 'PUT' : 'POST', data);
     await refreshPicAndFacilityManagement();
@@ -1514,7 +1566,7 @@ async function savePic(id = '') {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Maklumat PIC gagal disimpan.', 'error');
   } finally {
-    if (button) button.disabled = false;
+    if (button) setButtonLoading(button, false);
   }
 }
 
@@ -1550,14 +1602,19 @@ async function loadClients() {
   const tbody = document.getElementById('clientsTbody');
   if (!tbody) return;
 
+  if (!adminClientsLoaded) showAdminTableLoading(tbody, 7);
+  else tbody.setAttribute('aria-busy', 'true');
   try {
     const result = await tryApi('users.php');
     adminClientsCache = result.data || [];
+    adminClientsLoaded = true;
+    tbody.removeAttribute('aria-busy');
     renderAdminClients();
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
-    adminClientsCache = [];
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-people"></i></div><div class="empty-state-title">Senarai pelanggan tidak dapat dimuatkan</div></div></td></tr>`;
+    tbody.removeAttribute('aria-busy');
+    if (adminClientsLoaded) showToast(error.message || 'Senarai pelanggan tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
+    else showAdminTableError(tbody, 7, error.message || 'Sambungan ke pelayan gagal.', () => loadClients());
   }
 }
 
@@ -1704,7 +1761,7 @@ async function updateClientPassword(id) {
     return;
   }
 
-  if (button) button.disabled = true;
+  if (button) setButtonLoading(button, true, 'Mengemas kini kata laluan...');
   try {
     await tryApi(`users.php?id=${encodeURIComponent(id)}`, 'PUT', { password });
     if (input) input.value = '';
@@ -1713,7 +1770,7 @@ async function updateClientPassword(id) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Kata laluan pelanggan gagal dikemas kini.', 'error');
   } finally {
-    if (button) button.disabled = false;
+    if (button) setButtonLoading(button, false);
   }
 }
 
@@ -1721,14 +1778,19 @@ async function loadMessages() {
   const tbody = document.getElementById('messagesTbody');
   if (!tbody) return;
 
+  if (!adminMessagesLoaded) showAdminTableLoading(tbody, 5);
+  else tbody.setAttribute('aria-busy', 'true');
   try {
     const result = await tryApi('messages.php');
     adminMessagesCache = result.data || [];
+    adminMessagesLoaded = true;
+    tbody.removeAttribute('aria-busy');
     renderMessagesTable(adminMessagesCache);
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
-    adminMessagesCache = [];
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-chat-square-x"></i></div><div class="empty-state-title">Mesej tidak dapat dimuatkan</div></div></td></tr>';
+    tbody.removeAttribute('aria-busy');
+    if (adminMessagesLoaded) showToast(error.message || 'Mesej tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
+    else showAdminTableError(tbody, 5, error.message || 'Sambungan ke pelayan gagal.', () => loadMessages());
   }
 }
 
@@ -1805,10 +1867,7 @@ async function sendMessageReply(id) {
   }
 
   const button = document.getElementById('adminReplyButton');
-  if (button) {
-    button.disabled = true;
-    button.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menghantar';
-  }
+  if (button) setButtonLoading(button, true, 'Menghantar balasan...');
 
   try {
     await tryApi(`messages.php?action=reply&id=${encodeURIComponent(id)}`, 'PUT', { reply });
@@ -1818,10 +1877,7 @@ async function sendMessageReply(id) {
   } catch (error) {
     showToast(error.message || 'Balasan gagal dihantar.', 'error');
   } finally {
-    if (button) {
-      button.disabled = false;
-      button.innerHTML = '<i class="bi bi-send"></i> Hantar Balasan';
-    }
+    if (button) setButtonLoading(button, false);
   }
 }
 

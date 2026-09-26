@@ -6,10 +6,7 @@ async function checkStatus() {
 
   const button = document.getElementById('statusSearchButton');
   if (button?.disabled) return;
-  if (button) {
-    button.disabled = true;
-    button.innerHTML = '<i class="bi bi-arrow-repeat"></i> Menyemak';
-  }
+  if (button) setButtonLoading(button, true, 'Menyemak status...');
 
   try {
     const result = await tryApi(`bookings.php?action=ref&ref=${encodeURIComponent(ref)}`);
@@ -18,10 +15,7 @@ async function checkStatus() {
     showToast(error.status === 404 ? 'Nombor rujukan tidak dijumpai.' : error.message || 'Status tempahan tidak dapat dimuatkan.', 'error');
     card.classList.remove('show');
   } finally {
-    if (button) {
-      button.disabled = false;
-      button.innerHTML = '<i class="bi bi-search"></i> Semak';
-    }
+    if (button) setButtonLoading(button, false);
   }
 }
 
