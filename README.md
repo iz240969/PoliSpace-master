@@ -21,7 +21,7 @@ Laravel views are in `resources/views/legacy/`, browser assets are served from `
 
 ## Framework and publishing
 
-This project requires Laravel 13 and PHP 8.3 or newer. Install dependencies with `composer install`, configure `.env`, and generate an application key using `php artisan key:generate`. Point Apache's document root to `public/`. See the [deployment guide](documentation/DEPLOYMENT.md) for Laragon, Docker, and shared-hosting setup.
+This project requires Laravel 13 and PHP 8.3 or newer. Install dependencies with `composer install`, configure `.env`, and generate an application key using `php artisan key:generate`. Run `npm install` and `npm run build` to copy browser assets into Laravel's public directory. Point Apache's document root to `public/`. See the [deployment guide](documentation/DEPLOYMENT.md) for Laragon, Docker, and shared-hosting setup.
 
 ## Quick Start
 

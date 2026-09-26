@@ -1,6 +1,7 @@
 {
     "private": true,
     "scripts": {
+        "build": "node scripts/build-assets.cjs",
         "test": "node --test documentation/checks/accounts-functions.test.js documentation/checks/admin-functions.test.js documentation/checks/customer-functions.test.js documentation/checks/workspace.test.js"
     }
 }

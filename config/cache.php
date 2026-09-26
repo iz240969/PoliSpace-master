@@ -15,7 +15,9 @@ return [
     |
     */
 
-    'default' => env('CACHE_STORE', 'database'),
+    // PoliSpace's existing MySQL schema has no Laravel cache table, so cache
+    // commands must not depend on one being created during deployment.
+    'default' => 'file',
 
     /*
     |--------------------------------------------------------------------------

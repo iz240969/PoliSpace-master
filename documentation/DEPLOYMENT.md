@@ -6,10 +6,11 @@ PoliSpace runs on Laravel 13 and PHP 8.3 or newer. The existing MySQL schema and
 
 1. Start Apache and MySQL in Laragon, then open a terminal in the project folder.
 2. Install dependencies with `composer install`.
-3. Copy `.env.example` to `.env`. Set `APP_URL` to the local project URL and set `DB_HOST`, `DB_NAME`, `DB_USER`, and `DB_PASS` for your Laragon database. The Laravel `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` settings are already mapped from those legacy names when `.env` is first created; keep both sets in sync if you change credentials.
-4. Generate the Laravel encryption key with `php artisan key:generate`.
-5. Import `database/polspace.sql` for a new database, or apply the reviewed update script to an existing installation.
-6. Set the Apache virtual host document root to this project's `public/` directory. The root `.htaccess` forwards requests into Laravel as a convenience for Laragon's default project-root host; use `public/` directly for production.
+3. Run `npm install` and `npm run build` to copy the existing CSS, JavaScript, image, and favicon files into `public/resources/`.
+4. Copy `.env.example` to `.env`. Set `APP_URL` to the local project URL and set `DB_HOST`, `DB_NAME`, `DB_USER`, and `DB_PASS` for your Laragon database. The Laravel `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` settings are already mapped from those legacy names when `.env` is first created; keep both sets in sync if you change credentials.
+5. Generate the Laravel encryption key with `php artisan key:generate`.
+6. Import `database/polspace.sql` for a new database, or apply the reviewed update script to an existing installation.
+7. Set the Apache virtual host document root to this project's `public/` directory. The root `.htaccess` forwards requests into Laravel as a convenience for Laragon's default project-root host; use `public/` directly for production.
 
 The legacy API URLs remain available through Laravel's API router so the current browser code and native PHP session behavior continue to work during the migration. Uploaded receipts remain under `uploads/payments/`.
 
@@ -25,11 +26,13 @@ The first database initialization imports `database/polspace.sql`. Initializatio
 
 ## Apache or cPanel
 
-Use PHP 8.3 or newer with the Laravel-required extensions, Composer 2, and MySQL/MariaDB. Configure the site's document root to `public/`; do not point it at the repository root. Upload the application, install production Composer dependencies, and create `.env` outside the public folder. Import the existing SQL schema before using the application. Keep `APP_DEBUG=false`, use HTTPS, and ensure `storage/`, `bootstrap/cache/`, and `uploads/payments/` are writable by PHP.
+Use PHP 8.3 or newer with the Laravel-required extensions, Composer 2, Node.js/npm, and MySQL/MariaDB. Configure the site's document root to `public/`; do not point it at the repository root. Upload the application, install production Composer dependencies, run `npm install` and `npm run build`, and create `.env` outside the public folder. Keep `CACHE_STORE=file` (the project pins Laravel's default cache store to files, because the existing schema has no Laravel cache table). Import the existing SQL schema before using the application. Keep `APP_DEBUG=false`, use HTTPS, and ensure `storage/`, `bootstrap/cache/`, and `uploads/payments/` are writable by PHP.
 
 ## Release checklist
 
 - Run `composer install --no-dev --optimize-autoloader` for production.
+- Run `npm install` and `npm run build` after changing frontend assets.
+- If an older deployment has cached the previous database cache setting, run `php artisan config:clear` before `php artisan cache:clear`; then refresh it with `php artisan config:cache` if your release process uses cached configuration.
 - Keep the current `APP_KEY` and production database credentials private.
 - Back up the database and receipt uploads before applying schema updates.
 - Verify the web server's document root is `public/` and that receipt uploads cannot execute as scripts.
