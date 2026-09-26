@@ -22,6 +22,13 @@ final class Database
                 ]
             );
         } catch (PDOException $e) {
+            $sqlState = preg_replace('/[^A-Za-z0-9]/', '', (string)($e->errorInfo[0] ?? $e->getCode()));
+            $driverCode = preg_replace('/[^0-9]/', '', (string)($e->errorInfo[1] ?? ''));
+            error_log(sprintf(
+                '[PoliSpace] Database connection failed (SQLSTATE %s, driver code %s).',
+                $sqlState !== '' ? $sqlState : 'unknown',
+                $driverCode !== '' ? $driverCode : 'unknown'
+            ));
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Database connection failed']);
             exit;

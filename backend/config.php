@@ -21,7 +21,10 @@ function loadEnv(string $path): void
         [$key, $value] = array_map('trim', explode('=', $line, 2));
         $value = trim($value, "\"'");
 
-        if ($key !== '' && getenv($key) === false) {
+        if ($key !== ''
+            && getenv($key) === false
+            && !array_key_exists($key, $_ENV)
+            && !array_key_exists($key, $_SERVER)) {
             putenv($key . '=' . $value);
             $_ENV[$key] = $value;
         }
@@ -31,15 +34,33 @@ function loadEnv(string $path): void
 function envValue(string $key, string $default = ''): string
 {
     $value = getenv($key);
+    if ($value === false && array_key_exists($key, $_ENV)) {
+        $value = $_ENV[$key];
+    }
+    if ($value === false && array_key_exists($key, $_SERVER)) {
+        $value = $_SERVER[$key];
+    }
     return $value === false ? $default : (string)$value;
+}
+
+function firstEnvValue(array $keys, string $default = ''): string
+{
+    foreach ($keys as $key) {
+        $value = trim(envValue($key));
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return $default;
 }
 
 loadEnv(dirname(__DIR__) . '/.env');
 
 define('DB_HOST', envValue('DB_HOST', 'localhost'));
-define('DB_NAME', envValue('DB_NAME', 'polspace'));
-define('DB_USER', envValue('DB_USER', 'root'));
-define('DB_PASS', envValue('DB_PASS', ''));
+define('DB_NAME', firstEnvValue(['DB_NAME', 'DB_DATABASE'], 'polspace'));
+define('DB_USER', firstEnvValue(['DB_USER', 'DB_USERNAME'], 'root'));
+define('DB_PASS', firstEnvValue(['DB_PASS', 'DB_PASSWORD']));
 
 define('APP_NAME', envValue('APP_NAME', 'PoliSpace'));
 define('APP_URL', envValue('APP_URL', 'http://localhost'));
