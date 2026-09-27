@@ -78,7 +78,12 @@ ini_set('session.cookie_samesite', 'Lax');
 $httpsDetected = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 $trustProxyHttps = filter_var(envValue('TRUST_PROXY_HTTPS', 'false'), FILTER_VALIDATE_BOOLEAN);
 $forwardedProtocol = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
-if (!$httpsDetected && $trustProxyHttps && $forwardedProtocol === 'https') {
+$appUrlParts = parse_url(APP_URL);
+$appUrlHost = strtolower((string)($appUrlParts['host'] ?? ''));
+$appUrlScheme = strtolower((string)($appUrlParts['scheme'] ?? ''));
+$requestHost = strtolower((string)parse_url('http://' . (string)($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
+$configuredHttpsHost = $appUrlScheme === 'https' && $appUrlHost !== '' && $requestHost === $appUrlHost;
+if (!$httpsDetected && $forwardedProtocol === 'https' && ($trustProxyHttps || $configuredHttpsHost)) {
     $httpsDetected = true;
 }
 $secureCookiesConfigured = filter_var(envValue('SESSION_COOKIE_SECURE', 'false'), FILTER_VALIDATE_BOOLEAN);
