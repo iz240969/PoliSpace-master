@@ -28,6 +28,13 @@ class LegacyApiController extends Controller
             throw new NotFoundHttpException;
         }
 
+        // The legacy handlers inspect PHP superglobals directly. On some
+        // hosting proxies Laravel receives the original verb and form data,
+        // but those values are not reliably available in the globals after
+        // the request has passed through the front controller.
+        $_SERVER['REQUEST_METHOD'] = strtoupper($request->method());
+        $_POST = array_replace($_POST, $request->request->all());
+
         // Legacy handlers read query parameters from $_GET. Some hosting
         // FastCGI setups omit them from PHP's globals and QUERY_STRING, so
         // also recover the original query from REQUEST_URI when needed.
