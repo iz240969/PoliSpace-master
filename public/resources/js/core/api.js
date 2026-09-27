@@ -111,7 +111,10 @@ async function readApiResponse(response, fallbackMessage, requestUrl = '') {
     if (!response.ok) handleApiSessionExpiry(response, requestUrl, error);
     throw error;
   }
-  if (!response.ok || result.success === false) {
+  const legacyApiStatusMismatch = response.status === 404
+    && result.success === true
+    && /(?:^|\/)backend\/api\/[A-Za-z0-9_-]+\.php(?:[?#]|$)/i.test(String(requestUrl));
+  if ((!response.ok && !legacyApiStatusMismatch) || result.success === false) {
     const message = response.status >= 500
       ? serverFailureMessage(requestUrl, fallbackMessage)
       : sanitizeApiErrorMessage(result.error, fallbackMessage);

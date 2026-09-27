@@ -33,6 +33,6 @@
     <section id="asramaBuildings"><div class="asrama-loading"><i class="bi bi-arrow-repeat"></i> Memuatkan tetapan kapasiti...</div></section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260927-date-picker-reliability-v6"></script>
+  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v9"></script>
 </body>
 </html>
