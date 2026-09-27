@@ -47,7 +47,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v9"></script>
+  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
 </body>
 </html>
 

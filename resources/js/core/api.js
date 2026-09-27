@@ -264,11 +264,13 @@ async function userLogin(email, password) {
 }
 
 async function authRequest(action, data) {
-  const formData = new FormData();
-  Object.entries(data).forEach(([key, value]) => formData.append(key, value));
   return requestApiJson(`${API_BASE}/auth.php?action=${encodeURIComponent(action)}&t=${Date.now()}`, {
     method: 'POST',
-    body: formData,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-HTTP-Method-Override': 'POST',
+    },
+    body: JSON.stringify(data),
     credentials: 'include',
     cache: 'no-store',
   }, 'Permintaan gagal. Sila cuba lagi.', API_TIMEOUT_DEFAULT);
