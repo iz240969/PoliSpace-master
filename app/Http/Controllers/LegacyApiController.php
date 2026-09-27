@@ -28,12 +28,20 @@ class LegacyApiController extends Controller
             throw new NotFoundHttpException;
         }
 
-        // Legacy handlers read query parameters from $_GET. Restore them from
-        // the routed request when PHP's variables_order omits the GET array.
-        $queryParameters = $request->query->all();
-        if ($queryParameters === []) {
-            parse_str((string) $request->server('QUERY_STRING', ''), $queryParameters);
+        // Legacy handlers read query parameters from $_GET. Some hosting
+        // FastCGI setups omit them from PHP's globals and QUERY_STRING, so
+        // also recover the original query from REQUEST_URI when needed.
+        $queryString = (string) $request->server('QUERY_STRING', '');
+        if ($queryString === '') {
+            $requestUri = (string) $request->server('REQUEST_URI', '');
+            $queryString = (string) (parse_url($requestUri, PHP_URL_QUERY) ?? '');
         }
+
+        $queryParameters = [];
+        if ($queryString !== '') {
+            parse_str($queryString, $queryParameters);
+        }
+        $queryParameters = array_replace($queryParameters, $request->query->all());
         $_GET = array_replace($_GET, $queryParameters);
 
         require base_path('backend/api/'.$endpoint);
