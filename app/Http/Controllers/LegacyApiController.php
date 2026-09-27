@@ -32,7 +32,14 @@ class LegacyApiController extends Controller
         // hosting proxies Laravel receives the original verb and form data,
         // but those values are not reliably available in the globals after
         // the request has passed through the front controller.
-        $_SERVER['REQUEST_METHOD'] = strtoupper($request->getRealMethod());
+        $diagnosticRequestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'missing'));
+        $diagnosticLaravelMethod = strtoupper($request->method());
+        $diagnosticRealMethod = strtoupper($request->getRealMethod());
+        $diagnosticPhpPostCount = count($_POST);
+        $diagnosticLaravelPostCount = count($request->request->all());
+        $diagnosticBodyBytes = strlen($request->getContent());
+
+        $_SERVER['REQUEST_METHOD'] = $diagnosticRealMethod;
         $_POST = array_replace($_POST, $request->request->all());
 
         // Legacy handlers read query parameters from $_GET. Some hosting
@@ -50,6 +57,18 @@ class LegacyApiController extends Controller
         }
         $queryParameters = array_replace($queryParameters, $request->query->all());
         $_GET = array_replace($_GET, $queryParameters);
+
+        if ($endpoint === 'auth.php' && ($queryParameters['action'] ?? null) === 'signup') {
+            header('X-PoliSpace-Debug-Bridge: '.rawurlencode(sprintf(
+                'php=%s;laravel=%s;real=%s;php_post=%d;laravel_post=%d;body=%d',
+                $diagnosticRequestMethod,
+                $diagnosticLaravelMethod,
+                $diagnosticRealMethod,
+                $diagnosticPhpPostCount,
+                $diagnosticLaravelPostCount,
+                $diagnosticBodyBytes,
+            )));
+        }
 
         require base_path('backend/api/'.$endpoint);
 
