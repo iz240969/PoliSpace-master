@@ -32,7 +32,7 @@ class LegacyApiController extends Controller
         // hosting proxies Laravel receives the original verb and form data,
         // but those values are not reliably available in the globals after
         // the request has passed through the front controller.
-        $_SERVER['REQUEST_METHOD'] = strtoupper($request->method());
+        $_SERVER['REQUEST_METHOD'] = strtoupper($request->getRealMethod());
         $_POST = array_replace($_POST, $request->request->all());
 
         // Legacy handlers read query parameters from $_GET. Some hosting
