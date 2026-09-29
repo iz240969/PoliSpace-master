@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         $user = $db->fetchOne(
-            "SELECT id, email, full_name, phone, role, account_type, staff_number, staff_verification_status,
+            "SELECT id, email, full_name, phone, role, account_type, staff_number, staff_verification_status, is_blocked,
                     password IS NOT NULL AS has_password, created_at, updated_at
              FROM users
              WHERE id = ? AND role = 'user'",
@@ -54,24 +54,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         );
 
         $user['has_password'] = (bool)$user['has_password'];
+        $user['is_blocked'] = (bool)$user['is_blocked'];
         jsonResponse(['success' => true, 'data' => ['user' => $user, 'bookings' => $bookings]]);
     }
 
     $users = $db->fetchAll(
         "SELECT u.id, u.email, u.full_name, u.phone, u.role, u.account_type, u.staff_number,
+                u.is_blocked,
                 u.staff_verification_status, u.password IS NOT NULL AS has_password,
                 u.created_at, u.updated_at, COUNT(b.id) AS booking_count, MAX(b.created_at) AS latest_booking
          FROM users u
          LEFT JOIN bookings b ON b.email = u.email AND b.status <> 'unpaid'
          WHERE u.role = 'user'
          GROUP BY u.id, u.email, u.full_name, u.phone, u.role, u.account_type, u.staff_number,
-                  u.staff_verification_status, u.password, u.created_at, u.updated_at
+                  u.staff_verification_status, u.is_blocked, u.password, u.created_at, u.updated_at
          ORDER BY CASE WHEN u.account_type = 'staff' AND u.staff_verification_status = 'pending' THEN 0 ELSE 1 END,
                   u.created_at DESC"
     );
 
     jsonResponse(['success' => true, 'data' => array_map(static function (array $user): array {
         $user['has_password'] = (bool)$user['has_password'];
+        $user['is_blocked'] = (bool)$user['is_blocked'];
         return $user;
     }, $users)]);
 }
@@ -85,15 +88,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     }
 
     $user = $db->fetchOne(
-        "SELECT id, account_type FROM users WHERE id = ? AND role = 'user'",
+        "SELECT id, account_type, is_blocked FROM users WHERE id = ? AND role = 'user'",
         [$id]
     );
     if (!$user) {
         jsonResponse(['success' => false, 'error' => 'Client not found'], 404);
     }
 
-    if ($action !== '' && $action !== 'staff-verification') {
+    if ($action !== '' && !in_array($action, ['staff-verification', 'block'], true)) {
         jsonResponse(['success' => false, 'error' => 'Invalid action'], 400);
+    }
+
+    if ($action === 'block') {
+        $blockedInput = $input['blocked'] ?? null;
+        if (!in_array($blockedInput, [true, false, 0, 1, '0', '1'], true)) {
+            jsonResponse(['success' => false, 'error' => 'Invalid account block status'], 400);
+        }
+        $blocked = $blockedInput === true || $blockedInput === 1 || $blockedInput === '1';
+        $db->update(
+            'UPDATE users SET is_blocked = ? WHERE id = ? AND role = ?',
+            [$blocked ? 1 : 0, $id, 'user']
+        );
+        jsonResponse([
+            'success' => true,
+            'message' => $blocked
+                ? 'Akaun pengguna berjaya disekat.'
+                : 'Sekatan akaun pengguna berjaya dibuka.',
+        ]);
     }
 
     if ($action === 'staff-verification') {
@@ -112,8 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         jsonResponse([
             'success' => true,
             'message' => $status === STAFF_VERIFICATION_VERIFIED
-                ? 'Staff account verified'
-                : 'Staff verification rejected',
+                ? 'Akaun kakitangan berjaya disahkan.'
+                : 'Pengesahan akaun kakitangan ditolak.',
         ]);
     }
 

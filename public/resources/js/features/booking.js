@@ -396,7 +396,7 @@ async function submitBooking() {
   if (bookingSubmissionInProgress) return;
 
   if (!isClientLoggedIn()) {
-    showToast('Sila log masuk sebagai pelanggan sebelum membuat tempahan.', 'error');
+    showToast('Sila log masuk untuk membuat tempahan.', 'error');
     window.location.href = ROUTES.login;
     return;
   }
@@ -480,7 +480,7 @@ function validateBookingFormData(data, receiptFile = null) {
     const allowedTypes = ['lelaki', 'perempuan'];
     const types = String(data.asrama_type || '').split(',').filter(Boolean);
     if (!types.length || types.some((type) => !allowedTypes.includes(type))) {
-      return 'Sila pilih Asrama Lelaki, Asrama Perempuan, atau kedua-duanya.';
+      return 'Sila pilih Asrama Lelaki, Asrama Perempuan atau kedua-duanya.';
     }
     const limits = asramaConfiguredLimitsForDates(facility, data.booking_date, data.duration);
     const lelakiRooms = Number(data.asrama_lelaki_rooms || 0);
@@ -492,10 +492,10 @@ function validateBookingFormData(data, receiptFile = null) {
       return 'Sekurang-kurangnya satu bilik perlu dipilih.';
     }
     if (lelakiRooms > limits.male) {
-      return `Had Blok Lelaki untuk tarikh dipilih ialah ${limits.male} bilik.`;
+      return `Had tempahan bilik bagi Blok Lelaki pada tarikh ini ialah ${limits.male} bilik.`;
     }
     if (perempuanRooms > limits.female) {
-      return `Had Blok Perempuan untuk tarikh dipilih ialah ${limits.female} bilik.`;
+      return `Had tempahan bilik bagi Blok Perempuan pada tarikh ini ialah ${limits.female} bilik.`;
     }
     if ((lelakiRooms + perempuanRooms) !== Number(data.room_count)) {
       return 'Jumlah bilik lelaki dan perempuan mesti sepadan dengan bilangan bilik.';
@@ -506,7 +506,7 @@ function validateBookingFormData(data, receiptFile = null) {
     return 'Sila masukkan tempoh penggunaan antara 1 hingga 24 jam penuh.';
   }
   if (!Number.isInteger(data.participant_count) || data.participant_count < 1) {
-    return 'Sila masukkan angka / jumlah pengguna yang sah.';
+    return 'Sila masukkan bilangan pengguna yang sah.';
   }
   if (!isAsramaRoomFacility(facility) && facility.capacity > 0 && data.participant_count > facility.capacity) {
     return `Jumlah pengguna melebihi kapasiti ${facility.capacity} orang.`;
@@ -518,10 +518,10 @@ function validateBookingFormData(data, receiptFile = null) {
     return 'Tempahan mesti tamat pada hari yang sama dan sepadan dengan tempoh penggunaan.';
   }
   if (!isValidEmail(data.email)) {
-    return 'Format e-mel tidak sah.';
+    return 'Alamat e-mel tidak sah.';
   }
   if (receiptFile && !isValidReceiptFile(receiptFile)) {
-    return 'Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.';
+    return 'Fail bukti bayaran mestilah dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5 MB.';
   }
   return '';
 }
@@ -542,11 +542,11 @@ function updateBookingAccountTypeUi() {
   if (notice) {
     if (isStaffExempt) {
       notice.hidden = false;
-      notice.innerHTML = '<i class="bi bi-person-badge"></i><div><strong>Akaun Kakitangan Disahkan</strong><span>Tiada bayaran atau resit diperlukan. Permohonan akan terus dihantar untuk kelulusan pentadbir.</span></div>';
+      notice.innerHTML = '<i class="bi bi-person-badge"></i><div><strong>Akaun kakitangan disahkan</strong><span>Tiada bayaran dikenakan untuk permohonan ini. Permohonan akan dihantar kepada pentadbir untuk kelulusan.</span></div>';
     } else if (user.accountType === 'staff') {
       notice.hidden = false;
       const rejected = user.staffVerificationStatus === 'rejected';
-      notice.innerHTML = `<i class="bi bi-shield-exclamation"></i><div><strong>Pengesahan kakitangan ${rejected ? 'ditolak' : 'masih menunggu'}</strong><span>Bayaran masih diperlukan sehingga akaun disahkan oleh pentadbir.</span></div>`;
+      notice.innerHTML = `<i class="bi bi-shield-exclamation"></i><div><strong>${rejected ? 'Pengesahan akaun kakitangan ditolak' : 'Akaun kakitangan anda sedang menunggu pengesahan pentadbir'}</strong><span>Bayaran dan bukti bayaran masih diperlukan selagi akaun belum disahkan.</span></div>`;
     } else {
       notice.hidden = true;
       notice.innerHTML = '';
@@ -660,7 +660,7 @@ async function addBookingToCart() {
   if (bookingSubmissionInProgress) return;
 
   if (!isClientLoggedIn()) {
-    showToast('Sila log masuk sebagai pelanggan sebelum menggunakan troli.', 'error');
+    showToast('Sila log masuk untuk menggunakan troli.', 'error');
     window.location.href = ROUTES.login;
     return;
   }
@@ -699,7 +699,7 @@ async function addBookingToCart() {
       renderBookingCart();
       showBookingSuccess(ref, [facility]);
     } catch (error) {
-      showToast(error.message || 'Tempahan dengan resit gagal dihantar.', 'error');
+      showToast(error.message || 'Permohonan tidak dapat dihantar. Sila cuba lagi.', 'error');
     } finally {
       bookingSubmissionInProgress = false;
       updateBookingCartFormState();
@@ -770,8 +770,8 @@ function ensureBookingCartModal() {
         <div class="modal-footer booking-cart-footer">
           <button class="btn btn-secondary" type="button" onclick="closeBookingCart()">Tutup</button>
           <label class="btn btn-secondary booking-cart-receipt-button" id="bookingCartReceiptButton" for="bookingCartReceiptInput">
-            <i class="bi bi-receipt"></i> Resit
-            <input id="bookingCartReceiptInput" type="file" accept=".jpg,.jpeg,.png,.gif,.pdf" onchange="updateBookingCartReceiptState()" aria-label="Muat naik resit troli">
+            <i class="bi bi-receipt"></i> Bukti Bayaran
+            <input id="bookingCartReceiptInput" type="file" accept=".jpg,.jpeg,.png,.gif,.pdf" onchange="updateBookingCartReceiptState()" aria-label="Muat naik bukti bayaran untuk tempahan dalam troli">
           </label>
           <button class="btn btn-primary" id="submitBookingCartButton" type="button" onclick="submitBookingCart()">
             <i class="bi bi-send-check"></i> Hantar Semua
@@ -805,19 +805,19 @@ function updateBookingCartReceiptState() {
   if (isVerifiedStaffUser()) {
     const receiptInput = document.getElementById('bookingCartReceiptInput');
     if (receiptInput) receiptInput.value = '';
-    receiptStatus.innerHTML = '<span class="is-ready"><i class="bi bi-check-circle"></i> Tiada bayaran diperlukan untuk akaun kakitangan disahkan.</span>';
+    receiptStatus.innerHTML = '<span class="is-ready"><i class="bi bi-check-circle"></i> Tiada bayaran dikenakan untuk akaun kakitangan yang telah disahkan.</span>';
     submitButton.disabled = false;
     return;
   }
 
   if (!receiptFile) {
-    receiptStatus.innerHTML = '<span><i class="bi bi-info-circle"></i> Muat naik resit sebelum hantar semua tempahan.</span>';
+    receiptStatus.innerHTML = '<span><i class="bi bi-info-circle"></i> Muat naik bukti bayaran sebelum menghantar semua tempahan.</span>';
     submitButton.disabled = true;
     return;
   }
 
   if (!isValidReceiptFile(receiptFile)) {
-    receiptStatus.innerHTML = '<span class="is-error"><i class="bi bi-exclamation-circle"></i> Resit mesti JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.</span>';
+    receiptStatus.innerHTML = '<span class="is-error"><i class="bi bi-exclamation-circle"></i> Fail bukti bayaran mestilah dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5 MB.</span>';
     submitButton.disabled = true;
     return;
   }
@@ -883,7 +883,7 @@ function renderBookingCart() {
       </div>
       <div class="booking-cart-item-price">${isVerifiedStaffUser() ? 'Tiada Bayaran' : `RM${escapeHtml(String(item.estimated_cost || 0))}`}</div>
       <div class="booking-cart-item-actions">
-        <button type="button" onclick="editBookingCartItem('${escapeAttr(item.id)}')" title="Edit tempahan" aria-label="Edit ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-pencil"></i></button>
+        <button type="button" onclick="editBookingCartItem('${escapeAttr(item.id)}')" title="Ubah tempahan" aria-label="Ubah tempahan ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-pencil"></i></button>
         <button class="is-danger" type="button" onclick="removeBookingCartItem('${escapeAttr(item.id)}')" title="Buang daripada troli" aria-label="Buang ${escapeAttr(item.facility_name || 'fasiliti')}"><i class="bi bi-trash3"></i></button>
       </div>
     </div>
@@ -954,7 +954,7 @@ function updateBookingCartFormState() {
 async function submitBookingCart() {
   if (bookingSubmissionInProgress) return;
   if (!isClientLoggedIn()) {
-    showToast('Sila log masuk sebagai pelanggan sebelum menghantar troli.', 'error');
+    showToast('Sila log masuk untuk menghantar tempahan dalam troli.', 'error');
     return;
   }
 
@@ -966,12 +966,12 @@ async function submitBookingCart() {
   }
   const receiptFile = isVerifiedStaffUser() ? null : getBookingCartReceiptFile();
   if (!isVerifiedStaffUser() && !receiptFile) {
-    showToast('Sila muat naik resit sebelum menghantar troli.', 'error');
+    showToast('Sila muat naik bukti bayaran sebelum menghantar tempahan dalam troli.', 'error');
     updateBookingCartReceiptState();
     return;
   }
   if (receiptFile && !isValidReceiptFile(receiptFile)) {
-    showToast('Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.', 'error');
+    showToast('Fail bukti bayaran mestilah dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5 MB.', 'error');
     updateBookingCartReceiptState();
     return;
   }
@@ -1169,13 +1169,13 @@ async function doSignup() {
   if (form) clearInlineFieldErrors(form);
 
   if (!fullName || !phone || !isValidEmail(email) || password.length < 6 || password !== passwordConfirm || (accountType === 'staff' && !staffNumber)) {
-    if (!fullName) showInlineFieldError('signup-name', 'Masukkan nama penuh.');
-    if (!phone) showInlineFieldError('signup-phone', 'Masukkan nombor telefon.');
-    if (!isValidEmail(email)) showInlineFieldError('signup-email', 'Masukkan alamat e-mel yang sah.');
+    if (!fullName) showInlineFieldError('signup-name', 'Sila masukkan nama penuh.');
+    if (!phone) showInlineFieldError('signup-phone', 'Sila masukkan nombor telefon.');
+    if (!isValidEmail(email)) showInlineFieldError('signup-email', 'Sila masukkan alamat e-mel yang sah.');
     if (password.length < 6) showInlineFieldError('signup-password', 'Kata laluan mestilah sekurang-kurangnya 6 aksara.');
-    if (password !== passwordConfirm) showInlineFieldError('signup-password-confirm', 'Kata laluan pengesahan tidak sama.');
-    if (accountType === 'staff' && !staffNumber) showInlineFieldError('signup-staff-number', 'Masukkan nombor kakitangan.');
-    const message = password !== passwordConfirm ? 'Kata laluan pengesahan tidak sama.' : 'Sila lengkapkan semua ruangan dengan betul.';
+    if (password !== passwordConfirm) showInlineFieldError('signup-password-confirm', 'Kata laluan tidak sepadan.');
+    if (accountType === 'staff' && !staffNumber) showInlineFieldError('signup-staff-number', 'Sila masukkan nombor kakitangan.');
+    const message = password !== passwordConfirm ? 'Kata laluan tidak sepadan.' : 'Sila semak dan lengkapkan semua maklumat.';
     if (errorEl) {
       errorEl.textContent = message;
       errorEl.classList.add('show');
@@ -1185,7 +1185,7 @@ async function doSignup() {
     return;
   }
 
-  setActionButtonLoading(submitButton, true, '<i class="bi bi-person-plus"></i> Daftar Akaun', 'Mendaftarkan akaun');
+  setActionButtonLoading(submitButton, true, '<i class="bi bi-person-plus"></i> Daftar Akaun', 'Mencipta akaun...');
   try {
     const result = await signupClient({
       full_name: fullName,
@@ -1208,7 +1208,7 @@ async function doSignup() {
       showToast(message, 'error');
     }
   } finally {
-    setActionButtonLoading(submitButton, false, '<i class="bi bi-person-plus"></i> Daftar Akaun', 'Mendaftarkan akaun');
+    setActionButtonLoading(submitButton, false, '<i class="bi bi-person-plus"></i> Daftar Akaun', 'Mencipta akaun...');
   }
 }
 

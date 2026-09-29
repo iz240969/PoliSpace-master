@@ -22,7 +22,7 @@ function initDashboard() {
   if (accountLabel) {
     const user = psAuthState.user || {};
     const verification = user.accountType === 'staff'
-      ? (user.staffVerificationStatus === 'verified' ? 'Disahkan' : user.staffVerificationStatus === 'rejected' ? 'Pengesahan Ditolak' : 'Menunggu Pengesahan')
+      ? (user.staffVerificationStatus === 'verified' ? 'Disahkan' : user.staffVerificationStatus === 'rejected' ? 'Pengesahan Akaun Ditolak' : 'Menunggu Pengesahan Akaun')
       : '';
     accountLabel.textContent = `Jenis Akaun: ${user.accountType === 'staff' ? 'Kakitangan' : 'Orang Awam'}${verification ? ` · ${verification}` : ''}`;
   }
@@ -34,9 +34,7 @@ function bookingNeedsPayment(booking) {
 }
 
 function dashboardStatusBadgeHtml(booking) {
-  if (!bookingNeedsPayment(booking) && booking.status === 'pending') {
-    return '<span class="status-badge status-pending">Menunggu Kelulusan</span>';
-  }
+  if (booking.status === 'pending') return bookingStatusBadgeHtml(booking, 'span');
   return statusBadgeHtml(booking.status);
 }
 
@@ -82,7 +80,7 @@ async function loadUserBookings() {
       setText('userStatPending', '—');
       setText('userStatApproved', '—');
       setText('bookingCountLabel', '— tempahan');
-      showErrorState(container, error.message || 'Sambungan ke pelayan gagal. Sila cuba lagi.', () => loadUserBookings());
+      showErrorState(container, error.message || 'Tidak dapat menghubungi pelayan. Sila cuba lagi.', () => loadUserBookings());
     }
     return;
   }
@@ -209,12 +207,12 @@ function dashboardBookingGroupTimeLabel(bookings) {
   const labels = [];
 
   if (hourBookings.length) {
-    const timeSlots = [...new Set(hourBookings.map((booking) => {
+    const timeEntries = hourBookings.map((booking) => {
       const start = booking.start || '';
       const end = booking.end || '';
       return start && end ? `${start} - ${end}` : (start || end);
-    }).filter(Boolean))];
-    labels.push(timeSlots.length === 1 ? timeSlots[0] : `${timeSlots.length} slot masa`);
+    }).filter(Boolean);
+    labels.push(timeEntries.length === 1 ? timeEntries[0] : `${timeEntries.length} masa`);
   }
 
   if (dayCount) {
@@ -242,8 +240,8 @@ function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
       <td>
         <div class="dashboard-booking-cell-content">
           <div class="booking-row-actions">
-            ${b.status === 'unpaid' && bookingNeedsPayment(b) ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik resit"><i class="bi bi-receipt"></i></button>` : ''}
-            ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')"><i class="bi bi-x-lg"></i> Batal</button><button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Edit tempahan"><i class="bi bi-pencil-square"></i></button>` : ''}
+            ${b.status === 'unpaid' && bookingNeedsPayment(b) ? `<button class="btn btn-primary btn-sm" onclick="openReceiptUploadModal('${escapeAttr(b.id)}')" title="Muat naik bukti bayaran" aria-label="Muat naik bukti bayaran untuk tempahan ${escapeAttr(b.id)}"><i class="bi bi-receipt"></i></button>` : ''}
+            ${['unpaid', 'pending'].includes(b.status) ? `<button class="btn-cancel" onclick="cancelUserBooking('${escapeAttr(b.id)}')" title="Batalkan tempahan"><i class="bi bi-x-lg"></i> Batalkan</button><button class="btn btn-secondary btn-sm" onclick="openEditBookingModal('${escapeAttr(b.id)}')" title="Ubah tempahan"><i class="bi bi-pencil-square"></i></button>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="viewUserBookingDetail('${escapeAttr(b.id)}')" title="Lihat butiran"><i class="bi bi-eye"></i></button>
           </div>
         </div>
@@ -255,7 +253,6 @@ function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
 function bookingGroupRowHtml(group) {
   const expanded = psExpandedBookingGroups.has(group.groupRef);
   const total = group.bookings.reduce((sum, booking) => sum + (bookingNeedsPayment(booking) ? Number(booking.estimatedCost || 0) : 0), 0);
-  const facilityNames = group.bookings.map((booking) => booking.facilityName || 'Fasiliti').join(', ');
   const dates = [...new Set(group.bookings.map((booking) => booking.date).filter(Boolean))];
   const dateSummary = dates.length === 1 ? formatDate(dates[0]) : `${dates.length} tarikh`;
   const timeSummary = dashboardBookingGroupTimeLabel(group.bookings);
@@ -263,7 +260,7 @@ function bookingGroupRowHtml(group) {
     <tr class="dashboard-booking-group-row${expanded ? ' is-expanded' : ''}" data-booking-group="${escapeAttr(group.groupRef)}" onclick="toggleDashboardBookingGroup('${escapeAttr(group.groupRef)}', event)" style="cursor: pointer;">
       <td>
         <div class="dashboard-booking-group-id">
-          <span class="dashboard-booking-group-icon"><i class="bi bi-collection"></i></span>
+          <span class="dashboard-booking-group-label">Kumpulan</span>
           <span class="booking-id">${escapeHtml(group.groupRef)}</span>
         </div>
       </td>
@@ -273,7 +270,6 @@ function bookingGroupRowHtml(group) {
             <strong>${group.bookings.length} tempahan</strong>
             <span class="dashboard-booking-group-price">${group.bookings.every((booking) => !bookingNeedsPayment(booking)) ? 'Tiada Bayaran' : `RM${escapeHtml(String(total))}`}</span>
           </div>
-          <div class="dashboard-booking-group-facilities" title="${escapeAttr(facilityNames)}">${escapeHtml(facilityNames)}</div>
         </div>
       </td>
       <td><div class="dashboard-booking-group-meta"><i class="bi bi-calendar3"></i> ${dateSummary}</div></td>
@@ -328,8 +324,8 @@ function renderUserBookings(bookings, container, totalCount = bookings.length, c
   if (bookings.length === 0) {
     const hasFilters = totalCount > 0;
     container.innerHTML = hasFilters
-      ? `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-funnel"></i></div><div class="empty-title">Tiada Padanan</div><div class="empty-sub">Cuba ubah carian atau filter status tempahan.</div></div>`
-      : `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Tiada Tempahan</div><div class="empty-sub">Anda belum membuat sebarang tempahan dengan e-mel ini.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan Sekarang</button></div>`;
+      ? `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-funnel"></i></div><div class="empty-title">Tiada rekod yang sepadan</div><div class="empty-sub">Cuba ubah carian atau penapis status tempahan.</div></div>`
+      : `<div class="dash-empty"><div class="empty-icon"><i class="bi bi-calendar2-x"></i></div><div class="empty-title">Belum ada tempahan</div><div class="empty-sub">Tempahan anda akan dipaparkan di sini selepas permohonan dihantar.</div><button class="btn btn-primary" style="margin-top:20px;" onclick="window.location.href='${ROUTES.booking}'"><i class="bi bi-calendar-plus"></i> Buat Tempahan</button></div>`;
     return;
   }
   const rows = dashboardBookingGroups(bookings, comparator);
@@ -429,16 +425,16 @@ async function viewUserBookingDetail(id) {
       <div class="detail-row"><span class="detail-label">Jenis Pemohon</span><span class="detail-value">${escapeHtml(booking.accountTypeLabel || (booking.accountType === 'staff' ? 'Kakitangan' : 'Orang Awam'))}</span></div>
       <div class="detail-row"><span class="detail-label">Bayaran</span><span class="detail-value">${bookingNeedsPayment(booking) ? `Diperlukan (RM${Number(booking.estimatedCost || 0).toFixed(2)})` : 'Tidak diperlukan'}</span></div>
       <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
-      <div class="detail-row"><span class="detail-label">No Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
+      <div class="detail-row"><span class="detail-label">No. Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
       ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
-      ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value">${escapeHtml(booking.adminNote)}</span></div>` : ''}
+      ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Pentadbir</span><span class="detail-value">${escapeHtml(booking.adminNote)}</span></div>` : ''}
       ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
     `;
     document.getElementById('userBookingModalFooter').innerHTML = `
-      ${booking.status === 'unpaid' && bookingNeedsPayment(booking) ? `<button class="btn btn-primary" onclick="openReceiptUploadModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-receipt"></i> Muat Naik Resit</button>` : ''}
-      ${['unpaid', 'pending'].includes(booking.status) ? `<button class="btn btn-secondary" onclick="openEditBookingModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-pencil-square"></i> Edit</button>` : ''}
+      ${booking.status === 'unpaid' && bookingNeedsPayment(booking) ? `<button class="btn btn-primary" onclick="openReceiptUploadModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-receipt"></i> Muat Naik Bukti Bayaran</button>` : ''}
+      ${['unpaid', 'pending'].includes(booking.status) ? `<button class="btn btn-secondary" onclick="openEditBookingModal('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-pencil-square"></i> Ubah Tempahan</button>` : ''}
       <button class="btn btn-primary" onclick="closeModal('userBookingModal')">Tutup</button>
     `;
     document.getElementById('userBookingModal')?.classList.add('active');
@@ -456,13 +452,13 @@ async function openEditBookingModal(id) {
     }
 
     if (!['unpaid', 'pending'].includes(booking.status)) {
-      showToast('Tempahan yang telah selesai tidak boleh diedit.', 'error');
+      showToast('Tempahan yang telah selesai tidak boleh diubah.', 'error');
       return;
     }
 
     const durationUnit = booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'day' : 'hour';
     const durationConfig = DURATION_UNITS[durationUnit] || DURATION_UNITS.hour;
-    setText('userBookingModalTitle', `Edit Tempahan - ${booking.id || booking.booking_ref}`);
+    setText('userBookingModalTitle', `Ubah Tempahan - ${booking.id || booking.booking_ref}`);
     document.getElementById('userBookingModalBody').innerHTML = `
       <div class="edit-booking-form">
         <div class="form-group">
@@ -519,7 +515,7 @@ async function openEditBookingModal(id) {
       </div>
     `;
     document.getElementById('userBookingModalFooter').innerHTML = `
-      <button class="btn btn-secondary" onclick="closeModal('userBookingModal')">Batal</button>
+      <button class="btn btn-secondary" onclick="closeModal('userBookingModal')">Kembali</button>
       <button class="btn btn-primary" onclick="submitUserBookingEdit('${escapeAttr(booking.id || booking.booking_ref)}')"><i class="bi bi-check-lg"></i> Simpan</button>
     `;
     document.getElementById('userBookingModal')?.classList.add('active');
@@ -541,7 +537,7 @@ async function openEditBookingModal(id) {
       booking.facilityId || booking.facility_id || ''
     );
   } catch (error) {
-    showToast(error.message || 'Borang edit gagal dimuatkan.', 'error');
+    showToast(error.message || 'Borang ubah tempahan tidak dapat dimuatkan.', 'error');
   }
 }
 
@@ -647,7 +643,7 @@ async function submitUserBookingEdit(id) {
 function openReceiptUploadModal(id) {
   const booking = psDashboardBookings.find((item) => item.id === id || item.booking_ref === id);
   if (!booking || !bookingNeedsPayment(booking) || booking.status !== 'unpaid') {
-    showToast('Bukti pembayaran tidak diperlukan untuk permohonan ini.', 'error');
+    showToast('Bukti bayaran tidak diperlukan untuk permohonan ini.', 'error');
     return;
   }
   pendingReceiptBookingId = id;
@@ -668,11 +664,11 @@ async function submitDashboardReceipt() {
   const file = document.getElementById('dashboardReceiptInput')?.files?.[0] || null;
   if (!id) return;
   if (!file) {
-    showToast('Sila pilih fail resit dahulu.', 'error');
+    showToast('Sila pilih fail bukti bayaran.', 'error');
     return;
   }
   if (!isValidReceiptFile(file)) {
-    showToast('Resit mesti dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5MB.', 'error');
+    showToast('Fail bukti bayaran mestilah dalam format JPG, PNG, GIF atau PDF dan tidak melebihi 5 MB.', 'error');
     return;
   }
 
@@ -686,7 +682,7 @@ async function submitDashboardReceipt() {
   closeModal('receiptUploadModal');
   pendingReceiptBookingId = '';
   await loadUserBookings();
-  showToast('Resit diterima. Status tempahan kini Menunggu semakan.', 'success');
+  showToast('Bukti bayaran berjaya dimuat naik. Tempahan kini menunggu semakan bayaran.', 'success');
 }
 
 function openContactModal() {
@@ -711,7 +707,7 @@ async function loadContactMessages() {
   } catch (error) {
     container.removeAttribute('aria-busy');
     if (psContactMessagesLoaded) showToast(error.message || 'Sejarah mesej tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
-    else showErrorState(container, error.message || 'Sambungan ke pelayan gagal. Sila cuba lagi.', () => loadContactMessages());
+    else showErrorState(container, error.message || 'Tidak dapat menghubungi pelayan. Sila cuba lagi.', () => loadContactMessages());
   }
 }
 
@@ -735,10 +731,10 @@ function renderContactMessages() {
         <div class="contact-history-message">${escapeHtml(message.message || '-')}</div>
         ${message.admin_reply ? `
           <div class="contact-history-reply">
-            <span>Balasan Admin${message.replied_at ? ` &bull; ${escapeHtml(formatDateTime(message.replied_at))}` : ''}</span>
+            <span>Balasan Pentadbir${message.replied_at ? ` &bull; ${escapeHtml(formatDateTime(message.replied_at))}` : ''}</span>
             ${escapeHtml(message.admin_reply)}
           </div>
-        ` : '<div class="contact-history-pending">Menunggu balasan admin</div>'}
+        ` : '<div class="contact-history-pending">Menunggu balasan pentadbir</div>'}
       </div>
     `).join('')}
   `;
@@ -771,5 +767,5 @@ async function sendContactMessage() {
   if (subjectEl) subjectEl.value = '';
   if (messageEl) messageEl.value = '';
   await loadContactMessages();
-  showToast('Mesej anda telah dihantar kepada admin.', 'success');
+  showToast('Mesej anda telah dihantar kepada pentadbir.', 'success');
 }

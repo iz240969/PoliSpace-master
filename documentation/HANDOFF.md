@@ -99,7 +99,7 @@ All main pages load:
 9. User can edit or cancel a booking while it is `unpaid` or `pending`.
 10. User can open `Edit Profil` from the account menu and update their name or phone number.
 
-Payment proof upload is optional on the booking form. If no receipt is uploaded, the booking starts as `unpaid`; uploading a receipt changes it to `pending` for admin review.
+Payment proof upload is optional on the booking form. If no evidence is uploaded, the booking starts as `unpaid`; uploading evidence changes it to `pending` for payment review.
 
 The booking form accepts a whole-number duration. Normal facilities use hours; `Asrama - Bilik` uses days. The form supports multiple equipment requests with per-item quantities. Equipment choices come from the selected facility's `facilities.equipment_options` and are serialized into `bookings.equipment_required`, for example `Mikrofon x 2, Projektor x 1`.
 
@@ -114,6 +114,8 @@ approved   Diluluskan
 rejected   Ditolak
 cancelled  Dibatalkan
 ```
+
+Pending bookings awaiting payment review display `Menunggu Semakan Bayaran`; verified staff applications awaiting approval display `Menunggu Kelulusan`.
 
 Availability is intentionally status-based:
 
@@ -142,7 +144,7 @@ Important behavior:
 1. Admin logs in from the same login page as clients.
 2. The system detects role by email/password through `auth.php?action=auto`.
 3. Admin dashboard loads bookings, facilities, calendar, and customers.
-4. `Tambah Tempahan` opens a dedicated, spacious admin page. Admin must choose `Muat Naik Resit` or `Bayaran Fizikal`; physical payment generates a printable acknowledgement after the booking reference is created.
+4. `Tambah Tempahan` opens a dedicated, spacious admin page. Admin must choose `Muat Naik Bukti Bayaran` or `Bayaran Fizikal`; physical payment generates a printable document after the booking reference is created.
 5. Admin can approve pending bookings, reject pending bookings, and cancel approved bookings with a required reason.
 6. Admin can open the `Pelanggan` page and view customer details plus customer bookings.
 7. Admin can set or reset a client password from the customer management flow.
@@ -188,8 +190,8 @@ Admins can add custom facilities from the dashboard `Fasiliti` panel. The form w
 - Booking form name, phone, and email are read-only and always come from the active user profile. Name and phone updates use `PUT auth.php?action=profile`.
 - The admin sidebar is fixed below the navbar and remains visible while content scrolls.
 - Booking/customer tables use table-specific widths and horizontal scrolling instead of compressing action buttons.
-- Client actions are ordered `Muat Naik Resit`, `Batal`, `Edit`, `Lihat` when all actions are available.
-- Admin pending-booking actions are ordered `Terima`, `Tolak`, `Lihat` with no reserved empty slots.
+- Client actions are ordered `Muat Naik Bukti Bayaran`, `Batalkan`, `Ubah`, `Lihat` when all actions are available.
+- Admin pending-booking actions are ordered `Sahkan`, `Tolak`, `Lihat` with no reserved empty slots.
 
 ## Verification Commands
 

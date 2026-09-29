@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public',
     staff_number VARCHAR(50) NULL,
     staff_verification_status ENUM('pending', 'verified', 'rejected') NULL DEFAULT NULL,
+    is_blocked TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email)
@@ -567,6 +568,19 @@ SET @user_staff_verification_column_sql := IF(
 PREPARE user_staff_verification_column_stmt FROM @user_staff_verification_column_sql;
 EXECUTE user_staff_verification_column_stmt;
 DEALLOCATE PREPARE user_staff_verification_column_stmt;
+
+SET @user_is_blocked_column_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_blocked'
+);
+SET @user_is_blocked_column_sql := IF(
+    @user_is_blocked_column_exists = 0,
+    'ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0 AFTER staff_verification_status',
+    'SELECT 1'
+);
+PREPARE user_is_blocked_column_stmt FROM @user_is_blocked_column_sql;
+EXECUTE user_is_blocked_column_stmt;
+DEALLOCATE PREPARE user_is_blocked_column_stmt;
 
 SET @booking_account_type_column_exists := (
     SELECT COUNT(*) FROM information_schema.COLUMNS

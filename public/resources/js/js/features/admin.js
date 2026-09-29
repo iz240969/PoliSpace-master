@@ -77,7 +77,6 @@ function renderAdminClients() {
   );
   setText('clientResultCount', `${clients.length} daripada ${adminClientsCache.length} pelanggan`);
   renderClientsTable(clients);
-  renderStaffVerificationRequests(adminClientsCache);
 }
 
 function matchesAdminSearch(query, values) {
@@ -111,15 +110,6 @@ function toggleFacilityCreateForm(open) {
 
 function adminAccountTypeLabel(value) {
   return value === 'staff' ? 'Kakitangan' : 'Orang Awam';
-}
-
-function adminVerificationLabel(value) {
-  return value === 'verified' ? 'Disahkan' : value === 'rejected' ? 'Ditolak' : 'Menunggu';
-}
-
-function adminVerificationBadge(value) {
-  const statusClass = value === 'verified' ? 'status-approved' : value === 'rejected' ? 'status-rejected' : 'status-pending';
-  return `<span class="status-badge ${statusClass}">${adminVerificationLabel(value)}</span>`;
 }
 
 function renderAdminMessages() {
@@ -460,7 +450,7 @@ function adminPaymentEvidenceRowHtml(booking) {
 
   return `
     <tr class="report-evidence-summary">
-      <td><div class="booking-id">${escapeHtml(booking.id)}</div><div class="report-cell-sub">${statusBadgeHtml(booking.status)}</div></td>
+      <td class="table-status"><div class="booking-id">${escapeHtml(booking.id)}</div><div class="report-cell-sub">${statusBadgeHtml(booking.status)}</div></td>
       <td><strong>${escapeHtml(booking.name)}</strong><div class="report-cell-sub">${escapeHtml(booking.email || '-')} &middot; ${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))}</div></td>
       <td><strong>${escapeHtml(booking.facilityName)}</strong><div class="report-cell-sub"><i class="bi bi-calendar3"></i> ${formatDate(booking.date)} &middot; ${escapeHtml(booking.start || '-')} - ${escapeHtml(booking.end || '-')}</div></td>
       <td><strong class="report-amount">${reportCurrency(booking.estimatedCost)}</strong><div class="report-cell-sub">Anggaran tempahan</div></td>
@@ -476,11 +466,14 @@ function adminPaymentEvidenceRowHtml(booking) {
             <div><span>Jumlah Pengguna</span><strong>${escapeHtml(booking.pax || '-')}</strong></div>
             <div><span>Jenis Pemohon</span><strong>${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))}</strong></div>
             <div><span>Permohonan Dicipta</span><strong>${escapeHtml(formatDateTime(booking.createdAt))}</strong></div>
-            <div class="report-detail-wide"><span>Tujuan Penggunaan</span><strong>${escapeHtml(booking.purpose || '-')}</strong></div>
+            <div class="report-detail-purpose"><span>Tujuan Penggunaan</span><strong>${escapeHtml(booking.purpose || '-')}</strong></div>
             <div class="report-detail-wide"><span>Peralatan</span><strong>${escapeHtml(booking.equipment || 'Tiada peralatan')}</strong></div>
             <div class="report-detail-wide"><span>Fail Bukti Bayaran</span><strong>${receiptLinkHtml(booking.paymentFile)}</strong></div>
           </div>
-          <button class="btn btn-secondary btn-sm" type="button" onclick="viewBookingDetail('${id}')"><i class="bi bi-eye"></i> Lihat Tempahan Penuh</button>
+          <div class="report-detail-actions">
+            <button class="btn btn-secondary btn-sm" type="button" onclick="printAdminEvidenceBooking('${id}')"><i class="bi bi-printer"></i> Cetak</button>
+            <button class="btn btn-secondary btn-sm" type="button" onclick="viewBookingDetail('${id}')"><i class="bi bi-eye"></i> Lihat Tempahan Penuh</button>
+          </div>
         </div>
       </td>
     </tr>`;
@@ -494,6 +487,81 @@ function toggleAdminEvidenceDetails(id, button) {
   detailRow.hidden = !willOpen;
   button?.setAttribute('aria-expanded', String(willOpen));
   if (button) button.innerHTML = `<i class="bi bi-chevron-${willOpen ? 'up' : 'down'}"></i> ${willOpen ? 'Tutup' : 'Butiran'}`;
+}
+
+function printAdminEvidenceBooking(id) {
+  const booking = adminReportBookings.find((item) => String(item.id) === String(id));
+  if (!booking) {
+    showToast('Butiran tempahan tidak ditemui untuk dicetak.', 'error');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank', 'width=900,height=800');
+  if (!printWindow) {
+    showToast('Tetingkap cetakan disekat oleh pelayar. Benarkan pop-up untuk mencetak tempahan.', 'error');
+    return;
+  }
+
+  const statusLabels = {
+    unpaid: 'Belum Bayar', pending: 'Menunggu', approved: 'Diluluskan',
+    rejected: 'Ditolak', cancelled: 'Dibatalkan',
+  };
+  const duration = `${booking.duration || 1} ${booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'hari' : 'jam'}`;
+  const applicantType = booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType);
+  const payment = booking.paymentRequired === false
+    ? 'Tidak diperlukan'
+    : `Diperlukan (${reportCurrency(booking.estimatedCost)})`;
+  const fields = [
+    ['Nama Penyewa', booking.name],
+    ['Jenis Pemohon', applicantType],
+    ['E-mel', booking.email],
+    ['No. Telefon', booking.phone],
+    ['Tarikh Tempahan', formatDate(booking.date)],
+    ['Masa', adminBookingTimeLabel(booking)],
+    ['Tempoh', duration],
+    ['Jumlah Pengguna', booking.pax],
+    ...(booking.asrama_type ? [['Asrama', `${asramaTypeLabel(booking.asrama_type)} - ${booking.room_count || 1} bilik`]] : []),
+    ['Bayaran', payment],
+    ...(booking.paymentFile ? [['Fail Bukti Bayaran', booking.paymentFile]] : []),
+    ['Nama PIC', booking.picFullName],
+    ['No. Telefon PIC', booking.picPhone],
+    ['Permohonan Dicipta', formatDateTime(booking.createdAt || booking.created_at)],
+    ['Peralatan', booking.equipment || 'Tiada peralatan', true],
+    ['Tujuan Penggunaan', booking.purpose, true],
+    ...(booking.adminNote ? [['Nota Pentadbir', booking.adminNote, true]] : []),
+    ...(booking.cancellationReason ? [['Sebab Pembatalan', booking.cancellationReason, true]] : []),
+  ];
+  const detailRows = fields.map(([label, value, wide]) => `
+    <div class="field${wide ? ' field-wide' : ''}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value || '-'))}</strong></div>
+  `).join('');
+  const status = statusLabels[booking.status] || booking.status || '-';
+  const html = `<!doctype html>
+    <html lang="ms"><head><meta charset="utf-8"><title>Butiran Tempahan ${escapeHtml(booking.id)}</title>
+      <style>
+        *{box-sizing:border-box}body{margin:0;background:#f3f4f2;color:#18211c;font-family:Arial,sans-serif}
+        .sheet{max-width:900px;margin:28px auto;padding:32px;background:#fff;border:1px solid #e0e4df;border-radius:14px}
+        header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:20px;border-bottom:2px solid #a27616}
+        h1{margin:0;font-size:23px}.subtitle{margin-top:5px;color:#606a63;font-size:13px}.reference{text-align:right;font-size:12px;color:#606a63}.reference strong{display:block;margin-top:5px;color:#18211c;font-size:16px}
+        .booking-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:22px 0}.booking-heading h2{margin:0;font-size:18px}.badge{padding:7px 11px;border:1px solid #d7dfd8;border-radius:999px;background:#f2f6f2;font-size:12px;font-weight:700}
+        .facility{margin-bottom:18px;color:#49544d;font-size:13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+        .field{min-width:0;padding:12px 14px;border:1px solid #e2e6e2;border-radius:9px;background:#fafbf9}.field span{display:block;margin-bottom:6px;color:#68736b;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}.field strong{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere;white-space:pre-wrap}.field-wide{grid-column:1/-1}
+        .footer{margin-top:22px;padding-top:12px;border-top:1px solid #e2e6e2;color:#68736b;font-size:10px}
+        @page{size:A4 portrait;margin:14mm}@media print{body{background:#fff}.sheet{max-width:none;margin:0;padding:0;border:0;border-radius:0}.field{break-inside:avoid}}
+        @media(max-width:600px){.sheet{margin:0;padding:18px;border:0;border-radius:0}header{flex-direction:column}.reference{text-align:left}.grid{grid-template-columns:1fr}.field-wide{grid-column:auto}}
+      </style>
+    </head><body><main class="sheet">
+      <header><div><h1>PoliSpace</h1><div class="subtitle">Butiran Tempahan Fasiliti</div></div><div class="reference">No. Rujukan<strong>${escapeHtml(booking.id)}</strong></div></header>
+      <div class="booking-heading"><h2>${escapeHtml(booking.name || 'Tempahan')}</h2><span class="badge">${escapeHtml(status)}</span></div>
+      <div class="facility"><strong>Fasiliti:</strong> ${escapeHtml(booking.facilityName || '-')}</div>
+      <section class="grid">${detailRows}</section>
+      <div class="footer">Dokumen butiran tempahan yang dijana daripada PoliSpace.</div>
+    </main></body></html>`;
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => printWindow.print(), 350);
 }
 
 function printAdminReport() {
@@ -542,7 +610,6 @@ function adminBookingRowHtml(booking, isRecent, childGroupRef = '') {
   return `
     <tr class="${rowClass}" ${rowAttributes}>
       <td>${cell(`<div class="booking-id" title="${escapeAttr(booking.id)}">${escapeHtml(booking.id)}</div>`)}</td>
-      <td>${cell(`<div class="tenant-name">${escapeHtml(booking.name)}</div><div class="tenant-org">${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))} &middot; ${booking.paymentRequired === false ? 'Bayaran tidak diperlukan' : 'Bayaran diperlukan'}</div>${booking.org ? `<div class="tenant-org">${escapeHtml(booking.org)}</div>` : ''}`)}</td>
       <td>${cell(`<span class="table-facility">${booking.facilityIcon || ''}<span>${escapeHtml(booking.facilityName)}</span></span>`)}</td>
       <td class="table-date">${cell(formatDate(booking.date))}</td>
       ${!isRecent ? `<td class="table-time">${cell(`${escapeHtml(booking.start)} - ${escapeHtml(booking.end || '?')}`)}</td>` : ''}
@@ -553,35 +620,32 @@ function adminBookingRowHtml(booking, isRecent, childGroupRef = '') {
 
 function adminBookingGroupRowHtml(group, isRecent) {
   const expanded = adminExpandedBookingGroups.has(group.groupRef);
-  const tenantNames = [...new Set(group.bookings.map((booking) => booking.name).filter(Boolean))];
-  const organizations = [...new Set(group.bookings.map((booking) => booking.org).filter(Boolean))];
-  const facilityNames = [...new Set(group.bookings.map((booking) => booking.facilityName || 'Fasiliti'))];
   const dates = [...new Set(group.bookings.map((booking) => booking.date).filter(Boolean))];
   const dateSummary = dates.length === 1 ? formatDate(dates[0]) : `${dates.length} tarikh`;
   const timeSummary = dashboardBookingGroupTimeLabel(group.bookings);
-  const tenantSummary = tenantNames.length === 1 ? tenantNames[0] : `${tenantNames.length} penyewa`;
-  const organizationSummary = organizations.length === 1 ? organizations[0] : '';
-  const facilitySummary = facilityNames.length === 1 ? facilityNames[0] : `${facilityNames.length} fasiliti`;
-  const facilityTitle = facilityNames.join(', ');
+  const paymentBookings = group.bookings.filter((booking) => booking.paymentRequired !== false);
+  const total = paymentBookings.reduce((sum, booking) => sum + Number(booking.estimatedCost || 0), 0);
+  const paymentSummary = paymentBookings.length ? `RM${escapeHtml(String(total))}` : 'Tiada Bayaran';
 
   return `
     <tr class="dashboard-booking-group-row${expanded ? ' is-expanded' : ''}" data-admin-booking-group="${escapeAttr(group.groupRef)}" onclick="toggleAdminBookingGroup('${escapeAttr(group.groupRef)}', event)" style="cursor:pointer">
       <td>
         <div class="dashboard-booking-group-id">
-          <span class="dashboard-booking-group-icon"><i class="bi bi-collection"></i></span>
+          <span class="dashboard-booking-group-label">Kumpulan</span>
           <span class="booking-id">${escapeHtml(group.groupRef)}</span>
         </div>
       </td>
-      <td><div class="tenant-name">${escapeHtml(tenantSummary)}</div>${organizationSummary ? `<div class="tenant-org">${escapeHtml(organizationSummary)}</div>` : ''}</td>
       <td>
         <div class="dashboard-booking-group-summary">
-          <div class="dashboard-booking-group-summary-main"><strong>${group.bookings.length} tempahan</strong></div>
-          <div class="dashboard-booking-group-facilities" title="${escapeAttr(facilityTitle)}">${escapeHtml(facilitySummary)}</div>
+          <div class="dashboard-booking-group-summary-main">
+            <strong>${group.bookings.length} tempahan</strong>
+            <span class="dashboard-booking-group-price">${paymentSummary}</span>
+          </div>
         </div>
       </td>
       <td><div class="dashboard-booking-group-meta"><i class="bi bi-calendar3"></i> ${dateSummary}</div></td>
       ${!isRecent ? `<td><div class="dashboard-booking-group-meta"><i class="bi bi-clock"></i> ${escapeHtml(timeSummary)}</div></td>` : ''}
-      <td>${groupStatusBadgeHtml(group.bookings)}</td>
+      <td class="table-status">${groupStatusBadgeHtml(group.bookings)}</td>
       <td>
         <div class="table-actions admin-booking-actions">
           <button class="btn btn-secondary btn-sm dashboard-booking-group-action" type="button" onclick="toggleAdminBookingGroup('${escapeAttr(group.groupRef)}', event)" aria-expanded="${expanded ? 'true' : 'false'}" title="${expanded ? 'Sembunyikan tempahan' : 'Lihat tempahan'}" aria-label="${expanded ? 'Sembunyikan tempahan dalam kumpulan' : 'Lihat tempahan dalam kumpulan'}"><i class="bi bi-chevron-down"></i></button>
@@ -1619,7 +1683,7 @@ async function loadClients() {
   const tbody = document.getElementById('clientsTbody');
   if (!tbody) return;
 
-  if (!adminClientsLoaded) showAdminTableLoading(tbody, 7);
+  if (!adminClientsLoaded) showAdminTableLoading(tbody, 6);
   else tbody.setAttribute('aria-busy', 'true');
   try {
     const result = await tryApi('users.php');
@@ -1631,7 +1695,7 @@ async function loadClients() {
     if (handleAdminAuthorizationError(error)) return;
     tbody.removeAttribute('aria-busy');
     if (adminClientsLoaded) showToast(error.message || 'Senarai pelanggan tidak dapat dikemas kini. Data sebelumnya masih dipaparkan.', 'error');
-    else showAdminTableError(tbody, 7, error.message || 'Sambungan ke pelayan gagal.', () => loadClients());
+    else showAdminTableError(tbody, 6, error.message || 'Sambungan ke pelayan gagal.', () => loadClients());
   }
 }
 
@@ -1640,7 +1704,7 @@ function renderClientsTable(clients) {
   if (!tbody) return;
 
   if (!clients.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon"><i class="bi bi-person-x"></i></div><div class="empty-state-title">Tiada Pelanggan</div></div></td></tr>`;
     return;
   }
 
@@ -1653,9 +1717,8 @@ function renderClientsTable(clients) {
   tbody.innerHTML = sortedClients.map((client) => `
     <tr>
       <td><span class="tenant-name">${escapeHtml(client.full_name || client.name || '')}</span><span class="table-email" title="${escapeAttr(client.email)}">${escapeHtml(client.email)}</span></td>
-      <td><span class="status-badge ${client.account_type === 'staff' ? 'status-pending' : ''}">${escapeHtml(adminAccountTypeLabel(client.account_type))}</span></td>
+      <td class="table-status"><span class="status-badge ${client.account_type === 'staff' ? 'status-pending' : ''}">${escapeHtml(adminAccountTypeLabel(client.account_type))}</span></td>
       <td class="table-phone">${escapeHtml(client.phone || '-')}</td>
-      <td>${client.account_type === 'staff' ? adminVerificationBadge(client.staff_verification_status) : '-'}</td>
       <td class="table-date">${formatDate(String(client.created_at || '').slice(0, 10))}</td>
       <td class="table-status"><span class="status-badge status-pending">${Number(client.booking_count || 0)} tempahan</span></td>
       <td>
@@ -1665,46 +1728,6 @@ function renderClientsTable(clients) {
       </td>
     </tr>
   `).join('');
-}
-
-function renderStaffVerificationRequests(clients = adminClientsCache) {
-  const tbody = document.getElementById('staffVerificationTbody');
-  const badge = document.getElementById('staffVerificationBadge');
-  const staff = clients.filter((client) => client.account_type === 'staff');
-  const pendingCount = staff.filter((client) => client.staff_verification_status === 'pending').length;
-  if (badge) {
-    badge.textContent = String(pendingCount);
-    badge.hidden = pendingCount === 0;
-  }
-  if (!tbody) return;
-  if (!staff.length) {
-    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-title">Tiada permohonan akaun kakitangan</div></div></td></tr>';
-    return;
-  }
-  tbody.innerHTML = staff.map((client) => `
-    <tr>
-      <td><strong>${escapeHtml(client.full_name || '-')}</strong></td>
-      <td><span class="table-email">${escapeHtml(client.email)}</span></td>
-      <td>${escapeHtml(client.staff_number || '-')}</td>
-      <td>${adminVerificationBadge(client.staff_verification_status)}</td>
-      <td><div class="table-actions">
-        ${client.staff_verification_status !== 'verified' ? `<button class="btn btn-success btn-sm" onclick="updateStaffVerification(${Number(client.id)}, 'verified')"><i class="bi bi-check-lg"></i> Sahkan</button>` : ''}
-        ${client.staff_verification_status !== 'rejected' ? `<button class="btn btn-danger btn-sm" onclick="updateStaffVerification(${Number(client.id)}, 'rejected')"><i class="bi bi-x-lg"></i> Tolak</button>` : ''}
-        <button class="btn btn-secondary btn-sm table-icon-btn" onclick="viewClientDetail(${Number(client.id)})" title="Lihat butiran" aria-label="Lihat pelanggan ${escapeAttr(client.email)}"><i class="bi bi-eye"></i></button>
-      </div></td>
-    </tr>
-  `).join('');
-}
-
-async function updateStaffVerification(id, status) {
-  try {
-    await tryApi(`users.php?action=staff-verification&id=${encodeURIComponent(id)}`, 'PUT', { status });
-    await loadClients();
-    showToast(status === 'verified' ? 'Akaun kakitangan telah disahkan.' : 'Pengesahan kakitangan telah ditolak.', status === 'verified' ? 'success' : 'error');
-  } catch (error) {
-    if (handleAdminAuthorizationError(error)) return;
-    showToast(error.message || 'Status pengesahan gagal dikemas kini.', 'error');
-  }
 }
 
 async function viewClientDetail(id) {
@@ -1719,7 +1742,7 @@ async function viewClientDetail(id) {
       <div class="detail-row"><span class="detail-label">E-mel</span><span class="detail-value">${escapeHtml(user.email)}</span></div>
       <div class="detail-row"><span class="detail-label">No Telefon</span><span class="detail-value">${escapeHtml(user.phone || '-')}</span></div>
       <div class="detail-row"><span class="detail-label">Jenis Akaun</span><span class="detail-value">${escapeHtml(adminAccountTypeLabel(user.account_type))}</span></div>
-      ${user.account_type === 'staff' ? `<div class="detail-row"><span class="detail-label">No. Kakitangan</span><span class="detail-value">${escapeHtml(user.staff_number || '-')}</span></div><div class="detail-row"><span class="detail-label">Pengesahan</span><span class="detail-value">${adminVerificationBadge(user.staff_verification_status)}</span></div>` : ''}
+      ${user.account_type === 'staff' ? `<div class="detail-row"><span class="detail-label">No. Kakitangan</span><span class="detail-value">${escapeHtml(user.staff_number || '-')}</span></div>` : ''}
       <div class="detail-row"><span class="detail-label">Akaun</span><span class="detail-value">${user.has_password ? 'Sudah daftar' : 'Belum daftar'}</span></div>
       <div class="detail-row"><span class="detail-label">Tarikh Daftar</span><span class="detail-value">${escapeHtml(user.created_at || '-')}</span></div>
       <div class="admin-password-reset">
@@ -1745,7 +1768,7 @@ async function viewClientDetail(id) {
       </div>
     `;
     renderClientBookingsTable();
-    document.getElementById('modalFooter').innerHTML = `${user.account_type === 'staff' && user.staff_verification_status !== 'verified' ? `<button class="btn btn-success" onclick="updateStaffVerification(${Number(user.id)}, 'verified'); closeModal('bookingModal')"><i class="bi bi-check-lg"></i> Sahkan Kakitangan</button>` : ''}${user.account_type === 'staff' && user.staff_verification_status !== 'rejected' ? `<button class="btn btn-danger" onclick="updateStaffVerification(${Number(user.id)}, 'rejected'); closeModal('bookingModal')"><i class="bi bi-x-lg"></i> Tolak Pengesahan</button>` : ''}<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
+    document.getElementById('modalFooter').innerHTML = `<button class="btn btn-secondary" onclick="closeModal('bookingModal')">Tutup</button>`;
     document.getElementById('bookingModal')?.classList.add('active');
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
@@ -1763,7 +1786,7 @@ function renderClientBookingsTable() {
       <td>${escapeHtml(booking.facility_name || '-')}</td>
       <td>${formatDate(booking.booking_date)}</td>
       <td>${escapeHtml(String(booking.start_time || '').slice(0, 5))} - ${escapeHtml(String(booking.end_time || '').slice(0, 5) || '-')}</td>
-      <td>${statusBadgeHtml(booking.status)}</td>
+      <td class="table-status">${statusBadgeHtml(booking.status)}</td>
     </tr>
   `).join('');
 }
@@ -1994,7 +2017,6 @@ function showAdminPanel(name, btn) {
   if (name === 'bookings') filterBookings('all', document.querySelector('#bookingFilterTabs .filter-tab'));
   if (name === 'messages') loadMessages();
   if (name === 'clients') loadClients();
-  if (name === 'staff-verification') loadClients();
   if (name === 'pic') refreshPicAndFacilityManagement();
   if (name === 'calendar') renderAdminDashboard();
   if (name === 'reports') loadAdminReports();

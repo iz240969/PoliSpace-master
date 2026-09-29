@@ -9,19 +9,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v5">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-booking-action-align-v3">
 </head>
 <body class="booking-page public-page">
   <div class="session-loading" role="status">Menyemak sesi akaun...</div>
   <nav id="main-nav">
     <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
-      <div class="nav-logo-mark"></div>
+
       <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
     </div>
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link active" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
+      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -35,7 +35,7 @@
             <div class="booking-heading-row">
               <div>
                 <div class="booking-eyebrow"><i class="bi bi-calendar2-check"></i> Tempahan Fasiliti</div>
-                <h1 class="page-title">Borang Tempahan</h1>
+                <h1 class="page-title page-main-title">Borang Tempahan</h1>
                 <p class="page-subtitle">Sila lengkapkan semua maklumat yang diperlukan.</p>
               </div>
               <div class="booking-section-count" aria-label="Tiga bahagian borang">
@@ -55,7 +55,7 @@
             </div>
             <div class="form-grid">
               <div class="form-group"><label for="f-name">Nama *</label><input class="booking-readonly" type="text" id="f-name" placeholder="cth: Ahmad bin Ali" readonly></div>
-              <div class="form-group"><label for="f-phone">No Telefon *</label><input class="booking-readonly" type="tel" id="f-phone" placeholder="012-345 6789" readonly></div>
+              <div class="form-group"><label for="f-phone">No. Telefon *</label><input class="booking-readonly" type="tel" id="f-phone" placeholder="012-345 6789" readonly></div>
               <div class="form-group"><label for="f-email">Alamat E-mel *</label><input class="booking-readonly" type="email" id="f-email" placeholder="contoh@email.com" readonly></div>
             </div>
           </div>
@@ -164,23 +164,23 @@
             <div class="form-section-heading">
               <span class="form-section-number">03</span>
               <div>
-                <h2 class="form-section-title">Resit Bayaran</h2>
+                <h2 class="form-section-title">Bukti Bayaran</h2>
                 <p class="form-section-description">Lampirkan bukti bayaran sekarang atau selepas menghantar permohonan.</p>
               </div>
             </div>
             <div class="form-grid">
               <div class="form-group span-2">
-                <label>Resit / Bukti Bayaran</label>
+                <label>Fail Bukti Bayaran</label>
                 <label class="upload-zone" for="f-receipt">
                   <input type="file" id="f-receipt" accept="image/jpeg,image/png,image/gif,application/pdf">
                   <div class="upload-icon"><i class="bi bi-receipt"></i></div>
-                  <div class="upload-title">Muat naik resit sekarang atau kemudian</div>
-                  <div class="upload-sub">Format JPG, PNG, GIF atau PDF. Maksimum 5MB.</div>
+                  <div class="upload-title">Muat naik bukti bayaran sekarang atau kemudian</div>
+                  <div class="upload-sub">Format JPG, PNG, GIF atau PDF. Maksimum 5 MB.</div>
                 </label>
                 <div class="upload-preview" id="receiptPreview">
                   <i class="bi bi-file-earmark-check"></i>
                   <div class="upload-preview-name" id="receiptFileName"></div>
-                  <button type="button" class="upload-preview-remove" onclick="clearReceiptUpload()" aria-label="Buang resit"><i class="bi bi-x-lg"></i></button>
+                  <button type="button" class="upload-preview-remove" onclick="clearReceiptUpload()" aria-label="Buang fail bukti bayaran"><i class="bi bi-x-lg"></i></button>
                 </div>
               </div>
             </div>
@@ -201,8 +201,8 @@
           <div class="booking-ref"><div class="booking-ref-label">Nombor Rujukan</div><div class="booking-ref-code" id="refCode"></div></div>
           <div class="success-pic-list" id="successPicInfo"></div>
           <div class="success-actions">
-            <button class="btn btn-primary" onclick="navigateToClientPage(ROUTES.dashboard)"><i class="bi bi-speedometer2"></i> Dashboard</button>
-            <button class="btn btn-secondary" onclick="resetBookingForm()"><i class="bi bi-calendar-plus"></i> Tempahan Baru</button>
+            <button class="btn btn-primary" onclick="navigateToClientPage(ROUTES.dashboard)"><i class="bi bi-speedometer2"></i> Tempahan Saya</button>
+            <button class="btn btn-secondary" onclick="resetBookingForm()"><i class="bi bi-calendar-plus"></i> Tempahan Baharu</button>
           </div>
         </div>
       </div>
@@ -224,7 +224,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 </body>
 </html>
 

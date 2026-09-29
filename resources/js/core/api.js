@@ -23,7 +23,9 @@ function sanitizeApiErrorMessage(message, fallbackMessage) {
   if (technicalDetails.test(value)) return 'Permintaan gagal. Sila cuba lagi.';
   const translations = new Map([
     ['invalid credentials', 'E-mel atau kata laluan tidak sah.'],
-    ['email and password required', 'Sila masukkan e-mel dan kata laluan.'],
+    ['invalid action', 'Tindakan tidak sah.'],
+    ['email and password required', 'Sila masukkan alamat e-mel dan kata laluan.'],
+    ['password required', 'Sila masukkan kata laluan.'],
     ['valid email required', 'Sila masukkan alamat e-mel yang sah.'],
     ['login required', 'Sila log masuk untuk meneruskan.'],
     ['user login required', 'Sila log masuk untuk meneruskan.'],
@@ -31,14 +33,69 @@ function sanitizeApiErrorMessage(message, fallbackMessage) {
     ['booking not found', 'Tempahan tidak dijumpai.'],
     ['facility not found', 'Fasiliti tidak dijumpai.'],
     ['client not found', 'Pelanggan tidak dijumpai.'],
+    ['user account not found', 'Akaun pengguna tidak dijumpai.'],
     ['message not found', 'Mesej tidak dijumpai.'],
     ['invalid booking request', 'Permohonan tempahan tidak sah.'],
-    ['receipt upload failed', 'Muat naik gagal. Sila cuba lagi.'],
-    ['receipt upload is required', 'Sila pilih fail resit dahulu.'],
-    ['invalid receipt file', 'Fail resit tidak sah. Sila pilih fail yang disokong.'],
-    ['unsupported receipt type', 'Jenis fail resit tidak disokong.'],
+    ['receipt upload failed', 'Bukti bayaran tidak dapat dimuat naik. Sila cuba lagi.'],
+    ['receipt upload is required', 'Sila pilih fail bukti bayaran.'],
+    ['invalid receipt file', 'Fail bukti bayaran tidak sah. Sila pilih fail yang disokong.'],
+    ['unsupported receipt type', 'Jenis fail bukti bayaran tidak disokong.'],
     ['validation failed', 'Sila semak semula maklumat yang diisi.'],
     ['method not allowed', 'Permintaan tidak dapat diproses.'],
+    ['account already exists. please login.', 'Akaun ini sudah berdaftar. Sila log masuk.'],
+    ['invalid account role', 'Jenis akaun tidak sah.'],
+    ['invalid account type', 'Jenis akaun tidak sah.'],
+    ['booking records are preserved for history. use rejected or cancelled status instead.', 'Rekod tempahan disimpan untuk rujukan. Tukar status kepada Ditolak atau Dibatalkan.'],
+    ['staff number is required for staff registration', 'Sila masukkan nombor kakitangan.'],
+    ['full name must contain between 2 and 100 characters', 'Nama penuh mesti mengandungi antara 2 hingga 100 aksara.'],
+    ['valid phone number required', 'Sila masukkan nombor telefon yang sah.'],
+    ['password must be between 6 and 128 characters', 'Kata laluan mesti mengandungi antara 6 hingga 128 aksara.'],
+    ['password confirmation does not match', 'Pengesahan kata laluan tidak sepadan.'],
+    ['session role conflict. please login again.', 'Sesi akaun berubah. Sila log masuk semula.'],
+    ['client password has not been set by admin', 'Kata laluan akaun pelanggan ini belum ditetapkan. Sila hubungi pentadbir.'],
+    ['only staff accounts can be verified', 'Pengesahan hanya tersedia untuk akaun kakitangan.'],
+    ['invalid staff verification status', 'Status pengesahan kakitangan tidak sah.'],
+    ['invalid account block status', 'Status sekatan akaun tidak sah.'],
+    ['account blocked. please contact an administrator.', 'Akaun anda disekat. Sila hubungi pentadbir.'],
+    ['valid user account required', 'Sila log masuk dengan akaun pengguna yang sah.'],
+    ['you can only view your own bookings', 'Anda hanya boleh melihat tempahan sendiri.'],
+    ['you can only view your own booking', 'Anda hanya boleh melihat tempahan sendiri.'],
+    ['you can only cancel your own booking', 'Anda hanya boleh membatalkan tempahan sendiri.'],
+    ['you can only edit your own booking', 'Anda hanya boleh mengubah tempahan sendiri.'],
+    ['you can only update your own booking', 'Anda hanya boleh mengubah tempahan sendiri.'],
+    ['only unpaid or pending bookings can be cancelled', 'Tempahan hanya boleh dibatalkan sebelum diluluskan.'],
+    ['only unpaid or pending bookings can be edited', 'Tempahan hanya boleh diubah sebelum diluluskan.'],
+    ['receipt can only be uploaded for unpaid bookings', 'Bukti bayaran hanya boleh dimuat naik untuk tempahan yang belum dibayar.'],
+    ['payment is not required for this staff booking', 'Permohonan kakitangan ini tidak memerlukan bayaran.'],
+    ['invalid report period', 'Tempoh laporan tidak sah.'],
+    ['invalid status', 'Status tempahan tidak sah.'],
+    ['rejection reason required', 'Sila masukkan sebab penolakan.'],
+    ['purpose is required', 'Sila nyatakan tujuan penggunaan.'],
+    ['invalid equipment option', 'Pilihan peralatan tidak sah.'],
+    ['receipt file unavailable', 'Fail bukti bayaran tidak dapat dibuka.'],
+    ['payment evidence is not accepted for verified staff bookings', 'Bukti bayaran tidak diperlukan untuk tempahan kakitangan yang telah disahkan.'],
+    ['booking created successfully', 'Tempahan berjaya dihantar.'],
+    ['booking updated', 'Tempahan berjaya dikemas kini.'],
+    ['booking cancelled', 'Tempahan berjaya dibatalkan.'],
+    ['receipt uploaded', 'Bukti bayaran berjaya dimuat naik.'],
+    ['message sent successfully', 'Mesej berjaya dihantar.'],
+    ['reply sent successfully', 'Balasan berjaya dihantar.'],
+    ['login successful', 'Log masuk berjaya.'],
+    ['logged out', 'Log keluar berjaya.'],
+    ['invalid calendar month', 'Bulan kalendar tidak sah.'],
+    ['invalid facility', 'Fasiliti tidak sah.'],
+    ['facility id required', 'ID fasiliti diperlukan.'],
+    ['pic id required', 'ID PIC diperlukan.'],
+    ['facility request failed', 'Permintaan fasiliti gagal. Sila cuba lagi.'],
+    ['client request failed', 'Maklumat pelanggan tidak dapat dimuatkan. Sila cuba lagi.'],
+    ['client id required', 'ID pelanggan diperlukan.'],
+    ['receipt not found', 'Fail bukti bayaran tidak ditemui.'],
+    ['failed to upload file.', 'Fail tidak dapat dimuat naik. Sila cuba lagi.'],
+    ['file size exceeds 5mb limit.', 'Saiz fail tidak boleh melebihi 5 MB.'],
+    ['invalid upload.', 'Fail tidak sah. Sila cuba muat naik semula.'],
+    ['upload directory could not be created.', 'Fail tidak dapat dimuat naik buat masa ini. Sila cuba lagi.'],
+    ['message request failed', 'Mesej tidak dapat diproses. Sila cuba lagi.'],
+    ['reply must be between 2 and 5000 characters', 'Balasan mestilah antara 2 hingga 5,000 aksara.'],
   ]);
   if (translations.has(value.toLowerCase())) return translations.get(value.toLowerCase());
   return value;
@@ -72,7 +129,7 @@ function handleApiSessionExpiry(response, url, error) {
 function requestButtonLabel(url, method = 'POST') {
   const target = String(url || '').toLowerCase();
   if (['GET', 'HEAD'].includes(method)) return 'Memuatkan...';
-  if (target.includes('receipt') || target.includes('payment_file')) return 'Muat naik sedang diproses...';
+  if (target.includes('receipt') || target.includes('payment_file')) return 'Sedang memuat naik bukti bayaran...';
   if (target.includes('action=logout')) return 'Sedang log keluar...';
   if (target.includes('action=login') || target.includes('action=user') || target.includes('action=auto')) return 'Sedang log masuk...';
   if (target.includes('action=signup')) return 'Mencipta akaun...';
@@ -105,7 +162,7 @@ async function readApiResponse(response, fallbackMessage, requestUrl = '') {
     // A proxy or PHP error page can return HTML with a successful HTTP status.
   }
   if (!result || typeof result !== 'object' || typeof result.success !== 'boolean') {
-    const error = new Error(response.ok ? 'Respons pelayan tidak sah. Sila cuba semula.' : 'Sambungan ke pelayan gagal. Sila cuba lagi.');
+    const error = new Error(response.ok ? 'Respons pelayan tidak sah. Sila cuba lagi.' : 'Pelayan tidak dapat memproses permintaan. Sila cuba lagi.');
     error.responseReceived = true;
     if (!response.ok) error.status = response.status;
     if (!response.ok) handleApiSessionExpiry(response, requestUrl, error);
@@ -172,7 +229,7 @@ async function requestApiJson(url, options = {}, fallbackMessage = 'Permintaan g
       if (error?.name === 'AbortError') {
         throw createNetworkError('Permintaan mengambil masa terlalu lama. Sila cuba lagi.', { timeout: true });
       }
-      throw createNetworkError('Sambungan ke pelayan gagal. Sila cuba lagi.', { cause: error });
+        throw createNetworkError('Tidak dapat menghubungi pelayan. Sila cuba lagi.', { cause: error });
     } finally {
       if (timeoutId !== null) clearTimer?.(timeoutId);
       if (shouldManageButton) {

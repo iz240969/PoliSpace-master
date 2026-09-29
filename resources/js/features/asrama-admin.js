@@ -5,7 +5,7 @@ async function loadAsramaRoomManagement() {
   const container = document.getElementById('asramaBuildings');
   if (!container) return;
   container.classList.add('is-loading');
-  if (!asramaCapacityCache) showLoadingState(container, 'Memuatkan tetapan kapasiti...', 4);
+  if (!asramaCapacityCache) showLoadingState(container, 'Memuatkan had tempahan asrama...', 4);
   else container.setAttribute('aria-busy', 'true');
   try {
     const result = await tryApi('asrama_rooms.php');
@@ -48,13 +48,13 @@ function renderAsramaBlockCard(type, title, icon) {
       <span class="asrama-block-icon"><i class="bi ${icon}"></i></span>
       <div><small>ASRAMA</small><h2>${title}</h2></div>
     </div>
-    <div class="asrama-capacity-control-label"><span>Had Biasa Tersedia</span><small>0 – 30 bilik</small></div>
+    <div class="asrama-capacity-control-label"><span>Had Bilik Biasa</span><small>0–30 bilik</small></div>
     ${asramaLimitControl(field, normalLimit, 30, `had biasa ${title}`)}
-    <p class="asrama-limit-caption"><strong>${normalLimit}</strong> bilik boleh ditempah di bawah operasi biasa.</p>
+    <p class="asrama-limit-caption"><strong>${normalLimit}</strong> bilik boleh ditempah semasa operasi biasa.</p>
     <div class="asrama-capacity-stats">
-      <div><span>Had aktif hari ini</span><strong>${activeLimit}</strong></div>
-      <div><span>Tempahan aktif</span><strong>${used}</strong></div>
-      <div class="remaining"><span>Baki hari ini</span><strong>${remaining}</strong></div>
+      <div><span>Had bilik hari ini</span><strong>${activeLimit}</strong></div>
+      <div><span>Bilik ditempah</span><strong>${used}</strong></div>
+      <div class="remaining"><span>Baki bilik untuk tempahan</span><strong>${remaining}</strong></div>
     </div>
   </article>`;
 }
@@ -72,7 +72,7 @@ function renderAsramaCapacityManagement() {
 
     <section class="asrama-holiday-card">
       <div class="asrama-holiday-head">
-        <div class="asrama-holiday-heading"><span><i class="bi bi-calendar2-week"></i></span><div><small>TETAPAN TAMBAHAN</small><h2>Mod Cuti Panjang</h2><p>Benarkan kapasiti sehingga 100 bilik bagi setiap blok dalam tempoh yang ditetapkan.</p></div></div>
+          <div class="asrama-holiday-heading"><span><i class="bi bi-calendar2-week"></i></span><div><small>TETAPAN TAMBAHAN</small><h2>Tempoh Cuti Panjang</h2><p>Benarkan kapasiti sehingga 100 bilik bagi setiap blok dalam tempoh yang ditetapkan.</p></div></div>
         <label class="asrama-mode-switch"><input id="holiday_enabled" type="checkbox" ${holidayEnabled ? 'checked' : ''} onchange="syncAsramaHolidayMode()"><span aria-hidden="true"></span><strong id="asramaHolidayModeLabel">${holidayEnabled ? 'Aktif' : 'Tidak Aktif'}</strong></label>
       </div>
       <div class="asrama-holiday-fields" id="asramaHolidayFields" ${holidayEnabled ? '' : 'hidden'}>
@@ -85,7 +85,7 @@ function renderAsramaCapacityManagement() {
     </section>
 
     <div class="asrama-form-footer">
-      <p><i class="bi bi-person-check"></i><span>PoliSpace mengawal kuota sahaja. Nombor bilik dan aras sebenar ditentukan oleh PIC Asrama.</span></p>
+      <p><i class="bi bi-person-check"></i><span>PoliSpace mengawal had tempahan sahaja. Pegawai Bertanggungjawab (PIC) Asrama akan menentukan nombor bilik dan aras.</span></p>
       <button class="btn btn-primary" id="saveAsramaCapacityButton" type="submit"><i class="bi bi-check2-circle"></i> Simpan Tetapan</button>
     </div>
   </form>`;
@@ -125,7 +125,7 @@ async function saveAsramaCapacitySettings(event) {
     holiday_female_limit: Number(document.getElementById('holiday_female_limit')?.value || 0),
   };
   if (payload.holiday_enabled && (!payload.holiday_start_date || !payload.holiday_end_date)) {
-    showToast('Sila pilih tarikh mula dan tarikh tamat Cuti Panjang.', 'error');
+    showToast('Sila pilih tarikh mula dan tarikh tamat tempoh Cuti Panjang.', 'error');
     return;
   }
   if (payload.holiday_enabled && payload.holiday_end_date < payload.holiday_start_date) {

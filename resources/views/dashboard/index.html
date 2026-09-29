@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PoliSpace - Dashboard Pengguna</title>
+    <title>PoliSpace - Tempahan Saya</title>
     <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v2">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-booking-action-align-v3">
 </head>
 <body class="public-page">
   <div class="session-loading" role="status">Menyemak sesi akaun...</div>
@@ -17,7 +17,7 @@
     <!-- ===== NAV ===== -->
     <nav id="main-nav">
         <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
-            <div class="nav-logo-mark"></div>
+
             <div>
                 <div class="nav-logo-text">PoliSpace</div>
                 <div class="nav-logo-sub">Fasiliti</div>
@@ -26,7 +26,7 @@
         <div class="nav-links">
             <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
             <button class="nav-link" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-            <button class="nav-link active" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
+            <button class="nav-link active" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
         </div>
         <div class="nav-actions"></div>
     </nav>
@@ -39,7 +39,7 @@
         <!-- HERO -->
         <div class="dash-hero">
             <div class="dash-eyebrow">RUANG KERJA TEMPAHAN</div>
-            <h1>Dashboard Anda</h1>
+            <h1 class="page-main-title">Tempahan Saya</h1>
             <p>Urus semua tempahan fasiliti anda di satu tempat.</p>
             <p id="dashboardAccountType"></p>
 
@@ -75,7 +75,7 @@
                 <button type="button" class="dash-action-card" onclick="openContactModal()">
                     <span class="action-arrow"><i class="bi bi-arrow-up-right"></i></span>
                     <span class="action-icon"><i class="bi bi-chat-dots"></i></span>
-                    <div class="action-title">Hubungi Admin</div>
+                    <div class="action-title">Hubungi Pentadbir</div>
                     <div class="action-desc">Hantar pertanyaan atau maklum balas</div>
                 </button>
             </div>
@@ -115,8 +115,8 @@
                     <!-- Rendered by JS -->
                     <div class="dash-empty">
                         <div class="empty-icon"><i class="bi bi-inbox"></i></div>
-                        <div class="empty-title">Tiada Tempahan</div>
-                        <div class="empty-sub">Tempahan anda akan dipaparkan di sini.</div>
+                        <div class="empty-title">Belum ada tempahan</div>
+                        <div class="empty-sub">Tempahan anda akan dipaparkan di sini selepas permohonan dihantar.</div>
                     </div>
                 </div>
             </div>
@@ -129,11 +129,11 @@
             <div class="modal-body">
                 <div class="confirm-icon"><i class="bi bi-exclamation-triangle"></i></div>
                 <h2 class="confirm-title">Batalkan Tempahan?</h2>
-                <p class="confirm-text">Tempahan <strong id="cancelBookingRef">-</strong> akan dibatalkan dan tindakan ini tidak boleh dibuat asal.</p>
+                <p class="confirm-text">Tempahan <strong id="cancelBookingRef">-</strong> akan dibatalkan. Tindakan ini tidak boleh dibuat asal.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('cancelBookingModal')">Tidak</button>
-                <button class="btn btn-danger" onclick="confirmCancelUserBooking()"><i class="bi bi-x-lg"></i> Ya, Batalkan</button>
+                <button class="btn btn-secondary" onclick="closeModal('cancelBookingModal')">Kembali</button>
+                <button class="btn btn-danger" onclick="confirmCancelUserBooking()"><i class="bi bi-x-lg"></i> Batalkan Tempahan</button>
             </div>
         </div>
     </div>
@@ -154,22 +154,22 @@
     <div class="modal-overlay" id="receiptUploadModal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title"><i class="bi bi-receipt modal-title-icon"></i> Muat Naik Resit</div>
+                <div class="modal-title"><i class="bi bi-receipt modal-title-icon"></i> Muat Naik Bukti Bayaran</div>
                 <button class="modal-close" onclick="closeModal('receiptUploadModal')"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
-                <p class="contact-intro">Tempahan <strong id="receiptBookingRef">-</strong> akan dihantar untuk semakan selepas resit dimuat naik.</p>
+                <p class="contact-intro">Tempahan <strong id="receiptBookingRef">-</strong> akan dihantar untuk semakan selepas bukti bayaran dimuat naik.</p>
                 <label class="upload-zone dashboard-receipt-upload" for="dashboardReceiptInput">
                     <input type="file" id="dashboardReceiptInput" accept="image/jpeg,image/png,image/gif,application/pdf" onchange="updateDashboardReceiptFileName()">
                     <div class="upload-icon"><i class="bi bi-receipt"></i></div>
-                    <div class="upload-title">Pilih resit bayaran</div>
+                    <div class="upload-title">Pilih fail bukti bayaran</div>
                     <div class="upload-sub" id="dashboardReceiptFileName">Tiada fail dipilih</div>
-                    <div class="upload-sub">JPG, PNG, GIF atau PDF · Maksimum 5MB</div>
+                    <div class="upload-sub">JPG, PNG, GIF atau PDF · Maksimum 5 MB</div>
                 </label>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('receiptUploadModal')">Batal</button>
-                <button class="btn btn-primary" onclick="submitDashboardReceipt()"><i class="bi bi-upload"></i> Hantar Resit</button>
+                <button class="btn btn-secondary" onclick="closeModal('receiptUploadModal')">Kembali</button>
+                <button class="btn btn-primary" onclick="submitDashboardReceipt()"><i class="bi bi-upload"></i> Muat Naik Bukti Bayaran</button>
             </div>
         </div>
     </div>
@@ -178,13 +178,13 @@
     <div class="modal-overlay" id="contactModal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-title"><i class="bi bi-chat-dots modal-title-icon"></i> Hubungi Admin</div>
+                <div class="modal-title"><i class="bi bi-chat-dots modal-title-icon"></i> Hubungi Pentadbir</div>
                 <button class="modal-close" onclick="closeModal('contactModal')"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body contact-form">
-                <p class="contact-intro">Ada pertanyaan tentang tempahan anda? Hantar mesej kepada pentadbir dan kami akan respon secepat mungkin.</p>
+                <p class="contact-intro">Ada pertanyaan tentang tempahan anda? Hantar mesej kepada pentadbir dan kami akan membalas secepat mungkin.</p>
                 <div class="form-group">
-                    <label>E-mel Anda *</label>
+                    <label>Alamat E-mel Anda *</label>
                     <input class="profile-readonly" type="email" id="contactEmail" placeholder="nama@email.com" readonly>
                 </div>
                 <div class="form-group">
@@ -203,7 +203,7 @@
         </div>
     </div>
 
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 
 </body>
 </html>

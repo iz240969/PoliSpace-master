@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public',
     staff_number VARCHAR(50) NULL,
     staff_verification_status ENUM('pending', 'verified', 'rejected') NULL DEFAULT NULL,
+    is_blocked TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email)

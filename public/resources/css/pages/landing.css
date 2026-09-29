@@ -51,7 +51,14 @@
   line-height: 1.08;
   letter-spacing: -2px;
 }
-.hero-title span span { color: var(--gold); }
+.hero-title span span {
+  color: var(--gold-hover);
+  background: linear-gradient(110deg, #80570f 0%, #ad7a1e 48%, #80570f 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(127, 88, 16, .08));
+}
 .hero-title-line { display: block; }
 
 .hero-sub {

@@ -77,13 +77,13 @@ function setupNetworkStatus() {
   let hideTimer = null;
   const renderOffline = () => {
     window.clearTimeout(hideTimer);
-    banner.innerHTML = '<i class="bi bi-wifi-off" aria-hidden="true"></i><span>Anda sedang luar talian. Tindakan yang memerlukan pelayan dinyahaktifkan.</span>';
+    banner.innerHTML = '<i class="bi bi-wifi-off" aria-hidden="true"></i><span>Anda sedang luar talian. Maklumat yang dipaparkan mungkin belum dikemas kini.</span>';
     banner.classList.add('is-offline');
     banner.hidden = false;
   };
   const renderOnline = () => {
     window.clearTimeout(hideTimer);
-    banner.innerHTML = '<i class="bi bi-wifi" aria-hidden="true"></i><span>Sambungan internet dipulihkan.</span>';
+    banner.innerHTML = '<i class="bi bi-wifi" aria-hidden="true"></i><span>Sambungan internet telah dipulihkan.</span>';
     banner.classList.remove('is-offline');
     banner.hidden = false;
     hideTimer = window.setTimeout(() => { banner.hidden = true; }, 2800);
@@ -106,6 +106,13 @@ function statusBadgeHtml(status) {
     booked: '<div class="status-badge status-booked"><i class="bi bi-calendar-x" aria-hidden="true"></i>Ditempah</div>',
   };
   return labels[status] || '';
+}
+
+function bookingStatusBadgeHtml(booking, element = 'div') {
+  if (booking?.status !== 'pending') return statusBadgeHtml(booking?.status);
+  const paymentRequired = booking.paymentRequired !== false && booking.payment_required !== false;
+  const label = paymentRequired ? 'Menunggu Semakan Bayaran' : 'Menunggu';
+  return `<${element} class="status-badge status-pending"><i class="bi bi-clock" aria-hidden="true"></i>${label}</${element}>`;
 }
 
 function formatDate(dateString) {

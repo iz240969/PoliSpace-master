@@ -209,12 +209,12 @@ function dashboardBookingGroupTimeLabel(bookings) {
   const labels = [];
 
   if (hourBookings.length) {
-    const timeSlots = [...new Set(hourBookings.map((booking) => {
+    const timeEntries = hourBookings.map((booking) => {
       const start = booking.start || '';
       const end = booking.end || '';
       return start && end ? `${start} - ${end}` : (start || end);
-    }).filter(Boolean))];
-    labels.push(timeSlots.length === 1 ? timeSlots[0] : `${timeSlots.length} slot masa`);
+    }).filter(Boolean);
+    labels.push(timeEntries.length === 1 ? timeEntries[0] : `${timeEntries.length} masa`);
   }
 
   if (dayCount) {
@@ -255,7 +255,6 @@ function bookingRowHtml(b, extraClass = '', rowAttributes = '') {
 function bookingGroupRowHtml(group) {
   const expanded = psExpandedBookingGroups.has(group.groupRef);
   const total = group.bookings.reduce((sum, booking) => sum + (bookingNeedsPayment(booking) ? Number(booking.estimatedCost || 0) : 0), 0);
-  const facilityNames = group.bookings.map((booking) => booking.facilityName || 'Fasiliti').join(', ');
   const dates = [...new Set(group.bookings.map((booking) => booking.date).filter(Boolean))];
   const dateSummary = dates.length === 1 ? formatDate(dates[0]) : `${dates.length} tarikh`;
   const timeSummary = dashboardBookingGroupTimeLabel(group.bookings);
@@ -263,7 +262,7 @@ function bookingGroupRowHtml(group) {
     <tr class="dashboard-booking-group-row${expanded ? ' is-expanded' : ''}" data-booking-group="${escapeAttr(group.groupRef)}" onclick="toggleDashboardBookingGroup('${escapeAttr(group.groupRef)}', event)" style="cursor: pointer;">
       <td>
         <div class="dashboard-booking-group-id">
-          <span class="dashboard-booking-group-icon"><i class="bi bi-collection"></i></span>
+          <span class="dashboard-booking-group-label">Kumpulan</span>
           <span class="booking-id">${escapeHtml(group.groupRef)}</span>
         </div>
       </td>
@@ -273,7 +272,6 @@ function bookingGroupRowHtml(group) {
             <strong>${group.bookings.length} tempahan</strong>
             <span class="dashboard-booking-group-price">${group.bookings.every((booking) => !bookingNeedsPayment(booking)) ? 'Tiada Bayaran' : `RM${escapeHtml(String(total))}`}</span>
           </div>
-          <div class="dashboard-booking-group-facilities" title="${escapeAttr(facilityNames)}">${escapeHtml(facilityNames)}</div>
         </div>
       </td>
       <td><div class="dashboard-booking-group-meta"><i class="bi bi-calendar3"></i> ${dateSummary}</div></td>

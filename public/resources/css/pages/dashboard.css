@@ -271,9 +271,35 @@
   overflow-x: auto;
 }
 
-.dash-bookings-table {
-  min-width: 760px;
+.dash-bookings-card .dash-bookings-table {
+  min-width: 1180px;
+  table-layout: fixed;
 }
+
+.dash-bookings-table th:nth-child(1), .dash-bookings-table td:nth-child(1) { width: 205px; }
+.dash-bookings-table th:nth-child(2), .dash-bookings-table td:nth-child(2) { width: 245px; }
+.dash-bookings-table th:nth-child(3), .dash-bookings-table td:nth-child(3) { width: 140px; }
+.dash-bookings-table th:nth-child(4), .dash-bookings-table td:nth-child(4) { width: 160px; }
+.dash-bookings-table th:nth-child(5), .dash-bookings-table td:nth-child(5) { width: 150px; }
+.dash-bookings-table th:nth-child(6), .dash-bookings-table td:nth-child(6) { width: 280px; }
+
+.dash-bookings-card .dash-bookings-table th:last-child,
+.dash-bookings-card .dash-bookings-table td:last-child {
+  width: 280px;
+  min-width: 280px;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.dash-bookings-card .dash-bookings-table th:last-child {
+  padding-right: 24px;
+  text-align: right;
+}
+
+.dash-bookings-card .dash-bookings-table td:last-child {
+  padding-right: 24px;
+}
+
 
 .dash-bookings-table th {
   padding: 18px 28px;
@@ -324,24 +350,26 @@
 }
 
 .dashboard-booking-group-id {
-  display: flex;
-  align-items: center;
+  display: grid;
+  justify-items: start;
   min-width: 0;
-  gap: 8px;
+  gap: 5px;
 }
 
-.dashboard-booking-group-icon {
-  width: 26px;
-  height: 26px;
+.dashboard-booking-group-label {
   display: inline-flex;
-  flex: 0 0 26px;
+  max-width: 100%;
   align-items: center;
-  justify-content: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--grey-4);
-  font-size: 12px;
+  padding: 3px 7px;
+  border: 1px solid #ead9af;
+  border-radius: 999px;
+  background: var(--gold-dim);
+  color: var(--gold-hover);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.55px;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 
 .dashboard-booking-group-id .booking-id {
@@ -499,8 +527,17 @@
 .booking-row-actions {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: max-content;
   gap: 8px;
+}
+
+.dash-bookings-table .booking-row-actions {
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
 }
 
 .booking-row-actions > * {
@@ -746,8 +783,10 @@
   }
 
   .booking-row-actions {
-    justify-content: flex-end;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: max-content;
   }
 
   .edit-booking-form,
@@ -796,6 +835,6 @@
   }
 
   .booking-row-actions {
-    min-width: 190px;
+    min-width: max-content;
   }
 }

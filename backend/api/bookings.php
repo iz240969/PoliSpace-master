@@ -197,11 +197,9 @@ function getAdminReport(Database $db, string $period): void
 
 function getUserBookings(Database $db, string $email = ''): void
 {
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-    $sessionEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($sessionEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
-        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
-    }
+    $user = requireUserAccount($db);
+    $userId = (int)$user['id'];
+    $sessionEmail = (string)$user['email'];
 
     if ($email !== '' && strtolower($sessionEmail) !== strtolower($email)) {
         jsonResponse(['success' => false, 'error' => 'You can only view your own bookings'], 403);
@@ -224,6 +222,9 @@ function getBookingByRef(Database $db, string $ref): void
 {
     $isAdmin = !empty($_SESSION['admin_id']) && empty($_SESSION['user_id']);
     $isUser = !empty($_SESSION['user_id']) && empty($_SESSION['admin_id']) && !empty($_SESSION['user_email']);
+    if ($isUser) {
+        requireUserAccount($db);
+    }
     if (!$isAdmin && !$isUser) {
         jsonResponse(['success' => false, 'error' => 'Login required'], 401);
     }
@@ -295,14 +296,17 @@ function getBookingByRef(Database $db, string $ref): void
 
 function createBooking(Database $db, bool $adminCreate = false): void
 {
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-    $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
+    $userAccount = null;
+    $userId = 0;
+    $userEmail = '';
     $bookingAccountType = ACCOUNT_TYPE_PUBLIC;
     $paymentRequired = true;
     if ($adminCreate) {
         requireAdmin();
-    } elseif ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
-        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    } else {
+        $userAccount = requireUserAccount($db);
+        $userId = (int)$userAccount['id'];
+        $userEmail = (string)$userAccount['email'];
     }
 
     $data = $_POST ?: jsonInput();
@@ -322,20 +326,11 @@ function createBooking(Database $db, bool $adminCreate = false): void
             $paymentRequired = !isVerifiedStaffAccount($matchedUser);
         }
     } else {
-        $user = $db->fetchOne(
-            "SELECT id, email, full_name, phone, account_type, staff_verification_status
-             FROM users WHERE id = ? AND email = ? AND role = 'user'",
-            [$userId, $userEmail]
-        );
-        if (!$user) {
-            jsonResponse(['success' => false, 'error' => 'Valid user account required'], 401);
-        }
-
-        $data['email'] = (string)$user['email'];
-        $data['full_name'] = trim((string)($user['full_name'] ?? ''));
-        $data['phone'] = trim((string)($user['phone'] ?? ''));
-        $bookingAccountType = normalizedAccountType($user['account_type'] ?? '');
-        $paymentRequired = !isVerifiedStaffAccount($user);
+        $data['email'] = (string)$userAccount['email'];
+        $data['full_name'] = trim((string)($userAccount['full_name'] ?? ''));
+        $data['phone'] = trim((string)($userAccount['phone'] ?? ''));
+        $bookingAccountType = normalizedAccountType($userAccount['account_type'] ?? '');
+        $paymentRequired = !isVerifiedStaffAccount($userAccount);
     }
     $facility = null;
     if (!empty($data['facility_id']) && ctype_digit((string)$data['facility_id'])) {
@@ -561,7 +556,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         }
         if (in_array($status, BLOCKING_BOOKING_STATUSES, true)) {
             if ((bool)$current['payment_required'] && empty($current['payment_file'])) {
-                throw new BookingAvailabilityException('Resit bayaran diperlukan sebelum tarikh boleh dikunci.');
+                throw new BookingAvailabilityException('Bukti bayaran perlu dimuat naik sebelum tempahan ini boleh diluluskan.');
             }
             if (!isAsramaRoomFacilityName((string)$current['facility_name'])) {
                 assertBookingDatesAvailable(
@@ -621,11 +616,9 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
         jsonResponse(['success' => false, 'error' => 'Admin login required'], 401);
     }
 
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-    $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
-        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
-    }
+    $user = requireUserAccount($db);
+    $userId = (int)$user['id'];
+    $userEmail = (string)$user['email'];
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
     $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit, payment_required FROM bookings WHERE {$field} = ?", [$id]);
@@ -673,11 +666,9 @@ function cancelOwnBooking(Database $db, string $id, array $data): void
 
 function updateOwnPendingBooking(Database $db, string $id, array $data): void
 {
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-    $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
-        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
-    }
+    $user = requireUserAccount($db);
+    $userId = (int)$user['id'];
+    $userEmail = (string)$user['email'];
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
     $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?", [$id]);
@@ -979,11 +970,9 @@ function validateAsramaBookingMeta(array $data, int $maxRooms): void
 
 function uploadOwnReceipt(Database $db, string $id): void
 {
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-    $userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-    if ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL) || !empty($_SESSION['admin_id'])) {
-        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
-    }
+    $user = requireUserAccount($db);
+    $userId = (int)$user['id'];
+    $userEmail = (string)$user['email'];
 
     $field = ctype_digit($id) ? 'id' : 'booking_ref';
     $booking = $db->fetchOne("SELECT id, facility_id, booking_date, duration, duration_unit FROM bookings WHERE {$field} = ?", [$id]);

@@ -9,12 +9,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v2">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-booking-action-align-v3">
 </head>
 <body>
   <div class="session-loading" role="status">Menyemak sesi akaun...</div>
   <nav id="main-nav">
-    <div class="nav-logo nav-logo-static"><div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div></div>
+    <div class="nav-logo nav-logo-static"><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div></div>
     <div class="nav-links"><span class="nav-mode-label">Pentadbir</span></div>
     <div class="nav-actions"></div>
   </nav>
@@ -24,15 +24,15 @@
     <header class="asrama-page-header">
       <div>
         <a class="asrama-back-link" href="/resources/views/admin/dashboard.html"><i class="bi bi-arrow-left"></i> Kembali ke Fasiliti</a>
-        <div class="asrama-title-row"><div class="asrama-title-icon"><i class="bi bi-door-open"></i></div><div><div class="asrama-eyebrow">Pengurusan Asrama</div><h1>Had Tempahan Bilik</h1><p>Tetapkan kuota bilik yang boleh ditempah bagi setiap blok.</p></div></div>
+        <div class="asrama-title-row"><div class="asrama-title-icon"><i class="bi bi-door-open"></i></div><div><div class="asrama-eyebrow">Pengurusan Asrama</div><h1 class="page-main-title">Had Tempahan Asrama</h1><p>Tetapkan had bilik yang boleh ditempah bagi setiap blok.</p></div></div>
       </div>
       <button class="btn btn-secondary" type="button" onclick="loadAsramaRoomManagement()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
     </header>
 
-    <section class="asrama-scope-note"><i class="bi bi-info-circle"></i><div><strong>Kuota tempahan sahaja</strong><span>PoliSpace tidak menentukan nombor bilik atau aras. Pengagihan sebenar akan diuruskan oleh PIC Asrama.</span></div></section>
-    <section id="asramaBuildings"><div class="asrama-loading"><i class="bi bi-arrow-repeat"></i> Memuatkan tetapan kapasiti...</div></section>
+    <section class="asrama-scope-note"><i class="bi bi-info-circle"></i><div><strong>Had tempahan sahaja</strong><span>PoliSpace tidak menetapkan nombor bilik atau aras. Pegawai Bertanggungjawab (PIC) Asrama akan menentukan bilik dan aras.</span></div></section>
+    <section id="asramaBuildings"><div class="asrama-loading"><i class="bi bi-arrow-repeat"></i> Memuatkan had tempahan asrama...</div></section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 </body>
 </html>

@@ -9,12 +9,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v2">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-booking-action-align-v3">
 </head>
 <body>
   <div class="session-loading" role="status">Menyemak sesi akaun...</div>
   <nav id="main-nav">
-    <div class="nav-logo nav-logo-static"><div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div></div>
+    <div class="nav-logo nav-logo-static"><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div></div>
     <div class="nav-links"><span class="nav-mode-label">Pentadbir</span></div>
     <div class="nav-actions"></div>
   </nav>
@@ -24,7 +24,7 @@
     <div id="adminCreateBookingPage">
       <a class="admin-create-back" href="/resources/views/admin/dashboard.html"><i class="bi bi-arrow-left"></i> Kembali ke Tempahan</a>
       <header class="admin-create-page-header">
-        <div><div class="admin-create-eyebrow">TEMPAHAN PENTADBIR</div><h1>Tambah Tempahan</h1><p>Lengkapkan maklumat penyewa, fasiliti dan kaedah bayaran dalam satu halaman.</p></div>
+        <div><div class="admin-create-eyebrow">TEMPAHAN PENTADBIR</div><h1 class="page-main-title">Tambah Tempahan</h1><p>Lengkapkan maklumat pelanggan, fasiliti dan kaedah bayaran dalam satu halaman.</p></div>
         <div class="admin-create-header-mark"><i class="bi bi-calendar2-plus"></i></div>
       </header>
 
@@ -36,14 +36,14 @@
         </article>
 
         <aside class="admin-create-sidebar">
-          <section class="admin-create-help-card accent"><i class="bi bi-stars"></i><div><strong>Tempahan Segera</strong><p>Tempahan yang dicipta oleh admin akan terus diluluskan selepas kaedah bayaran dipilih.</p></div></section>
-          <section class="admin-create-help-card"><div class="admin-create-help-title">Sebelum mencipta</div><ul><li><i class="bi bi-check2"></i> Semak kapasiti fasiliti</li><li><i class="bi bi-check2"></i> Pastikan tarikh dan tempoh betul</li><li><i class="bi bi-check2"></i> Pilih resit atau bayaran fizikal</li></ul></section>
-          <section class="admin-create-help-card"><div class="admin-create-help-title">Kaedah Bayaran</div><div class="admin-create-method"><i class="bi bi-receipt"></i><span><strong>Resit Digital</strong><small>JPG, PNG, GIF atau PDF</small></span></div><div class="admin-create-method"><i class="bi bi-printer"></i><span><strong>Bayaran Fizikal</strong><small>Dokumen A4 akan dijana</small></span></div></section>
+          <section class="admin-create-help-card accent"><i class="bi bi-stars"></i><div><strong>Tempahan Segera</strong><p>Tempahan yang dibuat oleh pentadbir akan diluluskan selepas kaedah bayaran dipilih.</p></div></section>
+          <section class="admin-create-help-card"><div class="admin-create-help-title">Sebelum menambah tempahan</div><ul><li><i class="bi bi-check2"></i> Semak kapasiti fasiliti</li><li><i class="bi bi-check2"></i> Pastikan tarikh dan tempoh betul</li><li><i class="bi bi-check2"></i> Muat naik bukti bayaran atau pilih bayaran fizikal</li></ul></section>
+          <section class="admin-create-help-card"><div class="admin-create-help-title">Kaedah Bayaran</div><div class="admin-create-method"><i class="bi bi-receipt"></i><span><strong>Bukti Bayaran Digital</strong><small>JPG, PNG, GIF atau PDF</small></span></div><div class="admin-create-method"><i class="bi bi-printer"></i><span><strong>Bayaran Fizikal</strong><small>Dokumen A4 akan dijana</small></span></div></section>
         </aside>
       </div>
     </div>
   </main>
 
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 </body>
 </html>

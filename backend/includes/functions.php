@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/account_types.php';
+
 function jsonResponse(array $payload, int $status = 200): void
 {
     http_response_code($status);
@@ -138,6 +140,7 @@ function requireAdmin(): void
 
 function requireUserAccount(Database $db): array
 {
+    ensureAccountTypeSchema($db);
     $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
     if ($userId <= 0 || !empty($_SESSION['admin_id'])) {
         if ($userId > 0 && !empty($_SESSION['admin_id'])) {
@@ -153,13 +156,19 @@ function requireUserAccount(Database $db): array
     }
 
     $user = $db->fetchOne(
-        "SELECT id, email, full_name, phone, account_type, staff_number, staff_verification_status
+        "SELECT id, email, full_name, phone, account_type, staff_number, staff_verification_status, is_blocked
          FROM users WHERE id = ? AND role = 'user'",
         [$userId]
     );
     if (!$user) {
         unset($_SESSION['user_id'], $_SESSION['user_email']);
         jsonResponse(['success' => false, 'error' => 'User login required'], 401);
+    }
+
+    if ((int)$user['is_blocked'] === 1) {
+        unset($_SESSION['user_id'], $_SESSION['user_email']);
+        session_regenerate_id(true);
+        jsonResponse(['success' => false, 'error' => 'Account blocked. Please contact an administrator.'], 401);
     }
 
     $_SESSION['user_email'] = (string)$user['email'];

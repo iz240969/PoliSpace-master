@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PoliSpace - Admin Portal</title>
+  <title>PoliSpace - Portal Pentadbir</title>
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v2">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-client-controls-layout-v4">
 </head>
 <body class="admin-workspace">
   <div class="session-loading" role="status">Menyemak sesi akaun...</div>
@@ -17,7 +17,7 @@
   <nav id="main-nav">
     <div class="admin-nav-heading">
       <button class="admin-nav-toggle btn-nav-icon" type="button" onclick="toggleAdminNavigation()" aria-label="Buka menu pentadbir" aria-controls="adminSidebar" aria-expanded="false"><i class="bi bi-list" aria-hidden="true"></i></button>
-      <div class="admin-breadcrumb"><span>PoliSpace / Pentadbiran</span><strong id="adminCurrentPage">Dashboard</strong></div>
+      <div class="admin-breadcrumb"><span>PoliSpace / Pentadbiran</span><strong id="adminCurrentPage">Ringkasan</strong></div>
     </div>
     <div class="nav-links"><span class="nav-mode-label"><i class="bi bi-shield-check" aria-hidden="true"></i> Pentadbir</span></div>
     <div class="nav-actions"></div>
@@ -27,14 +27,13 @@
   <div id="admin" class="active">
     <div class="admin-layout">
       <aside class="admin-sidebar" id="adminSidebar" aria-label="Navigasi pentadbir">
-        <div class="admin-sidebar-brand"><div class="nav-logo nav-logo-static"><div class="nav-logo-mark"></div><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Portal Pentadbir</div></div></div><button class="admin-sidebar-close" type="button" onclick="closeAdminNavigation()" aria-label="Tutup menu pentadbir"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="admin-sidebar-brand"><div class="nav-logo nav-logo-static"><div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Portal Pentadbir</div></div></div><button class="admin-sidebar-close" type="button" onclick="closeAdminNavigation()" aria-label="Tutup menu pentadbir"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
         <div class="admin-menu-label">Utama</div>
-        <button class="admin-menu-item active" onclick="showAdminPanel('dashboard', this)"><span class="menu-icon"><i class="bi bi-bar-chart"></i></span> Dashboard</button>
+        <button class="admin-menu-item active" onclick="showAdminPanel('dashboard', this)"><span class="menu-icon"><i class="bi bi-bar-chart"></i></span> Ringkasan</button>
         <button class="admin-menu-item" onclick="showAdminPanel('bookings', this)"><span class="menu-icon"><i class="bi bi-card-list"></i></span> Tempahan <span class="admin-badge" id="pendingBadge" hidden></span></button>
         <button class="admin-menu-item" onclick="showAdminPanel('messages', this)"><span class="menu-icon"><i class="bi bi-chat-dots"></i></span> Mesej</button>
         <div class="admin-menu-label">Pengurusan</div>
         <button class="admin-menu-item" onclick="showAdminPanel('clients', this)"><span class="menu-icon"><i class="bi bi-people"></i></span> Pelanggan</button>
-        <button class="admin-menu-item" onclick="showAdminPanel('staff-verification', this)"><span class="menu-icon"><i class="bi bi-person-check"></i></span> Pengesahan Staf <span class="admin-badge" id="staffVerificationBadge" hidden></span></button>
         <button class="admin-menu-item" onclick="showAdminPanel('facilities', this)"><span class="menu-icon"><i class="bi bi-building"></i></span> Fasiliti</button>
         <button class="admin-menu-item" onclick="showAdminPanel('pic', this)"><span class="menu-icon"><i class="bi bi-person-badge"></i></span> PIC</button>
         <button class="admin-menu-item" onclick="showAdminPanel('calendar', this)"><span class="menu-icon"><i class="bi bi-calendar3"></i></span> Kalendar</button>
@@ -48,7 +47,7 @@
           <header class="admin-page-header admin-panel-toolbar">
             <div>
             <div class="admin-page-eyebrow">RINGKASAN OPERASI</div>
-            <h1>Dashboard</h1>
+            <h1 class="page-main-title">Ringkasan</h1>
             <p id="dashDate"></p>
             </div>
             <button class="btn btn-primary btn-sm" type="button" onclick="window.location.href=ROUTES.adminCreateBooking"><i class="bi bi-plus-lg" aria-hidden="true"></i> Tambah Tempahan</button>
@@ -62,7 +61,7 @@
                 <button class="btn btn-ghost btn-sm" onclick="showAdminPanel('bookings', document.querySelectorAll('.admin-menu-item')[1])">Lihat Semua <i class="bi bi-arrow-right"></i></button>
               </div>
             </div>
-            <div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-recent dashboard-booking-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="recentBookingsTbody"></tbody></table></div>
+            <div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-recent dashboard-booking-table"><thead><tr><th>ID</th><th>Fasiliti</th><th>Tarikh</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="recentBookingsTbody"></tbody></table></div>
           </div>
         </div>
 
@@ -80,7 +79,7 @@
             <div class="filter-tabs toolbar-full" id="bookingFilterTabs" aria-label="Tapis status tempahan"><button class="filter-tab active" aria-pressed="true" onclick="filterBookings('all', this)">Semua</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('unpaid', this)">Belum Bayar</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('pending', this)">Menunggu</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('approved', this)">Diluluskan</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('rejected', this)">Ditolak</button><button class="filter-tab" aria-pressed="false" onclick="filterBookings('cancelled', this)">Dibatalkan</button></div>
             <span class="admin-result-count" id="bookingResultCount" role="status"></span>
           </div>
-          <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-full dashboard-booking-table"><thead><tr><th>ID</th><th>Penyewa</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div></div>
+          <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-bookings-table admin-bookings-table-full dashboard-booking-table"><thead><tr><th>ID</th><th>Fasiliti</th><th>Tarikh</th><th>Masa</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="allBookingsTbody"></tbody></table></div></div>
         </div>
 
         <div class="admin-panel" id="panel-messages">
@@ -90,7 +89,7 @@
           </div>
           <div class="admin-card">
             <div class="data-table-wrap"><table class="data-table admin-messages-table">
-              <thead><tr><th>E-mel</th><th>Subjek</th><th>Mesej</th><th>Tarikh</th><th>Tindakan</th></tr></thead>
+              <thead><tr><th>Alamat E-mel</th><th>Subjek</th><th>Mesej</th><th>Tarikh</th><th>Tindakan</th></tr></thead>
               <tbody id="messagesTbody"></tbody>
             </table></div>
           </div>
@@ -98,7 +97,7 @@
 
         <div class="admin-panel" id="panel-clients">
           <div class="admin-panel-toolbar">
-            <div><div class="admin-page-eyebrow">PENGURUSAN</div><h2>Pelanggan</h2><p class="admin-panel-subtitle">Urus akaun orang awam dan kakitangan PoliSpace.</p></div>
+            <div><div class="admin-page-eyebrow">PENGURUSAN</div><h2>Pelanggan</h2><p class="admin-panel-subtitle">Semak maklumat, sahkan kakitangan, serta sekat atau buka sekatan akaun.</p></div>
             <div class="admin-toolbar-actions"><div class="table-sort"><i class="bi bi-sort-down"></i><select id="clientsSortSelect" aria-label="Susun pelanggan" onchange="renderAdminClients()"><option value="recent">Terkini</option><option value="date-asc">Tarikh: Awal ke Akhir</option><option value="date-desc">Tarikh: Akhir ke Awal</option></select></div><button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
           </div>
           <div class="admin-data-toolbar">
@@ -108,23 +107,15 @@
           </div>
           <div class="admin-card">
             <div class="data-table-wrap"><table class="data-table admin-clients-table">
-              <thead><tr><th>E-mel</th><th>Jenis</th><th>No Telefon</th><th>Pengesahan</th><th>Tarikh Daftar</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
+              <thead><tr><th>Alamat E-mel</th><th>Jenis &amp; Status</th><th>No. Telefon</th><th>Tarikh Daftar</th><th>Tempahan</th><th>Tindakan</th></tr></thead>
               <tbody id="clientsTbody"></tbody>
             </table></div>
           </div>
         </div>
 
-        <div class="admin-panel" id="panel-staff-verification">
-          <div class="admin-panel-toolbar">
-            <div><div class="admin-page-eyebrow">PENGURUSAN</div><h2>Pengesahan Akaun Kakitangan</h2><p class="admin-panel-subtitle">Semak nombor kakitangan sebelum memberikan pengecualian bayaran.</p></div>
-            <button class="btn btn-secondary btn-sm" onclick="loadClients()"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button>
-          </div>
-          <div class="admin-card"><div class="data-table-wrap"><table class="data-table admin-staff-verification-table"><thead><tr><th>Nama</th><th>E-mel</th><th>No. Kakitangan</th><th>Status</th><th>Tindakan</th></tr></thead><tbody id="staffVerificationTbody"></tbody></table></div></div>
-        </div>
-
         <div class="admin-panel" id="panel-facilities">
           <div class="admin-panel-toolbar">
-            <div><div class="admin-page-eyebrow">FASILITI</div><h2>Pengurusan Fasiliti</h2><p class="admin-panel-subtitle">Urus ketersediaan, peralatan dan tugasan PIC.</p></div>
+            <div><div class="admin-page-eyebrow">FASILITI</div><h2>Pengurusan Fasiliti</h2><p class="admin-panel-subtitle">Urus ketersediaan, peralatan dan PIC fasiliti.</p></div>
             <div class="admin-toolbar-actions"><button class="btn btn-primary btn-sm" type="button" onclick="toggleFacilityCreateForm()" id="facilityCreateToggle" aria-expanded="false" aria-controls="adminFacilityForm"><i class="bi bi-plus-lg"></i> Tambah Fasiliti</button><button class="btn btn-secondary btn-sm" type="button" onclick="loadFacilities().then(renderFacilityManagement)"><i class="bi bi-arrow-clockwise"></i> Muat Semula</button></div>
           </div>
           <form class="admin-card admin-facility-form" id="adminFacilityForm" onsubmit="addFacility(event)" hidden>
@@ -194,11 +185,11 @@
                 </div>
               </section>
               <section class="admin-facility-section admin-facility-pic-section">
-                <div class="admin-facility-section-heading"><span>02</span><div><div class="admin-facility-section-title">Tugasan PIC</div><p>Pilih PIC sedia ada atau biarkan belum ditetapkan.</p></div></div>
+                <div class="admin-facility-section-heading"><span>02</span><div><div class="admin-facility-section-title">PIC Fasiliti</div><p>Pilih Pegawai Bertanggungjawab (PIC) untuk fasiliti ini.</p></div></div>
                 <div class="form-group">
                   <label for="facilityPicId">PIC Fasiliti</label>
-                  <select id="facilityPicId" name="pic_id"><option value="">Belum ditetapkan</option></select>
-                  <div class="admin-note-help">Tambah dan urus maklumat PIC pada halaman Pengurusan PIC.</div>
+                  <select id="facilityPicId" name="pic_id"><option value="">Pilih PIC</option></select>
+                  <div class="admin-note-help">Jika tiada PIC dipilih, fasiliti ini tidak mempunyai PIC. Urus rekod PIC pada halaman Pengurusan PIC.</div>
                 </div>
               </section>
             </div>
@@ -215,7 +206,7 @@
             <div>
               <div class="admin-page-eyebrow">PENGURUSAN</div>
               <h2>Pengurusan PIC</h2>
-              <p class="admin-panel-subtitle">Urus orang bertanggungjawab untuk setiap fasiliti dan hantar e-mel kepada PIC.</p>
+              <p class="admin-panel-subtitle">Urus Pegawai Bertanggungjawab (PIC) bagi setiap fasiliti dan hantar e-mel kepada PIC.</p>
             </div>
             <div class="admin-toolbar-actions">
               <button class="btn btn-primary btn-sm" type="button" onclick="openPicAddModal()"><i class="bi bi-person-plus"></i> Tambah PIC</button>
@@ -256,7 +247,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 </body>
 </html>
 

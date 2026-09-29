@@ -72,7 +72,9 @@ body {
   overflow-x: hidden;
   /* All page variants share this canvas; keep page-specific body rules clear of background shorthands. */
   background-color: var(--bg-main);
-  background-image: var(--page-background);
+  background-image: url('../../images/brick-pattern.svg'), var(--page-background);
+  background-size: 160px 80px, auto, auto, auto;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
   background-attachment: fixed;
   color: var(--text-main);
   font-family: var(--body-font);

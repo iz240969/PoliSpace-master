@@ -179,14 +179,14 @@ try {
 
             $picEmail = trim((string)($facility['email'] ?? ''));
             if (!filter_var($picEmail, FILTER_VALIDATE_EMAIL)) {
-                jsonResponse(['success' => false, 'error' => 'Sila tetapkan e-mel PIC yang sah sebelum hantar e-mel percubaan.'], 422);
+                jsonResponse(['success' => false, 'error' => 'Sila lengkapkan alamat e-mel PIC sebelum menghantar e-mel.'], 422);
             }
 
             if (!sendPicTestEmail($facility)) {
-                jsonResponse(['success' => false, 'error' => 'E-mel percubaan gagal dihantar. Semak konfigurasi mail server.'], 500);
+                jsonResponse(['success' => false, 'error' => 'E-mel tidak dapat dihantar. Semak tetapan e-mel sistem.'], 500);
             }
 
-            jsonResponse(['success' => true, 'message' => 'E-mel percubaan telah dihantar kepada PIC.']);
+            jsonResponse(['success' => true, 'message' => 'E-mel telah dihantar kepada PIC.']);
         }
 
         $input = jsonInput();
@@ -267,7 +267,7 @@ try {
             $picId = normalizeFacilityPicId($db, $input['pic_id'] ?? null);
             $db->update('UPDATE facilities SET pic_id = ? WHERE id = ?', [$picId, $id]);
             $updated = $db->fetchOne(facilitySelectSql(true) . ' WHERE f.id = ?', [$id]);
-            jsonResponse(['success' => true, 'message' => 'Tugasan PIC berjaya dikemas kini.', 'data' => $updated]);
+            jsonResponse(['success' => true, 'message' => $picId === null ? 'Tugasan PIC berjaya dikosongkan.' : 'PIC berjaya ditetapkan untuk fasiliti ini.', 'data' => $updated]);
         }
 
         $name = array_key_exists('name', $input) ? trim((string)$input['name']) : (string)$facility['name'];

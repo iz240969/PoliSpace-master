@@ -9,25 +9,25 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v2">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-booking-action-align-v3">
 </head>
 <body>
   <div id="admin-login" class="active">
     <div class="login-card">
       <div class="login-logo">
         <div class="login-logo-mark"></div>
-        <div class="login-title">Admin Portal</div>
+        <div class="login-title page-main-title">Portal Pentadbir</div>
       </div>
       <div class="login-form">
         <div class="login-error" id="loginError">Nama pengguna atau kata laluan tidak sah.</div>
-        <div class="form-group"><label for="login-user">E-mel Admin</label><input type="email" id="login-user" placeholder="admin@polspace.com" autocomplete="username"></div>
+        <div class="form-group"><label for="login-user">Alamat E-mel Pentadbir</label><input type="email" id="login-user" placeholder="admin@polspace.com" autocomplete="username"></div>
         <div class="form-group"><label for="login-pass">Kata Laluan</label><input type="password" id="login-pass" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()"></div>
         <button class="btn btn-primary auth-primary" id="adminLoginButton" type="button" onclick="doLogin()">Log Masuk</button>
         <button class="btn btn-ghost auth-secondary" type="button" onclick="window.location.href='/resources/views/welcome.html'"><i class="bi bi-arrow-left"></i> Kembali ke Web</button>
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 </body>
 </html>
 

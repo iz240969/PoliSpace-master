@@ -34,18 +34,18 @@ function bookingNotificationLines(array $booking): array
     $startTime = substr((string)($booking['start_time'] ?? ''), 0, 5);
 
     return [
-        'Rujukan tempahan: ' . ($booking['booking_ref'] ?: '-'),
+        'No. Rujukan Tempahan: ' . ($booking['booking_ref'] ?: '-'),
         'Fasiliti: ' . ($booking['facility_name'] ?: '-'),
         'Nama pelanggan: ' . ($booking['full_name'] ?: '-'),
-        'Telefon pelanggan: ' . ($booking['phone'] ?: '-'),
-        'E-mel pelanggan: ' . ($booking['email'] ?: '-'),
+        'No. Telefon pelanggan: ' . ($booking['phone'] ?: '-'),
+        'Alamat e-mel pelanggan: ' . ($booking['email'] ?: '-'),
         'Jenis pemohon: ' . (($booking['account_type'] ?? 'public') === 'staff' ? 'Kakitangan' : 'Orang Awam'),
         'Bayaran diperlukan: ' . (!empty($booking['payment_required']) ? 'Ya' : 'Tidak'),
         'Tarikh tempahan: ' . ($booking['booking_date'] ?: '-'),
         'Masa mula: ' . ($startTime ?: '-'),
         'Tempoh: ' . bookingDurationLabel($booking),
         'Tujuan: ' . ($booking['purpose'] ?: '-'),
-        'Bilangan peserta: ' . (string)($booking['participant_count'] ?? 0),
+        'Jumlah pengguna: ' . (string)($booking['participant_count'] ?? 0),
     ];
 }
 
@@ -64,7 +64,7 @@ function sendBookingPicNotification(
         return [
             'sent' => false,
             'skipped' => true,
-            'warning' => 'Status tempahan telah dikemas kini, tetapi fasiliti ini belum mempunyai PIC.',
+            'warning' => 'Tempahan berjaya dikemas kini, tetapi fasiliti ini belum mempunyai PIC.',
         ];
     }
 
@@ -73,7 +73,7 @@ function sendBookingPicNotification(
         return [
             'sent' => false,
             'skipped' => true,
-            'warning' => 'Status tempahan telah dikemas kini, tetapi PIC tidak mempunyai alamat e-mel yang sah.',
+            'warning' => 'Tempahan berjaya dikemas kini, tetapi alamat e-mel PIC tidak sah.',
         ];
     }
 
@@ -81,16 +81,16 @@ function sendBookingPicNotification(
     $details = bookingNotificationLines($booking);
 
     if ($type === 'approved') {
-        $subject = 'PoliSpace - Tempahan Diluluskan (' . $booking['booking_ref'] . ')';
+        $subject = 'PoliSpace — Tempahan Diluluskan (' . $booking['booking_ref'] . ')';
         $equipment = trim((string)($booking['equipment_required'] ?? ''));
         $approvalMessage = !empty($booking['payment_required'])
             ? [
                 'Bayaran pelanggan telah disahkan dan tempahan berikut telah diluluskan.',
-                'Sila sediakan dan urus fasiliti untuk tempahan yang telah diluluskan ini.',
+                'Sila buat persediaan bagi fasiliti ini mengikut maklumat tempahan.',
             ]
             : [
-                'Permohonan fasiliti kakitangan berikut telah diluluskan.',
-                'Tiada bayaran diperlukan untuk tempahan ini. Sila sediakan dan urus fasiliti seperti dinyatakan.',
+                'Permohonan tempahan fasiliti bagi kakitangan berikut telah diluluskan.',
+                'Tiada bayaran dikenakan untuk tempahan ini. Sila buat persediaan bagi fasiliti mengikut maklumat yang diberikan.',
             ];
         $body = implode("\n", array_merge([
             $greeting,
@@ -103,16 +103,16 @@ function sendBookingPicNotification(
             'Terima kasih.',
         ]));
     } elseif ($type === 'cancelled') {
-        $subject = 'PoliSpace - Tempahan Diluluskan Telah Dibatalkan (' . $booking['booking_ref'] . ')';
+        $subject = 'PoliSpace — Tempahan Dibatalkan (' . $booking['booking_ref'] . ')';
         $reason = trim((string)($booking['cancellation_reason'] ?? ''));
         $body = implode("\n", array_merge([
             $greeting,
             '',
-            'Tempahan yang sebelum ini telah diluluskan kini telah dibatalkan oleh pentadbir.',
-            'PIC tidak lagi perlu menyediakan fasiliti untuk tempahan ini.',
+            'Tempahan yang telah diluluskan ini dibatalkan oleh pentadbir.',
+            'PIC tidak perlu lagi membuat persediaan bagi tempahan ini.',
             '',
         ], $details, [
-            'Sebab pembatalan / nota pentadbir: ' . ($reason !== '' ? $reason : '-'),
+            'Sebab pembatalan: ' . ($reason !== '' ? $reason : '-'),
             '',
             'Terima kasih.',
         ]));
@@ -125,7 +125,7 @@ function sendBookingPicNotification(
         return [
             'sent' => false,
             'skipped' => false,
-            'warning' => 'Status tempahan berjaya dikemas kini, tetapi e-mel kepada PIC gagal dihantar. Semak konfigurasi mail server.',
+            'warning' => 'Tempahan berjaya dikemas kini, tetapi e-mel kepada PIC tidak dapat dihantar. Semak tetapan e-mel sistem.',
         ];
     }
 
@@ -143,18 +143,18 @@ function sendPicTestEmail(array $pic): bool
     $body = implode("\n", [
         'Assalamualaikum / Salam sejahtera ' . trim((string)($pic['full_name'] ?? '')) . ',',
         '',
-        'Ini ialah e-mel percubaan daripada sistem PoliSpace.',
+        'Ini ialah e-mel ujian daripada PoliSpace.',
         '',
         'Maklumat PIC:',
         'Nama: ' . (($pic['full_name'] ?? '') ?: '-'),
         'Telefon: ' . (($pic['phone'] ?? '') ?: '-'),
-        'Fasiliti ditugaskan: ' . ($facilityNames !== '' ? $facilityNames : 'Belum ada'),
+        'Fasiliti yang diuruskan: ' . ($facilityNames !== '' ? $facilityNames : 'Tiada PIC ditetapkan'),
         '',
-        'Alamat e-mel ini boleh digunakan untuk notifikasi kelulusan dan pembatalan tempahan.',
+        'Alamat e-mel ini akan menerima pemberitahuan apabila tempahan diluluskan atau dibatalkan.',
         '',
         'Terima kasih.',
     ]);
 
-    return sendPlainEmail($email, 'PoliSpace - Percubaan E-mel PIC', $body);
+    return sendPlainEmail($email, 'PoliSpace — Ujian E-mel PIC', $body);
 }
 ?>

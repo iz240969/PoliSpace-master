@@ -8,6 +8,9 @@
 }
 
 @media (max-width: 768px) {
+  input, select, textarea { font-size: 16px; }
+  .dash-table-wrap, .data-table-wrap { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .booking-row-actions .btn-sm { min-width: 44px; min-height: 44px; }
   #booking, #dashboard, #status { padding-top: 64px; }
   .booking-layout, .status-page-content { padding: 34px 18px; }
   .booking-sidebar { grid-template-columns: 1fr; }

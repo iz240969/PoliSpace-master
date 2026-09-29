@@ -57,6 +57,8 @@ rejected   Ditolak
 cancelled  Dibatalkan
 ```
 
+The pending label is more specific in booking views: public bookings awaiting payment review show `Menunggu Semakan Bayaran`; verified staff applications awaiting approval show `Menunggu Kelulusan`.
+
 Availability rules:
 
 ```text
@@ -106,7 +108,7 @@ Additional form behavior:
 - Asrama room controls use separate male and female block limits for the selected date range. Actual room numbers and floors are assigned manually by the Asrama PIC.
 - Equipment is stored in `equipment_required` as readable text, for example `Mikrofon x 2, Projektor x 1`.
 
-Receipt uploads accept JPG, PNG, GIF, or PDF up to 5MB.
+Payment evidence uploads accept JPG, PNG, GIF, or PDF up to 5 MB.
 
 ## Dashboard
 
@@ -131,7 +133,7 @@ Cart submissions are grouped under `TR...` references in the dashboard. Those gr
 When all actions are available, the user action order from left to right is:
 
 ```text
-Muat Naik Resit, Batal, Edit, Lihat
+Muat Naik Bukti Bayaran, Batalkan, Ubah, Lihat
 ```
 
 Unavailable actions are removed without leaving empty layout slots.
@@ -159,11 +161,11 @@ Admin can:
 - Add and edit facility-specific equipment options from the facility management panel.
 - Add, edit, delete, and assign independent PIC records from the separate `PIC` admin section.
 - Assign one PIC to several facilities and change a facility's PIC later.
-- Send a manual trial email to a PIC.
+- Send the system's PIC test email with `Hantar E-mel`.
 - Toggle facility availability.
 - View the booking calendar.
 
-The admin sidebar remains pinned while the main content scrolls. Admin booking tables use fixed, readable column widths and horizontally scroll on smaller viewports. Visible actions are grouped without empty slots; pending rows display `Terima`, `Tolak`, then `Lihat`, with `Lihat` on the right.
+The admin sidebar remains pinned while the main content scrolls. Admin booking tables use fixed, readable column widths and horizontally scroll on smaller viewports. Visible actions are grouped without empty slots; pending rows display `Sahkan`, `Tolak`, then `Lihat`, with `Lihat` on the right.
 
 The admin navbar logo is static and does not navigate to the public site.
 

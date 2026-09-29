@@ -9,18 +9,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v2">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-booking-action-align-v3">
 </head>
 <body class="public-page">
   <nav id="main-nav">
     <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
-      <div class="nav-logo-mark"></div>
+
       <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
     </div>
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
+      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -29,11 +29,11 @@
 
   <main class="signup-page" id="signup-page">
     <aside class="auth-aside" aria-label="Mengenai PoliSpace"><div class="auth-aside-brand"><span class="auth-aside-mark"><i class="bi bi-grid-1x2"></i></span> PoliSpace</div><div><span class="auth-aside-eyebrow">Mula di sini</span><h2>Satu akaun untuk setiap tempahan.</h2><p>Daftar untuk menempah fasiliti dan mengurus permohonan anda dengan lebih mudah.</p></div><div class="auth-aside-foot"><i class="bi bi-shield-check"></i> PoliSpace · Politeknik Besut</div></aside>
-    <section class="signup-card" aria-label="Daftar akaun pelanggan">
+    <section class="signup-card" aria-label="Daftar akaun PoliSpace">
       <div class="signup-head">
         <div class="signup-icon"></div>
-        <h1 class="signup-title">Daftar Akaun</h1>
-        <p class="signup-sub">Cipta akaun pelanggan dahulu untuk membuat dan mengurus tempahan fasiliti.</p>
+        <h1 class="signup-title page-main-title">Daftar Akaun</h1>
+        <p class="signup-sub">Cipta akaun PoliSpace untuk membuat dan mengurus tempahan fasiliti.</p>
       </div>
 
       <div class="signup-error" id="signupError"></div>
@@ -88,6 +88,6 @@
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 </body>
 </html>

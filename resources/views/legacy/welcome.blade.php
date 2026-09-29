@@ -9,18 +9,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260927-date-picker-reliability-v2">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-booking-action-align-v3">
 </head>
 <body>
   <nav id="main-nav">
     <div class="nav-logo" onclick="window.location.href='/resources/views/welcome.html'">
-      <div class="nav-logo-mark"></div>
+
       <div><div class="nav-logo-text">PoliSpace</div><div class="nav-logo-sub">Fasiliti</div></div>
     </div>
     <div class="nav-links">
       <button class="nav-link active" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
+      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -36,15 +36,15 @@
         <span class="hero-title-line">Tempah <span>Fasiliti</span></span>
         <span class="hero-title-line">Dengan Mudah</span>
       </h1>
-      <p class="hero-sub">Sistem pengurusan tempahan fasiliti politeknik yang cekap, selamat, dan boleh diakses 24/7 oleh orang awam dan staf.</p>
+      <p class="hero-sub">Sistem pengurusan tempahan fasiliti politeknik yang cekap dan selamat, untuk orang awam serta kakitangan.</p>
       <div class="hero-actions">
         <button class="btn btn-primary" onclick="navigateToClientPage(ROUTES.booking)"><span><i class="bi bi-calendar-event"></i></span> Buat Tempahan</button>
-        <button class="btn btn-secondary" onclick="navigateToClientPage(ROUTES.dashboard)"><span><i class="bi bi-speedometer2"></i></span> Dashboard</button>
+        <button class="btn btn-secondary" onclick="navigateToClientPage(ROUTES.dashboard)"><span><i class="bi bi-speedometer2"></i></span> Tempahan Saya</button>
       </div>
       <div class="hero-stats">
         <div class="stat-item"><div class="stat-num" id="stat-facilities">6</div><div class="stat-label">Fasiliti Tersedia</div></div>
         <div class="stat-item"><div class="stat-num" id="stat-bookings">-</div><div class="stat-label">Tempahan Hari Ini</div></div>
-        <div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">Akses Online</div></div>
+        <div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">Akses dalam talian</div></div>
       </div>
       <aside class="hero-calendar-wrap" aria-label="Kalendar tempahan">
         <p class="hero-calendar-notice">Permohonan hendaklah dibuat 3 hari sebelum tarikh penggunaan.</p>
@@ -60,7 +60,7 @@
       <div class="facilities-grid" id="facilitiesGrid"></div>
     </section>
   </div>
-  <script src="/resources/js/script.js?v=20260927-api-status-fallback-v10"></script>
+  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
 </body>
 </html>
 

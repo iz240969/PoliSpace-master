@@ -139,13 +139,13 @@ try {
             jsonResponse(['success' => false, 'error' => 'PIC tidak dijumpai.'], 404);
         }
         if (!filter_var((string)$pic['email'], FILTER_VALIDATE_EMAIL)) {
-            jsonResponse(['success' => false, 'error' => 'Sila tetapkan e-mel PIC yang sah sebelum menghantar e-mel percubaan.'], 422);
+            jsonResponse(['success' => false, 'error' => 'Sila lengkapkan alamat e-mel PIC sebelum menghantar e-mel.'], 422);
         }
         $pic['facility_names'] = implode(', ', $pic['facility_names']);
         if (!sendPicTestEmail($pic)) {
-            jsonResponse(['success' => false, 'error' => 'E-mel percubaan gagal dihantar. Semak konfigurasi mail server.'], 500);
+            jsonResponse(['success' => false, 'error' => 'E-mel tidak dapat dihantar. Semak tetapan e-mel sistem.'], 500);
         }
-        jsonResponse(['success' => true, 'message' => 'E-mel percubaan telah dihantar kepada PIC.']);
+        jsonResponse(['success' => true, 'message' => 'E-mel telah dihantar kepada PIC.']);
     }
 
     if ($method === 'POST') {
@@ -195,7 +195,7 @@ try {
             jsonResponse(['success' => false, 'error' => 'PIC tidak dijumpai.'], 404);
         }
         $db->update('DELETE FROM pics WHERE id = ?', [$id]);
-        jsonResponse(['success' => true, 'message' => 'PIC telah dipadam dan fasiliti berkaitan telah dinyahpetugas.']);
+        jsonResponse(['success' => true, 'message' => 'Rekod PIC telah dipadam. Tugasan PIC untuk fasiliti berkaitan telah dikosongkan.']);
     }
 
     jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);

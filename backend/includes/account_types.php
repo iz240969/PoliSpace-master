@@ -17,6 +17,7 @@ function ensureAccountTypeSchema(Database $db, bool $includeBookings = false): v
             'account_type' => "ALTER TABLE users ADD COLUMN account_type ENUM('public', 'staff') NOT NULL DEFAULT 'public' AFTER role",
             'staff_number' => 'ALTER TABLE users ADD COLUMN staff_number VARCHAR(50) NULL AFTER account_type',
             'staff_verification_status' => "ALTER TABLE users ADD COLUMN staff_verification_status ENUM('pending', 'verified', 'rejected') NULL DEFAULT NULL AFTER staff_number",
+            'is_blocked' => 'ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0 AFTER staff_verification_status',
         ];
         foreach ($columns as $name => $sql) {
             if (!$db->fetchOne("SHOW COLUMNS FROM users LIKE '{$name}'")) {

@@ -61,11 +61,15 @@ if ($action === 'auto') {
     }
 
     $user = $db->fetchOne(
-        'SELECT id, email, password, full_name, role FROM users WHERE email = ?',
+        'SELECT id, email, password, full_name, role, is_blocked FROM users WHERE email = ?',
         [$email]
     );
     if (!$user || empty($user['password']) || !password_verify($password, (string)$user['password'])) {
         jsonResponse(['success' => false, 'error' => 'Invalid credentials'], 401);
+    }
+
+    if ($user['role'] === 'user' && (int)$user['is_blocked'] === 1) {
+        jsonResponse(['success' => false, 'error' => 'Account blocked. Please contact an administrator.'], 403);
     }
 
     if ($user['role'] === 'admin') {
@@ -186,11 +190,17 @@ if ($action === 'me') {
 
     if (!empty($_SESSION['user_id'])) {
         $user = $db->fetchOne(
-            "SELECT id, email, full_name, phone, role, account_type, staff_number, staff_verification_status
+            "SELECT id, email, full_name, phone, role, account_type, staff_number, staff_verification_status, is_blocked
              FROM users WHERE id = ? AND role = 'user'",
             [$_SESSION['user_id']]
         );
         if ($user) {
+            if ((int)$user['is_blocked'] === 1) {
+                unset($_SESSION['user_id'], $_SESSION['user_email']);
+                session_regenerate_id(true);
+                jsonResponse(['success' => false, 'error' => 'Account blocked. Please contact an administrator.'], 401);
+            }
+
             jsonResponse([
                 'success' => true,
                 'role' => 'user',
@@ -239,10 +249,8 @@ if ($action === 'profile') {
         jsonResponse(['success' => false, 'error' => 'Method not allowed'], 405);
     }
 
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-    if ($userId <= 0 || !empty($_SESSION['admin_id'])) {
-        jsonResponse(['success' => false, 'error' => 'User login required'], 401);
-    }
+    $currentUser = requireUserAccount($db);
+    $userId = (int)$currentUser['id'];
 
     $fullName = trim((string)($input['full_name'] ?? ''));
     $phone = trim((string)($input['phone'] ?? ''));
@@ -331,13 +339,17 @@ if ($action === 'user') {
         jsonResponse(['success' => false, 'error' => 'Password required'], 400);
     }
 
-    $user = $db->fetchOne("SELECT id, email, password, role FROM users WHERE email = ? AND role = 'user'", [$email]);
+    $user = $db->fetchOne("SELECT id, email, password, role, is_blocked FROM users WHERE email = ? AND role = 'user'", [$email]);
     if (!$user || empty($user['password'])) {
         jsonResponse(['success' => false, 'error' => 'Client password has not been set by admin'], 401);
     }
 
     if (!password_verify($password, (string)$user['password'])) {
         jsonResponse(['success' => false, 'error' => 'Invalid credentials'], 401);
+    }
+
+    if ((int)$user['is_blocked'] === 1) {
+        jsonResponse(['success' => false, 'error' => 'Account blocked. Please contact an administrator.'], 403);
     }
 
     establishUserSession((int)$user['id'], (string)$user['email']);

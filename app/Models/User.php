@@ -35,6 +35,7 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'is_blocked' => 'boolean',
         ];
     }
 }

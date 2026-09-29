@@ -39,13 +39,13 @@ async function doAutoLogin() {
   if (form) clearInlineFieldErrors(form);
 
   if (!isValidEmail(email) || !password) {
-    if (!isValidEmail(email)) showInlineFieldError('login-email', 'Masukkan alamat e-mel yang sah.');
-    if (!password) showInlineFieldError('login-password', 'Masukkan kata laluan.');
+    if (!isValidEmail(email)) showInlineFieldError('login-email', 'Sila masukkan alamat e-mel yang sah.');
+    if (!password) showInlineFieldError('login-password', 'Sila masukkan kata laluan.');
     if (errorEl) {
-      errorEl.textContent = 'Sila masukkan e-mel dan kata laluan yang sah.';
+      errorEl.textContent = 'Sila masukkan alamat e-mel dan kata laluan.';
       errorEl.classList.add('show');
     } else {
-      showToast('Sila masukkan e-mel dan kata laluan yang sah.', 'error');
+      showToast('Sila masukkan alamat e-mel dan kata laluan.', 'error');
     }
     return;
   }
@@ -84,8 +84,8 @@ async function doLogin() {
 
   clearInlineFieldErrors(document);
   if (!isValidEmail(email) || !password) {
-    if (!isValidEmail(email)) showInlineFieldError('login-user', 'Masukkan alamat e-mel admin yang sah.');
-    if (!password) showInlineFieldError('login-pass', 'Masukkan kata laluan.');
+    if (!isValidEmail(email)) showInlineFieldError('login-user', 'Sila masukkan alamat e-mel pentadbir yang sah.');
+    if (!password) showInlineFieldError('login-pass', 'Sila masukkan kata laluan.');
     return;
   }
 
@@ -96,7 +96,7 @@ async function doLogin() {
     window.location.href = ROUTES.adminDashboard;
   } catch (error) {
     if (errorEl) {
-      errorEl.textContent = error.message || 'Nama pengguna atau kata laluan tidak sah.';
+      errorEl.textContent = error.message || 'Alamat e-mel atau kata laluan tidak sah.';
       errorEl.classList.add('show');
       errorEl.style.display = 'block';
     }
@@ -113,7 +113,7 @@ async function doUserLogin() {
     return;
   }
   if (!password) {
-    showToast('Sila masukkan kata laluan pelanggan.', 'error');
+    showToast('Sila masukkan kata laluan.', 'error');
     return;
   }
 
@@ -122,7 +122,7 @@ async function doUserLogin() {
     localStorage.setItem('ps_user_email', email);
     window.location.href = ROUTES.dashboard;
   } catch (error) {
-    showToast(error.message || 'Log masuk pengguna gagal.', 'error');
+    showToast(error.message || 'Log masuk gagal.', 'error');
     return;
   }
 }

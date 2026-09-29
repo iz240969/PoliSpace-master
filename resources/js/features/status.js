@@ -12,7 +12,7 @@ async function checkStatus() {
     const result = await tryApi(`bookings.php?action=ref&ref=${encodeURIComponent(ref)}`);
     renderStatusCard(result.data, card);
   } catch (error) {
-    showToast(error.status === 404 ? 'Nombor rujukan tidak dijumpai.' : error.message || 'Status tempahan tidak dapat dimuatkan.', 'error');
+    showToast(error.status === 404 ? 'No. Rujukan Tempahan tidak ditemui.' : error.message || 'Status tempahan tidak dapat dimuatkan.', 'error');
     card.classList.remove('show');
   } finally {
     if (button) setButtonLoading(button, false);
@@ -27,9 +27,7 @@ function renderStatusCard(booking, card) {
 
   card.classList.add('show');
   setText('statusRef', booking.id || booking.booking_ref);
-  document.getElementById('statusBadge').innerHTML = booking.paymentRequired === false && booking.status === 'pending'
-    ? '<div class="status-badge status-pending">Menunggu Kelulusan</div>'
-    : statusBadgeHtml(booking.status);
+  document.getElementById('statusBadge').innerHTML = bookingStatusBadgeHtml(booking);
   document.getElementById('statusDetails').innerHTML = `
     <div class="detail-row"><span class="detail-label">Nama</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
     <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value detail-value-with-icon">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
@@ -39,21 +37,35 @@ function renderStatusCard(booking, card) {
     <div class="detail-row"><span class="detail-label">Jenis Pemohon</span><span class="detail-value">${escapeHtml(booking.accountTypeLabel || (booking.accountType === 'staff' ? 'Kakitangan' : 'Orang Awam'))}</span></div>
     <div class="detail-row"><span class="detail-label">Bayaran</span><span class="detail-value">${booking.paymentRequired === false ? 'Tidak diperlukan' : 'Diperlukan'}</span></div>
     <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
-    <div class="detail-row"><span class="detail-label">No Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
+    <div class="detail-row"><span class="detail-label">No. Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
     ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
     <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
     <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose)}</span></div>
-    ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Admin</span><span class="detail-value detail-value-warning">${escapeHtml(booking.adminNote)}</span></div>` : ''}
+    ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Pentadbir</span><span class="detail-value detail-value-warning">${escapeHtml(booking.adminNote)}</span></div>` : ''}
     ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value detail-value-warning">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
   `;
 
   const hasReceipt = Boolean(booking.paymentFile || booking.payment_file);
-  const paymentRequired = booking.paymentRequired !== false;
+  const paymentRequired = booking.paymentRequired !== false && booking.payment_required !== false;
+  const decisionLabel = booking.status === 'approved'
+    ? 'Tempahan Diluluskan'
+    : booking.status === 'rejected'
+      ? 'Permohonan Ditolak'
+      : booking.status === 'cancelled' ? 'Tempahan Dibatalkan' : 'Keputusan Tempahan';
+  const decisionTime = booking.status === 'approved'
+    ? 'Tempahan telah diluluskan'
+    : booking.status === 'rejected'
+      ? 'Permohonan telah ditolak'
+      : booking.status === 'cancelled'
+        ? 'Tempahan telah dibatalkan'
+        : booking.status === 'pending'
+          ? (paymentRequired ? 'Menunggu semakan bayaran' : 'Menunggu kelulusan')
+          : 'Menunggu bukti bayaran';
   const steps = [
     { label: 'Permohonan Dihantar', done: true, time: formatDateTime(booking.createdAt || booking.created_at) },
-    ...(paymentRequired ? [{ label: 'Bayaran / Resit', done: hasReceipt, active: booking.status === 'unpaid', time: hasReceipt ? 'Resit diterima' : booking.status === 'cancelled' ? 'Tiada resit' : 'Menunggu resit bayaran' }] : []),
-    { label: 'Semakan Permohonan', done: ['approved', 'rejected'].includes(booking.status), active: booking.status === 'pending', time: booking.status === 'pending' ? 'Dalam proses...' : ['approved', 'rejected'].includes(booking.status) ? 'Sudah disemak' : 'Belum bermula' },
-    { label: booking.status === 'rejected' ? 'Permohonan Ditolak' : booking.status === 'cancelled' ? 'Tempahan Dibatalkan' : 'Tempahan Disahkan', done: booking.status === 'approved', active: ['rejected', 'cancelled'].includes(booking.status), time: booking.status === 'approved' ? 'Tempahan telah diluluskan' : booking.status === 'rejected' ? 'Sila hubungi pentadbir' : booking.status === 'cancelled' ? 'Dibatalkan oleh pengguna' : 'Menunggu' },
+    ...(paymentRequired ? [{ label: 'Bukti Bayaran', done: hasReceipt, active: booking.status === 'unpaid', time: hasReceipt ? 'Fail bukti dimuat naik' : booking.status === 'cancelled' ? 'Tiada bukti bayaran' : 'Menunggu bukti bayaran' }] : []),
+    { label: paymentRequired ? 'Semakan Bayaran' : 'Semakan Permohonan', done: ['approved', 'rejected'].includes(booking.status), active: booking.status === 'pending', time: booking.status === 'pending' ? 'Sedang disemak...' : ['approved', 'rejected'].includes(booking.status) ? 'Semakan selesai' : 'Belum bermula' },
+    { label: decisionLabel, done: booking.status === 'approved', active: ['rejected', 'cancelled'].includes(booking.status), time: decisionTime },
   ];
   document.getElementById('statusTimeline').innerHTML = steps.map((s) => `
     <div class="timeline-step">
@@ -85,7 +97,7 @@ function renderStatusGroupCard(group, card) {
       <div class="status-group-booking">
         <div class="status-group-booking-head">
           <span class="booking-id">${escapeHtml(booking.id || booking.booking_ref)}</span>
-          ${statusBadgeHtml(booking.status)}
+          ${bookingStatusBadgeHtml(booking)}
         </div>
         <div class="detail-row"><span class="detail-label">Fasiliti</span><span class="detail-value detail-value-with-icon">${booking.facilityIcon || ''} ${escapeHtml(booking.facilityName)}</span></div>
         <div class="detail-row"><span class="detail-label">Tarikh</span><span class="detail-value">${formatDate(booking.date)}</span></div>
@@ -93,7 +105,7 @@ function renderStatusGroupCard(group, card) {
         <div class="detail-row"><span class="detail-label">Jenis Pemohon</span><span class="detail-value">${escapeHtml(booking.accountTypeLabel || (booking.accountType === 'staff' ? 'Kakitangan' : 'Orang Awam'))}</span></div>
         <div class="detail-row"><span class="detail-label">Bayaran</span><span class="detail-value">${booking.paymentRequired === false ? 'Tidak diperlukan' : 'Diperlukan'}</span></div>
         <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
-        <div class="detail-row"><span class="detail-label">No Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
+        <div class="detail-row"><span class="detail-label">No. Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
       </div>
     `).join('')
     : '<div class="detail-row"><span class="detail-label">Tempahan</span><span class="detail-value">Tiada rekod</span></div>';

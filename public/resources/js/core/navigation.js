@@ -180,7 +180,7 @@ function updateNavActions(navActions, loggedIn) {
         <div class="account-dropdown" role="menu">
           <button class="account-dropdown-item is-disabled" type="button" disabled>
             <i class="bi bi-speedometer2"></i>
-            <span>Dashboard</span>
+            <span>Tempahan Saya</span>
           </button>
           <button class="account-dropdown-item" type="button" onclick="window.location.href='${ROUTES.login}'">
             <i class="bi bi-box-arrow-in-right"></i>
@@ -258,12 +258,12 @@ function ensureProfileModal() {
               <input class="profile-readonly" type="email" id="profileEmail" autocomplete="email" readonly>
             </div>
             <div class="form-group">
-              <label for="profilePhone">No Telefon *</label>
+              <label for="profilePhone">No. Telefon *</label>
               <input type="tel" id="profilePhone" maxlength="20" autocomplete="tel" placeholder="Contoh: 012-3456789" required>
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" type="button" onclick="closeModal('profileModal')">Batal</button>
+            <button class="btn btn-secondary" type="button" onclick="closeModal('profileModal')">Kembali</button>
             <button class="btn btn-primary" id="saveProfileButton" type="submit"><i class="bi bi-check-lg"></i> Simpan</button>
           </div>
         </form>

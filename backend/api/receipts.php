@@ -13,14 +13,17 @@ if ($filename === '' || !preg_match('/^payment_[A-Za-z0-9_.-]+\.(?:jpe?g|png|gif
     jsonResponse(['success' => false, 'error' => 'Invalid receipt file'], 400);
 }
 
+$db = Database::getInstance();
 $isAdmin = !empty($_SESSION['admin_id']) && empty($_SESSION['user_id']);
-$userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : 0;
-$userEmail = trim((string)($_SESSION['user_email'] ?? ''));
-if (!$isAdmin && ($userId <= 0 || !filter_var($userEmail, FILTER_VALIDATE_EMAIL))) {
-    jsonResponse(['success' => false, 'error' => 'Login required'], 401);
+if ($isAdmin) {
+    $userId = 0;
+    $userEmail = '';
+} else {
+    $user = requireUserAccount($db);
+    $userId = (int)$user['id'];
+    $userEmail = (string)$user['email'];
 }
 
-$db = Database::getInstance();
 if ($isAdmin) {
     $booking = $db->fetchOne('SELECT id FROM bookings WHERE payment_file = ? LIMIT 1', [$filename]);
 } else {
