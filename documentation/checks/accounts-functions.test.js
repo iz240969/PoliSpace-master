@@ -16,6 +16,12 @@ function apiHarness() {
     API_BASE: '/backend/api',
     apiOnline: true,
     FormData,
+    FileReader: class {
+      readAsDataURL() {
+        this.result = 'data:application/pdf;base64,cGRm';
+        this.onload();
+      }
+    },
     AbortController: class {
       constructor() { this.signal = {}; }
       abort() {}
@@ -42,8 +48,8 @@ test('booking submission selects its timeout from the supplied booking data', as
   await upload.context.createBookingApi({ purpose: 'Training', payment_file: 'receipt.pdf' });
   assert.equal(upload.requests.length, 1);
   assert.equal(upload.timeoutDelays[0], 120000);
-  assert.equal(upload.requests[0].options.body.get('purpose'), 'Training');
-  assert.equal(upload.requests[0].options.body.get('payment_file'), 'receipt.pdf');
+  assert.equal(JSON.parse(upload.requests[0].options.body).purpose, 'Training');
+  assert.equal(JSON.parse(upload.requests[0].options.body).payment_file_base64, 'cGRm');
 
   const standard = apiHarness();
   await standard.context.createBookingApi({ purpose: 'Staff meeting' });
@@ -55,8 +61,8 @@ test('customer login sends the password argument without reading the page DOM', 
   await harness.context.userLogin('member@example.test', 'secret-123');
   assert.equal(harness.requests.length, 1);
   assert.match(harness.requests[0].url, /auth\.php\?action=user/);
-  assert.equal(harness.requests[0].options.body.get('email'), 'member@example.test');
-  assert.equal(harness.requests[0].options.body.get('password'), 'secret-123');
+  assert.equal(JSON.parse(harness.requests[0].options.body).email, 'member@example.test');
+  assert.equal(JSON.parse(harness.requests[0].options.body).password, 'secret-123');
 });
 
 test('profile submission blocks a blank phone before calling the API', async () => {

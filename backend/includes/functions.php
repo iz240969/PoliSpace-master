@@ -113,6 +113,48 @@ function handlePaymentUpload(array $file): array
     return ['filename' => $filename];
 }
 
+function handlePaymentEvidenceUpload(array $data): array
+{
+    if (isset($_FILES['payment_file'])) {
+        return handlePaymentUpload($_FILES['payment_file']);
+    }
+
+    $encoded = $data['payment_file_base64'] ?? null;
+    if (!is_string($encoded) || $encoded === '') {
+        return ['error' => 'Receipt upload is required'];
+    }
+    // A 5 MB file needs at most 6,990,508 base64 characters.
+    if (strlen($encoded) > 6990508) {
+        return ['error' => 'File size exceeds 5MB limit.'];
+    }
+    $contents = base64_decode($encoded, true);
+    if ($contents === false || $contents === '') {
+        return ['error' => 'Invalid upload.'];
+    }
+    if (strlen($contents) > 5 * 1024 * 1024) {
+        return ['error' => 'File size exceeds 5MB limit.'];
+    }
+
+    $extensions = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'application/pdf' => 'pdf',
+    ];
+    $type = (new finfo(FILEINFO_MIME_TYPE))->buffer($contents);
+    if (!isset($extensions[$type])) {
+        return ['error' => 'File type not allowed. Upload JPG, PNG, GIF, or PDF.'];
+    }
+    if (!is_dir(UPLOAD_DIR) && !mkdir(UPLOAD_DIR, 0755, true)) {
+        return ['error' => 'Upload directory could not be created.'];
+    }
+    $filename = 'payment_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $extensions[$type];
+    if (file_put_contents(UPLOAD_DIR . $filename, $contents, LOCK_EX) === false) {
+        return ['error' => 'Failed to upload file.'];
+    }
+    return ['filename' => $filename];
+}
+
 function requireAdmin(): void
 {
     if (empty($_SESSION['admin_id']) || !empty($_SESSION['user_id'])) {

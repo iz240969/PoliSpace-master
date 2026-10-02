@@ -224,7 +224,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20261002-calendar-loading-v1"></script>
+  <script src="/resources/js/script.js?v=20261003-booking-json-v2"></script>
 </body>
 </html>
 

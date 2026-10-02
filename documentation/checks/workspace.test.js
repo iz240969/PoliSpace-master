@@ -73,6 +73,34 @@ test('API requests recover after a temporary network failure', async () => {
   assert.equal(requests, 2);
 });
 
+test('booking writes preserve their method through the published proxy', async () => {
+  const requests = [];
+  const context = vm.createContext({
+    API_BASE: '/backend/api',
+    FileReader: class {
+      readAsDataURL() {
+        this.result = 'data:application/pdf;base64,cGRm';
+        this.onload();
+      }
+    },
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      return { ok: true, status: 200, json: async () => ({ success: true, booking_ref: 'PS-TEST' }) };
+    },
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+  await context.createBookingApi({ facility_id: 1 });
+  await context.uploadBookingReceiptApi('PS-TEST', new Blob(['receipt']));
+  assert.equal(requests.length, 2);
+  for (const { options } of requests) {
+    assert.equal(options.method, 'POST');
+    assert.equal(options.headers['X-HTTP-Method-Override'], 'POST');
+    assert.equal(options.headers['Content-Type'], 'application/json');
+  }
+  assert.equal(JSON.parse(requests[0].options.body).facility_id, 1);
+  assert.equal(JSON.parse(requests[1].options.body).payment_file_base64, 'cGRm');
+});
+
 test('calendar reads keep a focused navigation button intact', async () => {
   let finishRequest;
   const loadingCalls = [];

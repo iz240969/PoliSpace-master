@@ -1164,15 +1164,13 @@ function adjustAdminCreateAsramaRoom(side, delta) {
 }
 
 async function createAdminBookingRequest(data, receiptFile = null) {
-  const formData = new FormData();
-  Object.entries(data).forEach(([key, value]) => {
-    if (value !== null && value !== undefined && value !== '') formData.append(key, value);
-  });
-  if (receiptFile) formData.append('payment_file', receiptFile);
+  const payload = { ...data };
+  if (receiptFile) payload.payment_file_base64 = await paymentFileBase64(receiptFile);
 
   return requestApiJson(`${API_BASE}/bookings.php?action=admin-create`, {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
     credentials: 'include',
   }, 'Tempahan gagal dicipta. Sila cuba lagi.', receiptFile ? API_TIMEOUT_UPLOAD : API_TIMEOUT_BOOKING);
 }

@@ -209,6 +209,7 @@ async function requestApiJson(url, options = {}, fallbackMessage = 'Permintaan g
     const requestOptions = {
       ...options,
       credentials: options.credentials || 'include',
+      ...(isMutation ? { headers: { ...options.headers, 'X-HTTP-Method-Override': method } } : {}),
       ...(controller ? { signal: controller.signal } : {}),
     };
     const timeout = Number(timeoutMs || options.timeoutMs || API_TIMEOUT_DEFAULT);
@@ -287,26 +288,35 @@ async function loadFacilities() {
   return facilitiesCache;
 }
 
-async function createBookingApi(data) {
-  const formData = new FormData();
-  Object.keys(data).forEach((key) => {
-    if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
-      formData.append(key, data[key]);
-    }
+function paymentFileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Bukti bayaran tidak dapat dibaca. Sila cuba lagi.'));
+    reader.readAsDataURL(file);
   });
+}
+
+async function createBookingApi(data) {
+  const payload = { ...data };
+  if (payload.payment_file) {
+    payload.payment_file_base64 = await paymentFileBase64(payload.payment_file);
+    delete payload.payment_file;
+  }
   return requestApiJson(`${API_BASE}/bookings.php`, {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
     credentials: 'include',
   }, 'Permohonan tempahan gagal dihantar. Sila cuba lagi.', data.payment_file ? API_TIMEOUT_UPLOAD : API_TIMEOUT_BOOKING);
 }
 
 async function uploadBookingReceiptApi(id, file) {
-  const formData = new FormData();
-  formData.append('payment_file', file);
+  const paymentFile = await paymentFileBase64(file);
   return requestApiJson(`${API_BASE}/bookings.php?action=receipt&id=${encodeURIComponent(id)}`, {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payment_file_base64: paymentFile }),
     credentials: 'include',
   }, 'Muat naik gagal. Sila cuba lagi.', API_TIMEOUT_UPLOAD);
 }

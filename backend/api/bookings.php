@@ -385,8 +385,9 @@ function createBooking(Database $db, bool $adminCreate = false): void
 
     $paymentFile = null;
     $bookingStatus = $adminCreate ? 'approved' : ($paymentRequired ? 'unpaid' : 'pending');
-    $hasPaymentFile = !empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE;
-    if ($hasPaymentFile && $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
+    $hasPaymentFile = (!empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE)
+        || array_key_exists('payment_file_base64', $data);
+    if (isset($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
         jsonResponse(['success' => false, 'error' => 'Receipt upload failed'], 400);
     }
     if ($hasPaymentFile && !$paymentRequired) {
@@ -442,7 +443,7 @@ function createBooking(Database $db, bool $adminCreate = false): void
         }
 
         if ($hasPaymentFile) {
-            $upload = handlePaymentUpload($_FILES['payment_file']);
+            $upload = handlePaymentEvidenceUpload($data);
             if (!empty($upload['error'])) {
                 throw new BookingAvailabilityException((string)$upload['error'], 400);
             }
@@ -980,7 +981,9 @@ function uploadOwnReceipt(Database $db, string $id): void
         jsonResponse(['success' => false, 'error' => 'Booking not found'], 404);
     }
 
-    if (empty($_FILES['payment_file']) || $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK) {
+    $receiptData = jsonInput();
+    if ((empty($_FILES['payment_file']) || $_FILES['payment_file']['error'] !== UPLOAD_ERR_OK)
+        && !array_key_exists('payment_file_base64', $receiptData)) {
         jsonResponse(['success' => false, 'error' => 'Receipt upload is required'], 400);
     }
 
@@ -994,7 +997,7 @@ function uploadOwnReceipt(Database $db, string $id): void
             (string)($booking['duration_unit'] ?? 'hour')
         ),
         true,
-        function () use ($db, $field, $id, $userId, $userEmail): string {
+        function () use ($db, $field, $id, $userId, $userEmail, $receiptData): string {
             $current = $db->fetchOne(
                 "SELECT b.id, b.user_id, b.email, b.status, b.payment_file, b.payment_required, b.facility_id,
                         b.booking_date, b.start_time, b.end_time, b.duration, b.duration_unit, b.participant_count,
@@ -1058,7 +1061,7 @@ function uploadOwnReceipt(Database $db, string $id): void
                 );
             }
 
-            $upload = handlePaymentUpload($_FILES['payment_file']);
+            $upload = handlePaymentEvidenceUpload($receiptData);
             if (!empty($upload['error'])) {
                 throw new BookingAvailabilityException((string)$upload['error'], 400);
             }

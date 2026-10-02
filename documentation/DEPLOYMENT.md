@@ -30,6 +30,12 @@ Use PHP 8.3 or newer with `pdo_mysql`, the Laravel-required extensions, Composer
 
 ## Release checklist
 
+### Booking checks on Ryaze
+
+The published API can return HTTP 404 with a valid JSON body even for successful GET requests. Check the JSON `success` value as well as the HTTP status. Ryaze can pass browser POST requests to Laravel as GET and omit multipart form fields. The shared API client sends `X-HTTP-Method-Override`; booking creation and receipt uploads send JSON, with receipts base64 encoded and validated server side. Deploy updated `backend/`, `public/resources/js/`, and matching page templates together. The host must accept request bodies of at least 7 MB for the allowed 5 MB receipt size.
+
+Before importing SQL into an existing site, check the connected database with `SHOW TABLES LIKE 'bookings';` and inspect the server error log. A working `bookings.php?action=public-stats` response confirms the booking handler can query its table; a failed booking submission alone does not show that the table is missing. Back up production data before applying `database/update_polspace.sql`.
+
 - Run `composer install --no-dev --optimize-autoloader` for production.
 - Run `npm install` and `npm run build` after changing frontend assets.
 - If an older deployment has cached the previous database cache setting, run `php artisan config:clear` before `php artisan cache:clear`; then refresh it with `php artisan config:cache` if your release process uses cached configuration.

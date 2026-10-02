@@ -305,8 +305,8 @@ root redirect HTML files
 
 - `resources/js/core/fallback.js` reads legacy local booking data only for public calendar fallbacks. Mutating and authenticated workflows never report local-only data as successfully saved.
 - `APP_ROOT` is hardcoded to ''.
-- There is no `.env.example` in this checkout; keep local database settings in `.env`.
+- Copy `.env.example` to `.env` and keep local database credentials in `.env`.
 - State-changing browser requests enforce same-origin checks. Production hardening still needs HTTPS-only cookies, changing default admin credentials, and optional synchronizer CSRF tokens for defense-in-depth.
-- MySQL named locks plus backend date-range conflict checks protect simultaneous paid bookings for the same facility/date range. The `uniq_blocking_facility_date` index still protects duplicate starts for the same facility/date.
+- MySQL named locks plus backend date-range conflict checks protect simultaneous blocking bookings for normal facilities. The `idx_blocking_facility_date` index supports these lookups without preventing concurrent Asrama bookings, which use room quotas.
 
 
