@@ -260,6 +260,13 @@ async function loadPublicCalendarBookings(year, month, facilityId = '') {
   }
 }
 
+async function refreshPublicCalendarBookings(year, month, facilityId = '') {
+  const cacheKey = publicCalendarCacheKey(year, month, facilityId);
+  publicCalendarBookingsCache.delete(cacheKey);
+  publicCalendarLoadErrors.delete(cacheKey);
+  return loadPublicCalendarBookings(year, month, facilityId);
+}
+
 async function renderLandingCalendar() {
   const calendar = document.getElementById('landingCalendar');
   const title = document.getElementById('landingCalendarTitle');
@@ -662,11 +669,11 @@ async function renderBookingDatePicker() {
     picker.querySelector('.calendar-retry-button')?.addEventListener('click', () => renderBookingDatePicker());
   };
 
-  renderMonth(hasCachedBookings ? publicCalendarBookingsCache.get(cacheKey) || [] : [], hasCachedBookings ? 'ready' : 'pending');
-  if (!selectedFacilityId || hasCachedBookings) return;
+  renderMonth(hasCachedBookings ? publicCalendarBookingsCache.get(cacheKey) || [] : [], selectedFacilityId ? 'pending' : 'ready');
+  if (!selectedFacilityId) return;
 
   try {
-    const bookings = await loadPublicCalendarBookings(year, displayMonth, selectedFacilityId);
+    const bookings = await refreshPublicCalendarBookings(year, displayMonth, selectedFacilityId);
     renderMonth(bookings, 'ready');
   } catch {
     renderMonth([], 'error');

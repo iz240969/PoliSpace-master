@@ -59,7 +59,7 @@ function renderStatusCard(booking, card) {
       : booking.status === 'cancelled'
         ? 'Tempahan telah dibatalkan'
         : booking.status === 'pending'
-          ? (paymentRequired ? 'Menunggu semakan bayaran' : 'Menunggu kelulusan')
+          ? (paymentRequired ? 'Menunggu' : 'Menunggu')
           : 'Menunggu bukti bayaran';
   const steps = [
     { label: 'Permohonan Dihantar', done: true, time: formatDateTime(booking.createdAt || booking.created_at) },

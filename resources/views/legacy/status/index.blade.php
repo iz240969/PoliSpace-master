@@ -20,7 +20,7 @@
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
+      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -36,7 +36,7 @@
         <input type="text" id="statusInput" placeholder="Contoh: PS-0001 atau TR-0001" autocomplete="off" onkeydown="if(event.key==='Enter') checkStatus()">
         <button class="btn btn-primary" id="statusSearchButton" type="button" onclick="checkStatus()"><i class="bi bi-search"></i> Semak</button>
       </div>
-      <div class="status-search-hint"><i class="bi bi-info-circle"></i><span>No. Rujukan Tempahan tertera pada pengesahan permohonan. Untuk melihat semua tempahan, buka <a href="/resources/views/dashboard/index.html">Tempahan Saya</a>.</span></div>
+      <div class="status-search-hint"><i class="bi bi-info-circle"></i><span>No. Rujukan Tempahan tertera pada pengesahan permohonan. Untuk melihat semua tempahan, buka <a href="/resources/views/dashboard/index.html">Dashboard</a>.</span></div>
       <div class="status-result-card" id="statusResultCard">
         <div class="status-result-header">
           <div><div class="status-result-label">No. Rujukan Tempahan</div><div class="status-result-reference" id="statusRef"></div></div>
@@ -47,7 +47,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
+  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
 </body>
 </html>
 

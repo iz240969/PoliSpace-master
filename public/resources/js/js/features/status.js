@@ -28,7 +28,7 @@ function renderStatusCard(booking, card) {
   card.classList.add('show');
   setText('statusRef', booking.id || booking.booking_ref);
   document.getElementById('statusBadge').innerHTML = booking.paymentRequired === false && booking.status === 'pending'
-    ? '<div class="status-badge status-pending">Menunggu Kelulusan</div>'
+    ? '<div class="status-badge status-pending">Menunggu</div>'
     : statusBadgeHtml(booking.status);
   document.getElementById('statusDetails').innerHTML = `
     <div class="detail-row"><span class="detail-label">Nama</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>

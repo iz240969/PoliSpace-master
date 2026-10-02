@@ -19,7 +19,7 @@
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
+      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -59,7 +59,7 @@
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
+  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
 </body>
 </html>
 

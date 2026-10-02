@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PoliSpace - Tempahan Saya</title>
+    <title>PoliSpace - Dashboard</title>
     <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +26,7 @@
         <div class="nav-links">
             <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
             <button class="nav-link" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-            <button class="nav-link active" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
+            <button class="nav-link active" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
         </div>
         <div class="nav-actions"></div>
     </nav>
@@ -39,7 +39,7 @@
         <!-- HERO -->
         <div class="dash-hero">
             <div class="dash-eyebrow">RUANG KERJA TEMPAHAN</div>
-            <h1 class="page-main-title">Tempahan Saya</h1>
+            <h1 class="page-main-title">Dashboard</h1>
             <p>Urus semua tempahan fasiliti anda di satu tempat.</p>
             <p id="dashboardAccountType"></p>
 
@@ -85,7 +85,7 @@
         <div class="dash-section" id="dashBookingsSection">
             <div class="dash-section-header">
                 <div class="dash-section-title">
-                    Tempahan Saya
+                    Dashboard
                     <small id="bookingCountLabel">0 tempahan</small>
                 </div>
                 <div class="dash-booking-tools">
@@ -203,7 +203,7 @@
         </div>
     </div>
 
-  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
+  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
 
 </body>
 </html>

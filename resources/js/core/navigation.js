@@ -1,4 +1,4 @@
-﻿// ==================== NAVIGATION ACCESS ====================
+// ==================== NAVIGATION ACCESS ====================
 let psAuthState = {
   checked: false,
   role: null,
@@ -180,7 +180,7 @@ function updateNavActions(navActions, loggedIn) {
         <div class="account-dropdown" role="menu">
           <button class="account-dropdown-item is-disabled" type="button" disabled>
             <i class="bi bi-speedometer2"></i>
-            <span>Tempahan Saya</span>
+            <span>Dashboard</span>
           </button>
           <button class="account-dropdown-item" type="button" onclick="window.location.href='${ROUTES.login}'">
             <i class="bi bi-box-arrow-in-right"></i>

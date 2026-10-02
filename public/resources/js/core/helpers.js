@@ -111,7 +111,7 @@ function statusBadgeHtml(status) {
 function bookingStatusBadgeHtml(booking, element = 'div') {
   if (booking?.status !== 'pending') return statusBadgeHtml(booking?.status);
   const paymentRequired = booking.paymentRequired !== false && booking.payment_required !== false;
-  const label = paymentRequired ? 'Menunggu Semakan Bayaran' : 'Menunggu';
+  const label = paymentRequired ? 'Menunggu' : 'Menunggu';
   return `<${element} class="status-badge status-pending"><i class="bi bi-clock" aria-hidden="true"></i>${label}</${element}>`;
 }
 

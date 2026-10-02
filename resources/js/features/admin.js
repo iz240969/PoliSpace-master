@@ -16,6 +16,8 @@ let adminPicsLoadError = null;
 let adminClientsLoaded = false;
 let adminMessagesLoaded = false;
 let adminDashboardLoaded = false;
+let adminBookingPickerDate = new Date();
+let adminBookingPickerRequestId = 0;
 let adminClientFilter = 'all';
 let adminBookingFilterRequest = 0;
 let adminBookingActiveFilter = 'all';
@@ -217,7 +219,7 @@ function updatePendingBookingBadge(value) {
 function buildStatsHTML(stats) {
   return [
     ['Jumlah Tempahan', stats.total, 'bi-journal-text', 'neutral', 'Tidak termasuk belum bayar'],
-    ['Menunggu Semakan', stats.pending, 'bi-clock-history', 'warning', 'Perlu tindakan pentadbir'],
+    ['Menunggu', stats.pending, 'bi-clock-history', 'warning', 'Perlu tindakan pentadbir'],
     ['Diluluskan', stats.approved, 'bi-check2-circle', 'success', 'Permohonan diluluskan'],
     ['Hari Ini', stats.today, 'bi-calendar3', 'gold', 'Tempahan pada hari ini'],
   ].map(([label, value, icon, tone, caption]) => `<div class="stat-card stat-${tone}"><div class="stat-card-top"><span class="stat-card-icon"><i class="bi ${icon}" aria-hidden="true"></i></span><div><div class="stat-card-label">${label}</div><div class="stat-card-value">${Number(value || 0).toLocaleString('ms-MY')}</div></div></div><div class="stat-card-caption">${caption}</div></div>`).join('');
@@ -535,7 +537,7 @@ function printAdminEvidenceBooking(id) {
     <div class="field${wide ? ' field-wide' : ''}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value || '-'))}</strong></div>
   `).join('');
   const status = booking.status === 'pending'
-    ? (booking.paymentRequired === false ? 'Menunggu' : 'Menunggu Semakan Bayaran')
+    ? 'Menunggu'
     : statusLabels[booking.status] || booking.status || '-';
   const html = `<!doctype html>
     <html lang="ms"><head><meta charset="utf-8"><title>Butiran Tempahan ${escapeHtml(booking.id)}</title>
@@ -748,7 +750,11 @@ function openAdminCreateBookingModal() {
       </div>
       <div class="form-group">
         <label for="adminBookingDate">Tarikh Tempahan *</label>
-        <input type="date" id="adminBookingDate" ${minDate ? `min="${escapeAttr(minDate)}"` : ''} required onchange="normalizeAdminCreateRooms()">
+        <div class="booking-date-input-wrap">
+          <input type="date" id="adminBookingDate" ${minDate ? `min="${escapeAttr(minDate)}"` : ''} required onchange="validateAdminCreateBookingDate();normalizeAdminCreateRooms()">
+          <button type="button" class="booking-date-toggle" aria-label="Buka kalendar ketersediaan tempahan pentadbir" aria-expanded="false" aria-controls="adminBookingDatePicker" onclick="toggleAdminBookingDatePicker()"><i class="bi bi-calendar3"></i></button>
+        </div>
+        <div class="booking-date-picker" id="adminBookingDatePicker"></div>
       </div>
       <div class="form-group" data-admin-create-time>
         <label for="adminBookingStart">Masa Mula *</label>
@@ -907,6 +913,137 @@ function getAdminCreateSelectedFacility() {
   return facilitiesCache.find((facility) => String(facility.id) === String(id));
 }
 
+function renderAdminBookingDatePicker() {
+  const picker = document.getElementById('adminBookingDatePicker');
+  if (!picker) return;
+
+  const requestId = ++adminBookingPickerRequestId;
+  const year = adminBookingPickerDate.getFullYear();
+  const month = adminBookingPickerDate.getMonth();
+  const displayMonth = month + 1;
+  const facility = getAdminCreateSelectedFacility();
+  const facilityId = facility?.id || '';
+  const monthNames = ['Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun', 'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'];
+
+  const renderMonth = (bookings, state = 'ready') => {
+    if (requestId !== adminBookingPickerRequestId) return;
+    const loading = state === 'pending';
+    const failed = state === 'error';
+    const asrama = isAsramaRoomFacility(facility);
+    const bookedDates = new Set(asrama ? [] : bookings
+      .filter((booking) => String(booking.facilityId || booking.facility_id || '') === String(facilityId))
+      .map((booking) => booking.date || booking.booking_date)
+      .filter(Boolean));
+    const minimumDate = getMinimumBookingDateValue();
+    const firstDay = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    let html = `
+      <div class="booking-date-picker-head">
+        <button type="button" data-admin-date-action="previous" aria-label="Bulan sebelum"><i class="bi bi-chevron-left"></i></button>
+        <strong>${monthNames[month]} ${year}</strong>
+        <button type="button" data-admin-date-action="next" aria-label="Bulan seterusnya"><i class="bi bi-chevron-right"></i></button>
+      </div>
+      <div class="booking-date-picker-weekdays">${['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'].map((day) => `<span>${day}</span>`).join('')}</div>
+      <div class="booking-date-picker-grid">
+    `;
+    for (let i = 0; i < firstDay; i += 1) html += '<span class="booking-date-picker-blank"></span>';
+    for (let day = 1; day <= days; day += 1) {
+      const date = `${year}-${String(displayMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isTooSoon = date < minimumDate;
+      const isBooked = bookedDates.has(date);
+      const disabled = isTooSoon || isBooked || loading || failed || !facilityId;
+      const label = isBooked ? 'Telah ditempah' : isTooSoon ? 'Perlu ditempah 3 hari lebih awal' : !facilityId ? 'Pilih fasiliti dahulu' : loading ? 'Menyemak ketersediaan' : failed ? 'Ketersediaan belum dapat disahkan' : 'Tersedia';
+      const classes = `booking-date-picker-day${isBooked ? ' is-booked' : ''}${disabled ? ' is-disabled' : ' is-available'}${document.getElementById('adminBookingDate')?.value === date ? ' is-selected' : ''}`;
+      html += `<button type="button" class="${classes}" data-admin-booking-date="${date}" ${disabled ? 'disabled' : ''} title="${label}" aria-label="${day} ${monthNames[month]} - ${label}">${day}</button>`;
+    }
+    const legend = asrama
+      ? '<span><i class="available"></i> Semak baki bilik untuk tarikh dipilih</span>'
+      : '<span><i class="available"></i> Tersedia</span><span><i class="booked"></i> Telah ditempah</span>';
+    const warning = failed ? '<div class="calendar-load-warning" role="status"><i class="bi bi-exclamation-circle"></i><span>Ketersediaan belum dapat disahkan.</span><button class="btn btn-secondary btn-sm admin-calendar-retry" type="button"><i class="bi bi-arrow-clockwise"></i> Cuba Lagi</button></div>' : '';
+    picker.innerHTML = `${warning}${html}</div><div class="booking-date-picker-legend">${legend}</div>`;
+    picker.setAttribute('aria-busy', String(loading));
+    picker.querySelector('.admin-calendar-retry')?.addEventListener('click', renderAdminBookingDatePicker);
+  };
+
+  renderMonth([], 'pending');
+  if (!facilityId) {
+    renderMonth([], 'ready');
+    return;
+  }
+  refreshPublicCalendarBookings(year, displayMonth, facilityId)
+    .then((bookings) => renderMonth(bookings, 'ready'))
+    .catch(() => renderMonth([], 'error'));
+}
+
+function toggleAdminBookingDatePicker() {
+  const picker = document.getElementById('adminBookingDatePicker');
+  const toggle = document.querySelector('#adminCreateBookingForm .booking-date-toggle');
+  if (!picker) return;
+  const isOpen = !picker.classList.contains('is-open');
+  picker.classList.toggle('is-open', isOpen);
+  toggle?.classList.toggle('is-active', isOpen);
+  toggle?.setAttribute('aria-expanded', String(isOpen));
+  if (isOpen) {
+    const selected = document.getElementById('adminBookingDate')?.value;
+    if (selected) {
+      const [year, month] = selected.split('-').map(Number);
+      adminBookingPickerDate = new Date(year, month - 1, 1);
+    }
+    renderAdminBookingDatePicker();
+  }
+}
+
+async function validateAdminCreateBookingDate() {
+  const dateInput = document.getElementById('adminBookingDate');
+  const date = dateInput?.value || '';
+  const facility = getAdminCreateSelectedFacility();
+  if (!date || !facility || isAsramaRoomFacility(facility)) return true;
+  const [year, month] = date.split('-').map(Number);
+  try {
+    const bookings = await loadPublicCalendarBookings(year, month, facility.id);
+    const isBooked = bookings.some((booking) => String(booking.facilityId || booking.facility_id || '') === String(facility.id)
+      && (booking.date || booking.booking_date) === date);
+    if (isBooked) {
+      dateInput.value = '';
+      showToast('Tarikh ini telah ditempah untuk fasiliti tersebut. Sila pilih tarikh lain.', 'error');
+      renderAdminBookingDatePicker();
+      return false;
+    }
+  } catch {
+    showToast('Ketersediaan tarikh belum dapat disahkan. Sila cuba lagi.', 'error');
+    return false;
+  }
+  return true;
+}
+
+document.addEventListener('click', (event) => {
+  const picker = document.getElementById('adminBookingDatePicker');
+  if (!picker) return;
+  const button = event.target.closest('[data-admin-date-action], [data-admin-booking-date]');
+  if (button && picker.contains(button)) {
+    event.preventDefault();
+    if (button.dataset.adminDateAction) {
+      adminBookingPickerDate = new Date(adminBookingPickerDate.getFullYear(), adminBookingPickerDate.getMonth() + (button.dataset.adminDateAction === 'next' ? 1 : -1), 1);
+      renderAdminBookingDatePicker();
+    } else if (button.dataset.adminBookingDate) {
+      const input = document.getElementById('adminBookingDate');
+      if (input) {
+        input.value = button.dataset.adminBookingDate;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      picker.classList.remove('is-open');
+      document.querySelector('#adminCreateBookingForm .booking-date-toggle')?.setAttribute('aria-expanded', 'false');
+      document.querySelector('#adminCreateBookingForm .booking-date-toggle')?.classList.remove('is-active');
+    }
+    return;
+  }
+  if (picker.classList.contains('is-open') && !picker.contains(event.target) && !event.target.closest('#adminCreateBookingForm .booking-date-toggle')) {
+    picker.classList.remove('is-open');
+    document.querySelector('#adminCreateBookingForm .booking-date-toggle')?.setAttribute('aria-expanded', 'false');
+    document.querySelector('#adminCreateBookingForm .booking-date-toggle')?.classList.remove('is-active');
+  }
+});
+
 function syncAdminCreateBookingFields() {
   const facility = getAdminCreateSelectedFacility();
   const asrama = isAsramaRoomFacility(facility);
@@ -932,6 +1069,7 @@ function syncAdminCreateBookingFields() {
   }
   renderAdminCreateEquipmentOptions();
   syncAdminCreateBookingEndTime();
+  if (document.getElementById('adminBookingDatePicker')?.classList.contains('is-open')) renderAdminBookingDatePicker();
 }
 
 function renderAdminCreateEquipmentOptions() {
@@ -1135,6 +1273,7 @@ async function submitAdminCreateBooking(event) {
     showToast('Sila lengkapkan maklumat tempahan.', 'error');
     return;
   }
+  if (!await validateAdminCreateBookingDate()) return;
   if (!asrama && data.duration_unit === 'hour' && !data.end_time) {
     showToast('Tempahan jam mesti tamat pada hari yang sama.', 'error');
     return;

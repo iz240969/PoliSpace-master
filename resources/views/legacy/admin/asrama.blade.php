@@ -33,6 +33,6 @@
     <section id="asramaBuildings"><div class="asrama-loading"><i class="bi bi-arrow-repeat"></i> Memuatkan had tempahan asrama...</div></section>
   </main>
 
-  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
+  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
 </body>
 </html>

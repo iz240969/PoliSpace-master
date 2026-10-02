@@ -217,7 +217,7 @@ function updatePendingBookingBadge(value) {
 function buildStatsHTML(stats) {
   return [
     ['Jumlah Tempahan', stats.total, 'bi-journal-text', 'neutral', 'Tidak termasuk belum bayar'],
-    ['Menunggu Semakan', stats.pending, 'bi-clock-history', 'warning', 'Memerlukan tindakan'],
+    ['Menunggu', stats.pending, 'bi-clock-history', 'warning', 'Memerlukan tindakan'],
     ['Diluluskan', stats.approved, 'bi-check2-circle', 'success', 'Permohonan diluluskan'],
     ['Hari Ini', stats.today, 'bi-calendar3', 'gold', 'Tempahan pada hari ini'],
   ].map(([label, value, icon, tone, caption]) => `<div class="stat-card stat-${tone}"><div class="stat-card-top"><span class="stat-card-icon"><i class="bi ${icon}" aria-hidden="true"></i></span><div><div class="stat-card-label">${label}</div><div class="stat-card-value">${Number(value || 0).toLocaleString('ms-MY')}</div></div></div><div class="stat-card-caption">${caption}</div></div>`).join('');

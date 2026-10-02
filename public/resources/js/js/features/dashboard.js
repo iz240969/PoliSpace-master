@@ -35,7 +35,7 @@ function bookingNeedsPayment(booking) {
 
 function dashboardStatusBadgeHtml(booking) {
   if (!bookingNeedsPayment(booking) && booking.status === 'pending') {
-    return '<span class="status-badge status-pending">Menunggu Kelulusan</span>';
+    return '<span class="status-badge status-pending">Menunggu</span>';
   }
   return statusBadgeHtml(booking.status);
 }

@@ -21,7 +21,7 @@
     <div class="nav-links">
       <button class="nav-link" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link active" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
+      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -201,7 +201,7 @@
           <div class="booking-ref"><div class="booking-ref-label">Nombor Rujukan</div><div class="booking-ref-code" id="refCode"></div></div>
           <div class="success-pic-list" id="successPicInfo"></div>
           <div class="success-actions">
-            <button class="btn btn-primary" onclick="navigateToClientPage(ROUTES.dashboard)"><i class="bi bi-speedometer2"></i> Tempahan Saya</button>
+            <button class="btn btn-primary" onclick="navigateToClientPage(ROUTES.dashboard)"><i class="bi bi-speedometer2"></i> Dashboard</button>
             <button class="btn btn-secondary" onclick="resetBookingForm()"><i class="bi bi-calendar-plus"></i> Tempahan Baharu</button>
           </div>
         </div>
@@ -224,7 +224,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
+  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
 </body>
 </html>
 

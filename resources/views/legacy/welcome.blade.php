@@ -20,7 +20,7 @@
     <div class="nav-links">
       <button class="nav-link active" onclick="window.location.href='/resources/views/welcome.html'">Laman Utama</button>
       <button class="nav-link" onclick="navigateToClientPage(ROUTES.booking)">Tempahan</button>
-      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Tempahan Saya</button>
+      <button class="nav-link" onclick="navigateToClientPage(ROUTES.dashboard)">Dashboard</button>
     </div>
     <div class="nav-actions"></div>
   </nav>
@@ -39,7 +39,7 @@
       <p class="hero-sub">Sistem pengurusan tempahan fasiliti politeknik yang cekap dan selamat, untuk orang awam serta kakitangan.</p>
       <div class="hero-actions">
         <button class="btn btn-primary" onclick="navigateToClientPage(ROUTES.booking)"><span><i class="bi bi-calendar-event"></i></span> Buat Tempahan</button>
-        <button class="btn btn-secondary" onclick="navigateToClientPage(ROUTES.dashboard)"><span><i class="bi bi-speedometer2"></i></span> Tempahan Saya</button>
+        <button class="btn btn-secondary" onclick="navigateToClientPage(ROUTES.dashboard)"><span><i class="bi bi-speedometer2"></i></span> Dashboard</button>
       </div>
       <div class="hero-stats">
         <div class="stat-item"><div class="stat-num" id="stat-facilities">6</div><div class="stat-label">Fasiliti Tersedia</div></div>
@@ -60,7 +60,7 @@
       <div class="facilities-grid" id="facilitiesGrid"></div>
     </section>
   </div>
-  <script src="/resources/js/script.js?v=20260930-pending-label-v1"></script>
+  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
 </body>
 </html>
 

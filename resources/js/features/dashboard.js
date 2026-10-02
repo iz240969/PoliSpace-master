@@ -553,7 +553,7 @@ async function validateDashboardBookingDateAvailability(booking) {
 
   const [year, month] = selectedDate.split('-').map(Number);
   const facilityId = booking.facilityId || booking.facility_id || '';
-  const bookings = await loadPublicCalendarBookings(year, month, facilityId);
+  const bookings = await refreshPublicCalendarBookings(year, month, facilityId);
   const bookingId = String(booking.id || booking.booking_ref || '');
   const isBlocked = bookings.some((item) => !item.capacityManaged
     && String(item.facilityId || item.facility_id || '') === String(facilityId)
