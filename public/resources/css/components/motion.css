@@ -1,9 +1,44 @@
 /* Short page transitions. Grouped table content uses the shared motion helper. */
 @view-transition { navigation: auto; }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 180ms; }
-.session-loading { display: none; }
-html.auth-pending :is(#booking, #dashboard, #status, #admin) { visibility: hidden; }
-html.auth-pending .session-loading { position: fixed; inset: 80px 0 0; display: grid; place-content: center; color: var(--grey-4); background: var(--page-background); background-attachment: fixed; }
+.session-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  background: var(--bg-main);
+  background-image: var(--page-background);
+  transition: opacity 260ms ease, visibility 260ms;
+}
+html.auth-pending body > :not(.session-loading) { visibility: hidden; }
+html.auth-pending .session-loading { visibility: visible; opacity: 1; pointer-events: auto; }
+.session-loading::before {
+  content: '';
+  width: 112px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--grey-2);
+  grid-area: 1 / 1;
+}
+.session-loading::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--green);
+  grid-area: 1 / 1;
+  justify-self: center;
+  animation: sessionProgress 1.15s ease-in-out infinite alternate;
+}
+@keyframes sessionProgress {
+  from { transform: translateX(-36px); }
+  to { transform: translateX(36px); background: var(--gold); }
+}
 :root { --motion-duration: 200ms; --motion-ease: cubic-bezier(.2, .7, .2, 1); }
 @keyframes surfaceEnter {
   from { opacity: .92; transform: translateY(5px); }
@@ -46,6 +81,7 @@ html { scrollbar-gutter: stable; }
   @view-transition { navigation: none; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .session-loading::after { transform: none; }
 }
 @media print {
   *, *::before, *::after { animation: none !important; transition: none !important; }

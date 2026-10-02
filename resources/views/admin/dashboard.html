@@ -9,10 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20260930-client-controls-layout-v4">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20261002-session-transition-v1">
 </head>
 <body class="admin-workspace">
-  <div class="session-loading" role="status">Menyemak sesi akaun...</div>
+  <div class="session-loading" role="status" aria-label="Menyemak sesi akaun"></div>
   <a class="skip-link" href="#adminWorkspace">Langkau ke kandungan</a>
   <nav id="main-nav">
     <div class="admin-nav-heading">
