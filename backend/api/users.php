@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         jsonResponse(['success' => false, 'error' => 'Client not found'], 404);
     }
 
-    if ($action !== '' && !in_array($action, ['staff-verification', 'block'], true)) {
+    if ($action !== '' && !in_array($action, ['staff-verification', 'staff-conversion', 'block'], true)) {
         jsonResponse(['success' => false, 'error' => 'Invalid action'], 400);
     }
 
@@ -136,6 +136,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 ? 'Akaun kakitangan berjaya disahkan.'
                 : 'Pengesahan akaun kakitangan ditolak.',
         ]);
+    }
+
+    if ($action === 'staff-conversion') {
+        if ($user['account_type'] !== ACCOUNT_TYPE_PUBLIC) {
+            jsonResponse(['success' => false, 'error' => 'Only public accounts can be converted'], 400);
+        }
+        $db->update(
+            "UPDATE users SET account_type = ?, staff_verification_status = ? WHERE id = ? AND role = 'user' AND account_type = ?",
+            [ACCOUNT_TYPE_STAFF, STAFF_VERIFICATION_VERIFIED, $id, ACCOUNT_TYPE_PUBLIC]
+        );
+        jsonResponse(['success' => true, 'message' => 'Akaun kakitangan berjaya disahkan.']);
     }
 
     $password = (string)($input['password'] ?? '');

@@ -88,6 +88,6 @@
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20261003-booking-json-v3"></script>
+  <script src="/resources/js/script.js?v=20261003-booking-json-v4"></script>
 </body>
 </html>

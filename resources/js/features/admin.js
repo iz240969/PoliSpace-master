@@ -1878,6 +1878,7 @@ function renderClientsTable(clients) {
         <td>
           <div class="table-actions admin-client-actions">
             ${isStaff && verificationStatus !== 'verified' ? `<button class="btn btn-primary btn-sm" type="button" onclick="verifyAdminStaff(${clientId})" title="Sahkan akaun kakitangan" aria-label="Sahkan akaun kakitangan ${escapeAttr(client.email)}"><i class="bi bi-person-check"></i><span>Sahkan</span></button>` : ''}
+            ${!isStaff ? `<button class="btn btn-secondary btn-sm" type="button" onclick="convertAdminClientToStaff(${clientId})" title="Tukar kepada kakitangan" aria-label="Tukar akaun ${escapeAttr(client.email)} kepada kakitangan"><i class="bi bi-person-badge"></i><span>Jadikan Staf</span></button>` : ''}
             <button class="btn ${isBlocked ? 'btn-secondary' : 'btn-danger'} btn-sm" type="button" onclick="setAdminClientBlocked(${clientId}, ${isBlocked ? 'false' : 'true'})" title="${isBlocked ? 'Buka sekatan akaun' : 'Sekat akaun'}" aria-label="${isBlocked ? 'Buka sekatan' : 'Sekat'} akaun ${escapeAttr(client.email)}"><i class="bi ${isBlocked ? 'bi-unlock' : 'bi-person-lock'}"></i><span>${isBlocked ? 'Buka Sekatan' : 'Sekat'}</span></button>
             <button class="btn btn-secondary btn-sm table-icon-btn" type="button" onclick="viewClientDetail(${clientId})" title="Lihat pelanggan" aria-label="Lihat pelanggan ${escapeAttr(client.email)}"><i class="bi bi-eye"></i></button>
           </div>
@@ -1924,6 +1925,25 @@ async function verifyAdminStaff(id) {
   } catch (error) {
     if (handleAdminAuthorizationError(error)) return;
     showToast(error.message || 'Akaun kakitangan tidak dapat disahkan.', 'error');
+  }
+}
+
+async function convertAdminClientToStaff(id) {
+  const client = adminClientsCache.find((item) => Number(item.id) === Number(id));
+  if (!client || client.account_type === 'staff') return;
+
+  const name = client.full_name || client.name || client.email || 'akaun ini';
+  if (!window.confirm(`Tukar akaun ${name} kepada kakitangan yang disahkan? Akaun ini akan dikecualikan daripada bayaran untuk tempahan baharu.`)) return;
+
+  try {
+    const result = await tryApi(`users.php?action=staff-conversion&id=${encodeURIComponent(id)}`, 'PUT', {});
+    client.account_type = 'staff';
+    client.staff_verification_status = 'verified';
+    renderAdminClients();
+    showToast(result.message || 'Akaun kakitangan berjaya disahkan.', 'success');
+  } catch (error) {
+    if (handleAdminAuthorizationError(error)) return;
+    showToast(error.message || 'Akaun tidak dapat ditukar kepada kakitangan.', 'error');
   }
 }
 

@@ -225,24 +225,21 @@ test('landing sections initialize together without delaying other pages', async 
   await initialization;
 });
 
-test('customer search and account filters preserve the staff verification queue and source records', () => {
+test('customer search and account filters preserve staff verification actions and source records', () => {
   const h = harness();
   h.element('adminClientSearch', 'ali EXAMPLE');
   h.element('clientResultCount');
   h.element('clientsTbody');
-  h.element('staffVerificationTbody');
-  const badge = h.element('staffVerificationBadge');
   h.run(`adminClientsCache = [
     {id: 1, full_name: 'Ali <Admin>', email: 'ali@example.test', account_type: 'public'},
     {id: 2, full_name: 'Siti', email: 'siti@example.test', account_type: 'staff', staff_verification_status: 'pending'}
   ]; renderAdminClients();`);
   assert.match(h.document.getElementById('clientsTbody').innerHTML, /Ali &lt;Admin&gt;/);
   assert.doesNotMatch(h.document.getElementById('clientsTbody').innerHTML, /siti@example/);
-  assert.equal(badge.textContent, '1');
-  assert.match(h.document.getElementById('staffVerificationTbody').innerHTML, /Siti/);
   h.document.getElementById('adminClientSearch').value = '';
   h.run(`filterAdminClients('staff', null)`);
   assert.match(h.document.getElementById('clientsTbody').innerHTML, /siti@example/);
+  assert.match(h.document.getElementById('clientsTbody').innerHTML, /verifyAdminStaff/);
   assert.doesNotMatch(h.document.getElementById('clientsTbody').innerHTML, /ali@example/);
   assert.equal(h.run('adminClientsCache.length'), 2);
 });

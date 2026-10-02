@@ -62,6 +62,8 @@ cancelled  Dibatalkan
 
 The pending label is more specific in booking views: public bookings awaiting payment review show `Menunggu Semakan Bayaran`; verified staff applications awaiting approval show `Menunggu Kelulusan`.
 
+An administrator can use **Jadikan Staf** in Pelanggan to correct an existing public account that belongs to a staff member. This marks the account as verified staff and exempts only new bookings from payment; existing bookings keep their original account type and payment requirement. The protected API action is `PUT /backend/api/users.php?action=staff-conversion&id=<user-id>` and requires an admin session.
+
 Availability rules:
 
 ```text

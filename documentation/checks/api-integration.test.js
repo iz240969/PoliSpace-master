@@ -99,6 +99,7 @@ const admin = new ApiClient();
 const publicUser = new ApiClient();
 const otherUser = new ApiClient();
 const staffUser = new ApiClient();
+const convertedUser = new ApiClient();
 const state = {};
 
 test('isolated PoliSpace live API workflow', { timeout: 120000 }, async (t) => {
@@ -137,11 +138,23 @@ test('isolated PoliSpace live API workflow', { timeout: 120000 }, async (t) => {
   });
 
   await t.test('customer administration and staff verification', async () => {
+    await json(convertedUser, '/backend/api/auth.php?action=signup', 'POST', {
+      email: 'conversion.audit@example.test', password, password_confirm: password,
+      full_name: 'Conversion Audit', phone: '0123456703', account_type: 'public',
+    });
     const users = await expectStatus(admin, '/backend/api/users.php', 200);
     const staff = users.data.find((user) => user.email === 'staff.audit@example.test');
     const signup = users.data.find((user) => user.email === 'signup.audit@example.test');
-    assert.ok(staff && signup);
+    const conversion = users.data.find((user) => user.email === 'conversion.audit@example.test');
+    assert.ok(staff && signup && conversion);
     await json(admin, `/backend/api/users.php?action=staff-verification&id=${staff.id}`, 'PUT', { status: 'verified' });
+    await expectStatus(convertedUser, `/backend/api/users.php?action=staff-conversion&id=${conversion.id}`, 401, {
+      method: 'PUT', json: {},
+    });
+    await json(admin, `/backend/api/users.php?action=staff-conversion&id=${conversion.id}`, 'PUT', {});
+    const converted = await expectStatus(convertedUser, '/backend/api/auth.php?action=me', 200);
+    assert.equal(converted.user.account_type, 'staff');
+    assert.equal(converted.user.paymentExempt, true);
     await json(admin, `/backend/api/users.php?id=${signup.id}`, 'PUT', { password: `${password}X` });
     const detail = await expectStatus(admin, `/backend/api/users.php?action=detail&id=${staff.id}`, 200);
     assert.equal(detail.data.user.staff_verification_status, 'verified');

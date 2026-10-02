@@ -223,7 +223,7 @@ test('dashboard date validation allows capacity-managed Asrama dates', async () 
     localStorage: { getItem: () => null },
     document: { getElementById: (id) => id === 'edit-booking-date' ? dateInput : null },
     getMinimumBookingDateValue: () => '2026-01-01',
-    loadPublicCalendarBookings: async () => [{
+    refreshPublicCalendarBookings: async () => [{
       id: 'OTHER', facilityId: '6', date: '2026-12-10', capacityManaged: true,
     }],
     showToast: () => { toastCount += 1; },
