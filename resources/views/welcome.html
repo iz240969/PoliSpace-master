@@ -7,9 +7,9 @@
   <link rel="icon" href="/resources/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Sora:wght@700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20261002-session-transition-v1">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20261002-landing-cards-v1">
 </head>
 <body>
   <nav id="main-nav">
@@ -31,7 +31,7 @@
 
     <section class="hero">
       <div class="hero-bg"></div><div class="hero-grid"></div>
-      <div class="hero-tag"><div class="hero-tag-dot"></div> Politeknik Besut</div>
+      <div class="hero-tag"><div class="hero-tag-dot"></div> Politeknik Besut Terengganu</div>
       <h1 class="hero-title">
         <span class="hero-title-line">Tempah <span>Fasiliti</span></span>
         <span class="hero-title-line">Dengan Mudah</span>
@@ -60,7 +60,7 @@
       <div class="facilities-grid" id="facilitiesGrid"></div>
     </section>
   </div>
-  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
+  <script src="/resources/js/script.js?v=20261002-landing-cards-v1"></script>
 </body>
 </html>
 

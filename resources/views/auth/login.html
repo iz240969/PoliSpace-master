@@ -27,7 +27,7 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <main class="login-page">
-    <aside class="auth-aside" aria-label="Mengenai PoliSpace"><div class="auth-aside-brand">PoliSpace</div><div><span class="auth-aside-eyebrow">Politeknik Besut</span><h2>Ruang yang sesuai, tempahan yang mudah.</h2><p>Pilih fasiliti, hantar permohonan dan ikuti status tempahan anda di satu tempat.</p></div><div class="auth-aside-foot"><i class="bi bi-shield-check"></i> Pengurusan fasiliti yang teratur</div></aside>
+    <aside class="auth-aside" aria-label="Mengenai PoliSpace"><div class="auth-aside-brand">PoliSpace</div><div><span class="auth-aside-eyebrow">Politeknik Besut Terengganu</span><h2>Ruang yang sesuai, tempahan yang mudah.</h2><p>Pilih fasiliti, hantar permohonan dan ikuti status tempahan anda di satu tempat.</p></div><div class="auth-aside-foot"><i class="bi bi-shield-check"></i> Pengurusan fasiliti yang teratur</div></aside>
     <section class="unified-login-card" aria-label="Log masuk PoliSpace">
       <div class="unified-login-head">
         <h1 class="unified-login-title page-main-title">Log Masuk</h1>
@@ -59,7 +59,7 @@
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
+  <script src="/resources/js/script.js?v=20261002-calendar-loading-v1"></script>
 </body>
 </html>
 

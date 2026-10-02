@@ -73,6 +73,24 @@ test('API requests recover after a temporary network failure', async () => {
   assert.equal(requests, 2);
 });
 
+test('calendar reads keep a focused navigation button intact', async () => {
+  let finishRequest;
+  const loadingCalls = [];
+  const button = { disabled: false, dataset: {}, closest: () => button };
+  const context = vm.createContext({
+    document: { activeElement: button },
+    setButtonLoading: (target, loading) => loadingCalls.push([target, loading]),
+    fetch: () => new Promise((resolve) => { finishRequest = resolve; }),
+  });
+  vm.runInContext(readFileSync(resolve(__dirname, '../../resources/js/core/api.js'), 'utf8'), context);
+
+  const request = context.requestApiJson('bookings.php?action=calendar');
+  assert.equal(loadingCalls.length, 0);
+  finishRequest({ ok: true, status: 200, json: async () => ({ success: true, data: [] }) });
+  await request;
+  assert.equal(loadingCalls.length, 0);
+});
+
 test('malformed successful HTTP responses are rejected', async () => {
   const context = vm.createContext({
     API_BASE: '/backend/api',

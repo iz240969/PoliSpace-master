@@ -47,9 +47,10 @@
   width: min(100%, 880px);
   margin-bottom: 22px;
   font-size: clamp(40px, 6vw, 64px);
-  font-weight: var(--title-weight);
-  line-height: 1.08;
-  letter-spacing: -2px;
+  font-family: 'Sora', var(--display-font);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: 0;
 }
 .hero-title span span {
   color: var(--gold-hover);
@@ -174,7 +175,7 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 8px;
   background: var(--surface);
   color: var(--text-main);
   box-shadow: 0 10px 28px rgba(35, 35, 26, .07);
@@ -228,13 +229,17 @@
 .facility-equipment-icon { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border-radius: 12px; background: var(--surface-accent); color: var(--gold-hover); font-size: 16px; }
 .facility-equipment-note { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 11px 13px; border-radius: 10px; background: var(--surface-accent); color: var(--grey-5); font-size: 12px; line-height: 1.5; }
 .facility-equipment-note i { flex: 0 0 auto; color: var(--gold-hover); font-size: 16px; }
-.facility-meta { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 18px; }
-.facility-facts { min-width: 0; display: grid; gap: 5px; }
+.facility-meta { display: grid; gap: 12px; margin-top: auto; padding-top: 16px; }
+.facility-facts { min-width: 0; display: grid; gap: 4px; }
 .facility-cap { min-width: 0; display: flex; align-items: center; gap: 10px; color: var(--grey-4); font-size: 14px; line-height: 1.4; }
 .facility-cap i, .facility-price i { flex: 0 0 auto; color: var(--gold-hover); font-size: 18px; }
-.facility-quota { margin: -1px 0 0 28px; color: var(--grey-4); font-size: 12px; line-height: 1.45; }
-.facility-price { display: flex; align-items: center; gap: 10px; color: #141613; font-size: 17px; font-weight: 800; line-height: 1.45; font-variant-numeric: tabular-nums; }
-.facility-details-link { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 42px; padding: 0 17px; border: 1px solid var(--gold); border-radius: 999px; background: var(--surface); color: var(--gold-hover); font-size: 13px; font-weight: 700; white-space: nowrap; transition: background-color var(--transition), color var(--transition), border-color var(--transition); }
+.facility-quota { display: flex; flex-wrap: wrap; gap: 3px 8px; margin: 0 0 0 28px; color: var(--grey-4); font-size: 12px; line-height: 1.4; }
+.facility-quota strong { color: var(--grey-5); font-weight: 700; }
+.facility-card-footer { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 11px; border-top: 1px solid var(--border-light); }
+.facility-price { min-width: 0; display: inline-flex; align-items: center; gap: 5px; color: #141613; font-size: 16px; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.facility-price i { margin-right: 2px; font-size: 16px; }
+.facility-price-unit { color: var(--grey-4); font-size: 12px; font-weight: 600; }
+.facility-details-link { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 12px; border: 1px solid var(--gold); border-radius: 6px; background: var(--surface); color: var(--gold-hover); font-size: 12px; font-weight: 700; white-space: nowrap; transition: background-color var(--transition), color var(--transition), border-color var(--transition); }
 .facility-card:hover .facility-details-link, .facility-card:focus-visible .facility-details-link { border-color: var(--gold-hover); background: var(--gold); color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .facility-card, .facility-arrow, .facility-details-link { transition: none; }
@@ -247,7 +252,7 @@
 
 @media (max-width: 720px) {
   .hero { padding: 104px 18px 52px; }
-  .hero-title { width: 100%; font-size: clamp(38px, 12vw, 56px); letter-spacing: -2px; }
+  .hero-title { width: 100%; font-size: clamp(38px, 12vw, 56px); }
   .hero-sub { font-size: 14px; }
   .hero-calendar-wrap { margin-top: 48px; }
   .hero-calendar-card, .landing-calendar-panel { padding: 18px; overflow-x: auto; }
@@ -266,7 +271,6 @@
   .facility-body { padding: 16px 17px 18px; }
   .facility-name { font-size: 20px; }
   .facility-equipment { gap: 9px 13px; }
-  .facility-meta { align-items: flex-start; }
   .facility-facts { gap: 6px; }
-  .facility-details-link { min-height: 39px; padding: 0 13px; font-size: 12px; }
+  .facility-details-link { min-height: 36px; padding: 0 10px; }
 }

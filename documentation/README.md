@@ -1,20 +1,21 @@
 # PoliSpace Project Documentation
 
-PoliSpace is a facility booking system for Politeknik Besut. It is built with plain HTML, CSS, JavaScript, PHP API endpoints, and MySQL.
+PoliSpace is a facility booking system for Politeknik Besut Terengganu. Laravel serves the maintained HTML/Blade screens and routes the PHP API handlers; the browser uses plain CSS and JavaScript, backed by MySQL.
 
 ## Structure
 
 ```text
-resources/views/      Maintained HTML pages
+resources/views/      Maintained HTML pages and Laravel Blade copies under legacy/
 resources/css/        Base, component, and page CSS
 resources/js/         Browser behavior split into core and feature modules
+public/resources/     Browser assets copied by npm run build
 backend/api/          PHP API endpoints
 backend/includes/     Shared PHP helpers and validation
 database/             Fresh install and update SQL files
 uploads/payments/     Uploaded receipt files
 ```
 
-Root files such as `index.html`, `booking.html`, `dashboard.html`, `login.html`, and `signup.html` are compatibility redirect wrappers. The maintained pages live under `resources/views/`.
+Laravel routes preserve the previous `.html` URLs. Edit both the HTML source and its `resources/views/legacy/` Blade copy when changing visible page text.
 
 ## Frontend Entry Points
 
@@ -25,7 +26,9 @@ Every main page loads the shared entry files:
 <script src="/resources/js/script.js?v=..."></script>
 ```
 
-The query value is a cache-busting version and should stay consistent across pages after a UI update. `resources/js/script.js` loads the plain browser-global JavaScript modules in order. `resources/css/style.css` imports the base, component, and page CSS files.
+The query value is a cache-busting version. Bump it on affected pages and update the shared module version after browser-code changes. `resources/js/script.js` loads the plain browser-global JavaScript modules in order. `resources/css/style.css` imports the base, component, and page CSS files.
+
+The public landing heading uses Sora at weight 800, while other interface text uses DM Sans. Facility cards show capacity and Asrama limits above a compact price/action row. Protected pages use a visual session transition with an accessible status label. Calendar and other GET requests leave focused navigation buttons unchanged; write actions retain button loading feedback. These presentation changes do not alter the database schema or stored booking data.
 
 ## Authentication
 

@@ -179,8 +179,9 @@ Admins can add custom facilities from the dashboard `Fasiliti` panel. The form w
 
 ## Current UI Notes
 
-- Global display headings use `Arial Black` through `--display-font`.
-- Facility cards also use `Arial Black` for the facility name and capacity emphasis.
+- The public landing heading uses Sora 800; other interface text uses DM Sans.
+- Facility cards place capacity and Asrama limits above a compact price/action row. The Asrama limits come from `asrama_capacity_settings`, while prices come from `facilities.price_per_hour`.
+- Protected pages show an accessible, text-free session transition. GET requests do not replace focused button contents with a loading label; write actions still show button feedback.
 - Client dashboard bookings are rendered as a table like the admin booking table and can be sorted by `Permohonan Terkini` or `Tarikh Terdekat`.
 - Client dashboard filtering is by search text plus status chips.
 - Cart submissions are grouped under `TR...` references. Status lookup accepts both individual `PS...` references and grouped `TR...` references.

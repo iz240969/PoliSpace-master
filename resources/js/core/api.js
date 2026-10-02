@@ -128,7 +128,6 @@ function handleApiSessionExpiry(response, url, error) {
 
 function requestButtonLabel(url, method = 'POST') {
   const target = String(url || '').toLowerCase();
-  if (['GET', 'HEAD'].includes(method)) return 'Memuatkan...';
   if (target.includes('receipt') || target.includes('payment_file')) return 'Sedang memuat naik bukti bayaran...';
   if (target.includes('action=logout')) return 'Sedang log keluar...';
   if (target.includes('action=login') || target.includes('action=user') || target.includes('action=auto')) return 'Sedang log masuk...';
@@ -197,7 +196,7 @@ async function requestApiJson(url, options = {}, fallbackMessage = 'Permintaan g
       throw createNetworkError('Tindakan ini memerlukan sambungan internet.', { offline: true });
     }
 
-    const actionButton = typeof setButtonLoading === 'function' && typeof document !== 'undefined'
+    const actionButton = isMutation && typeof setButtonLoading === 'function' && typeof document !== 'undefined'
       ? document.activeElement?.closest?.('button:not([data-no-auto-loading])')
       : null;
     const shouldManageButton = actionButton && !actionButton.disabled && !actionButton.dataset.loadingManaged;

@@ -83,11 +83,6 @@ function facilityCapacityLabel(facility) {
   return `${capacity} orang`;
 }
 
-function facilityPriceLabel(facility) {
-  const price = Number(facility.price_per_hour || 0).toFixed(2);
-  return `RM ${price} / ${String(facility.name || '').toLowerCase().includes('asrama') ? 'bilik' : 'jam'}`;
-}
-
 function facilityCategoryLabel(facility) {
   const name = String(facility.name || '').toLowerCase();
   if (name.includes('asrama')) return 'Asrama';
@@ -172,10 +167,12 @@ async function renderFacilities() {
         <div class="facility-meta">
           <div class="facility-facts">
             <div class="facility-cap"><i class="bi bi-people" aria-hidden="true"></i><span>${escapeHtml(isAsrama ? `${Number(f.capacity || 0)} orang / bilik` : facilityCapacityLabel(f))}</span></div>
-            ${isAsrama ? `<p class="facility-quota">Had biasa: ${Number(f.asrama_normal_male_limit || 0)} lelaki, ${Number(f.asrama_normal_female_limit || 0)} perempuan</p>` : ''}
-            <div class="facility-price"><i class="bi bi-coin" aria-hidden="true"></i><span>${escapeHtml(facilityPriceLabel(f))}</span></div>
+            ${isAsrama ? `<p class="facility-quota"><span>Had biasa</span><strong>${Number(f.asrama_normal_male_limit || 0)} lelaki · ${Number(f.asrama_normal_female_limit || 0)} perempuan</strong></p>` : ''}
           </div>
-          <span class="facility-details-link" aria-hidden="true">Lihat Butiran <i class="bi bi-arrow-right"></i></span>
+          <div class="facility-card-footer">
+            <div class="facility-price"><i class="bi bi-coin" aria-hidden="true"></i><span>RM ${Number(f.price_per_hour || 0).toFixed(2)}</span><span class="facility-price-unit">/ ${isAsrama ? 'bilik' : 'jam'}</span></div>
+            <span class="facility-details-link" aria-hidden="true">Butiran <i class="bi bi-arrow-right"></i></span>
+          </div>
         </div>
       </div>
     </article>

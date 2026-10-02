@@ -28,7 +28,7 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <main class="signup-page" id="signup-page">
-    <aside class="auth-aside" aria-label="Mengenai PoliSpace"><div class="auth-aside-brand"><span class="auth-aside-mark"><i class="bi bi-grid-1x2"></i></span> PoliSpace</div><div><span class="auth-aside-eyebrow">Mula di sini</span><h2>Satu akaun untuk setiap tempahan.</h2><p>Daftar untuk menempah fasiliti dan mengurus permohonan anda dengan lebih mudah.</p></div><div class="auth-aside-foot"><i class="bi bi-shield-check"></i> PoliSpace · Politeknik Besut</div></aside>
+    <aside class="auth-aside" aria-label="Mengenai PoliSpace"><div class="auth-aside-brand"><span class="auth-aside-mark"><i class="bi bi-grid-1x2"></i></span> PoliSpace</div><div><span class="auth-aside-eyebrow">Mula di sini</span><h2>Satu akaun untuk setiap tempahan.</h2><p>Daftar untuk menempah fasiliti dan mengurus permohonan anda dengan lebih mudah.</p></div><div class="auth-aside-foot"><i class="bi bi-shield-check"></i> PoliSpace · Politeknik Besut Terengganu</div></aside>
     <section class="signup-card" aria-label="Daftar akaun PoliSpace">
       <div class="signup-head">
         <div class="signup-icon"></div>
@@ -88,6 +88,6 @@
     </section>
   </main>
 
-  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
+  <script src="/resources/js/script.js?v=20261002-calendar-loading-v1"></script>
 </body>
 </html>

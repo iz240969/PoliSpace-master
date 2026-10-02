@@ -1,6 +1,6 @@
 # PoliSpace
 
-PoliSpace is a facility booking and management system for Politeknik Besut, built on Laravel 13, PHP 8.3+, and MySQL/MariaDB. The current browser screens and database schema remain in place while requests are routed through Laravel.
+PoliSpace is a facility booking and management system for Politeknik Besut Terengganu, built on Laravel 13, PHP 8.3+, and MySQL/MariaDB. The current browser screens and database schema remain in place while requests are routed through Laravel.
 
 ## Current Status
 
@@ -47,6 +47,8 @@ Update an existing database without dropping current data:
 ```powershell
 mysql -u root -p < database/update_polspace.sql
 ```
+
+The institution label, page transitions, calendar loading feedback, and facility-card layout are frontend changes. They do not require a schema migration or changes to existing facility and booking records. The institution label is currently maintained in the page templates, not in a database settings table.
 
 ## Current Booking Rules
 

@@ -96,7 +96,9 @@ Client booking table         resources/js/features/dashboard.js, resources/css/p
 Cart group status lookup     backend/api/bookings.php, resources/js/features/status.js
 Admin booking table          resources/views/admin/dashboard.html, resources/css/components/admin.css
 User profile editor          resources/js/core/navigation.js, backend/api/auth.php
-Facility card typography     resources/css/pages/landing.css
+Landing heading and card layout resources/css/pages/landing.css, resources/js/features/facilities.js
+Session transition            resources/css/components/motion.css, resources/js/core/init.js
+Automatic request feedback    resources/js/core/api.js, resources/js/core/helpers.js
 Static admin logo            resources/views/admin/dashboard.html, resources/css/components/navigation.css
 ```
 

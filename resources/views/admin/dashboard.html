@@ -38,7 +38,7 @@
         <button class="admin-menu-item" onclick="showAdminPanel('pic', this)"><span class="menu-icon"><i class="bi bi-person-badge"></i></span> PIC</button>
         <button class="admin-menu-item" onclick="showAdminPanel('calendar', this)"><span class="menu-icon"><i class="bi bi-calendar3"></i></span> Kalendar</button>
         <button class="admin-menu-item" onclick="showAdminPanel('reports', this)"><span class="menu-icon"><i class="bi bi-bar-chart-line"></i></span> Laporan</button>
-        <div class="admin-sidebar-footer"><i class="bi bi-building" aria-hidden="true"></i><span>Politeknik Besut<small>Pengurusan fasiliti &amp; tempahan</small></span></div>
+        <div class="admin-sidebar-footer"><i class="bi bi-building" aria-hidden="true"></i><span>Politeknik Besut Terengganu<small>Pengurusan fasiliti &amp; tempahan</small></span></div>
       </aside>
       <button class="admin-nav-backdrop" type="button" onclick="closeAdminNavigation()" aria-label="Tutup navigasi" tabindex="-1" hidden></button>
 
@@ -247,7 +247,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20261001-admin-booking-availability-v1"></script>
+  <script src="/resources/js/script.js?v=20261002-calendar-loading-v1"></script>
 </body>
 </html>
 
