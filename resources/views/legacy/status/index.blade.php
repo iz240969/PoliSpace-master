@@ -47,7 +47,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20261003-booking-json-v2"></script>
+  <script src="/resources/js/script.js?v=20261003-booking-json-v3"></script>
 </body>
 </html>
 
