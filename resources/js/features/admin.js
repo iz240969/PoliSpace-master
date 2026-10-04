@@ -760,16 +760,16 @@ function openAdminCreateBookingModal() {
         <label for="adminBookingStart">Masa Mula *</label>
         <input type="time" id="adminBookingStart" value="08:00" required oninput="syncAdminCreateBookingEndTime()" onchange="syncAdminCreateBookingEndTime()">
       </div>
-      <div class="form-group">
-        <label for="adminBookingDuration">Tempoh *</label>
-        <input type="number" id="adminBookingDuration" min="1" max="24" step="1" value="1" required oninput="syncAdminCreateBookingEndTime();normalizeAdminCreateRooms()" onchange="syncAdminCreateBookingEndTime();normalizeAdminCreateRooms()">
-      </div>
-      <div class="form-group">
-        <label for="adminBookingDurationUnit">Unit Tempoh *</label>
-        <select id="adminBookingDurationUnit" onchange="syncAdminCreateBookingFields()">
-          <option value="hour">Jam</option>
-          <option value="day">Hari</option>
-        </select>
+      <div class="form-group span-2 admin-create-duration-field">
+        <label for="adminBookingDuration">Tempoh penggunaan *</label>
+        <div class="admin-create-duration-control">
+          <input type="number" id="adminBookingDuration" min="1" max="24" step="1" value="1" required aria-describedby="adminBookingDurationHint" oninput="syncAdminCreateBookingEndTime();normalizeAdminCreateRooms()" onchange="syncAdminCreateBookingEndTime();normalizeAdminCreateRooms()">
+          <select id="adminBookingDurationUnit" aria-label="Unit tempoh" aria-describedby="adminBookingDurationHint" onchange="syncAdminCreateBookingFields()">
+            <option value="hour">Jam</option>
+            <option value="day">Hari</option>
+          </select>
+        </div>
+        <small id="adminBookingDurationHint" class="admin-create-duration-hint">Caj dikira untuk 1 hari. Bilangan jam hanya untuk jadual penggunaan.</small>
       </div>
       <div class="form-group span-2 admin-create-asrama is-hidden">
         <label>Bilangan Bilik *</label>
@@ -800,8 +800,8 @@ function openAdminCreateBookingModal() {
       </div>
       <div class="admin-create-payment-options span-2 is-hidden" id="adminCreatePaymentOptions">
         <div class="admin-create-payment-heading">
-          <strong>Pilih Kaedah Bayaran</strong>
-          <span>Muat naik bukti bayaran atau sediakan dokumen untuk bayaran fizikal.</span>
+          <strong>Kaedah Bayaran</strong>
+          <span>Pilih kaedah bayaran selepas melengkapkan maklumat tempahan.</span>
         </div>
         <div class="admin-create-payment-grid">
           <button class="admin-create-payment-option" type="button" onclick="selectAdminCreatePaymentMode('receipt')">
@@ -815,14 +815,14 @@ function openAdminCreateBookingModal() {
         </div>
         <input id="adminBookingReceipt" type="file" accept=".jpg,.jpeg,.png,.gif,.pdf" class="is-hidden" onchange="handleAdminCreateReceiptChange()">
         <div class="admin-create-payment-status" id="adminCreatePaymentStatus"></div>
+        <button class="btn btn-primary admin-create-payment-submit" id="adminCreateBookingButton" type="submit" disabled><i class="bi bi-check2-circle"></i> Sahkan &amp; Cipta Tempahan</button>
       </div>
       <input type="hidden" id="adminBookingEnd">
     </form>
   `;
   document.getElementById('modalFooter').innerHTML = `
     <button class="btn btn-secondary" type="button" onclick="${standalonePage ? 'window.location.href=ROUTES.adminDashboard' : "closeModal('bookingModal')"}"><i class="bi bi-arrow-left"></i> Kembali</button>
-    <button class="btn btn-secondary" id="adminCreatePaymentButton" type="button" onclick="toggleAdminCreatePaymentOptions()" aria-expanded="false"><i class="bi bi-wallet2"></i> Bayaran</button>
-    <button class="btn btn-primary" id="adminCreateBookingButton" type="submit" form="adminCreateBookingForm"><i class="bi bi-plus-lg"></i> Cipta Tempahan</button>
+    <button class="btn btn-primary" id="adminCreatePaymentButton" type="button" onclick="toggleAdminCreatePaymentOptions()" aria-expanded="false" aria-controls="adminCreatePaymentOptions"><i class="bi bi-wallet2"></i> Teruskan ke Bayaran</button>
   `;
   if (!standalonePage) document.getElementById('bookingModal')?.classList.add('active');
   syncAdminCreateBookingFields();
@@ -834,14 +834,23 @@ async function renderAdminCreateBookingPage() {
   openAdminCreateBookingModal();
 }
 
-function toggleAdminCreatePaymentOptions() {
+async function toggleAdminCreatePaymentOptions() {
   const options = document.getElementById('adminCreatePaymentOptions');
   const button = document.getElementById('adminCreatePaymentButton');
   if (!options || !button) return;
-  const willOpen = options.classList.contains('is-hidden');
-  options.classList.toggle('is-hidden', !willOpen);
-  button.setAttribute('aria-expanded', String(willOpen));
-  if (willOpen) options.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const form = document.getElementById('adminCreateBookingForm');
+  if (form && !form.reportValidity()) return;
+  if (!await validateAdminCreateBookingDate()) return;
+  const facility = getAdminCreateSelectedFacility();
+  if (!isAsramaRoomFacility(facility)
+      && document.getElementById('adminBookingDurationUnit')?.value === 'hour'
+      && !document.getElementById('adminBookingEnd')?.value) {
+    showToast('Tempahan jam mesti tamat pada hari yang sama.', 'error');
+    return;
+  }
+  options.classList.remove('is-hidden');
+  button.setAttribute('aria-expanded', 'true');
+  options.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function selectAdminCreatePaymentMode(mode) {
@@ -877,21 +886,15 @@ function handleAdminCreateReceiptChange() {
 }
 
 function updateAdminCreatePaymentSelection() {
-  const options = document.getElementById('adminCreatePaymentOptions');
   const button = document.getElementById('adminCreatePaymentButton');
   const status = document.getElementById('adminCreatePaymentStatus');
+  const submit = document.getElementById('adminCreateBookingButton');
   document.querySelectorAll('.admin-create-payment-option').forEach((option, index) => {
     const active = (index === 0 && adminCreatePaymentMode === 'receipt') || (index === 1 && adminCreatePaymentMode === 'physical');
     option.classList.toggle('is-active', active);
   });
-  if (button) {
-    button.innerHTML = adminCreatePaymentMode === 'receipt'
-      ? '<i class="bi bi-receipt-check"></i> Bukti Bayaran Dipilih'
-      : adminCreatePaymentMode === 'physical'
-        ? '<i class="bi bi-printer"></i> Bayaran Fizikal'
-        : '<i class="bi bi-wallet2"></i> Bayaran';
-    button.setAttribute('aria-expanded', 'false');
-  }
+  if (button) button.setAttribute('aria-expanded', 'true');
+  if (submit) submit.disabled = !adminCreatePaymentMode || (adminCreatePaymentMode === 'receipt' && !adminCreateReceiptFile);
   if (status) {
     status.innerHTML = adminCreatePaymentMode === 'receipt'
       ? `<i class="bi bi-check-circle"></i> ${escapeHtml(adminCreateReceiptFile?.name || 'Bukti bayaran dipilih')}`
@@ -899,7 +902,6 @@ function updateAdminCreatePaymentSelection() {
         ? '<i class="bi bi-check-circle"></i> Dokumen bayaran fizikal akan dibuka untuk cetakan selepas tempahan berjaya dicipta.'
         : '';
   }
-  options?.classList.add('is-hidden');
 }
 
 function adminCreateBookingFacilityOptions() {
@@ -1066,6 +1068,12 @@ function syncAdminCreateBookingFields() {
     normalizeAdminCreateRooms();
   } else if (durationEl) {
     durationEl.max = unitEl?.value === 'day' ? '30' : '24';
+  }
+  const durationHint = document.getElementById('adminBookingDurationHint');
+  if (durationHint) {
+    durationHint.textContent = asrama || unitEl?.value === 'day'
+      ? 'Caj dikira mengikut bilangan hari yang dipilih.'
+      : 'Caj dikira untuk 1 hari. Bilangan jam hanya untuk jadual penggunaan.';
   }
   renderAdminCreateEquipmentOptions();
   syncAdminCreateBookingEndTime();

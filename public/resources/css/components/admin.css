@@ -523,6 +523,20 @@
   grid-column: span 2;
 }
 
+.admin-create-duration-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 10px;
+}
+
+.admin-create-duration-hint {
+  display: block;
+  margin-top: 7px;
+  color: var(--text-muted, #6b6f70);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .admin-create-room-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -681,6 +695,11 @@
   color: var(--green);
   font-size: 12px;
   font-weight: 700;
+}
+
+.admin-create-payment-submit {
+  justify-self: end;
+  min-width: 220px;
 }
 
 .admin-field-note {
@@ -2437,6 +2456,10 @@ a.pic-card-contact:hover {
 
   .admin-create-booking-form .span-2 {
     grid-column: auto;
+  }
+
+  .admin-create-duration-control {
+    grid-template-columns: minmax(0, 1fr) 110px;
   }
 
   .admin-create-room-summary {

@@ -66,6 +66,28 @@ function runInlineHandler(h, html) {
   vm.runInContext(handler, h.context);
 }
 
+test('payment step opens only after the admin booking form is complete', async () => {
+  const h = harness();
+  const form = h.element('adminCreateBookingForm');
+  const panel = h.element('adminCreatePaymentOptions');
+  const button = h.element('adminCreatePaymentButton');
+  const unit = h.element('adminBookingDurationUnit', 'hour');
+  h.element('adminBookingEnd', '10:00');
+  panel.classList.add('is-hidden');
+  panel.scrollIntoView = () => {};
+  h.context.validateAdminCreateBookingDate = async () => true;
+  h.context.getAdminCreateSelectedFacility = () => ({});
+  h.context.isAsramaRoomFacility = () => false;
+  form.reportValidity = () => false;
+  await h.run('toggleAdminCreatePaymentOptions()');
+  assert.equal(panel.classList.contains('is-hidden'), true);
+
+  form.reportValidity = () => true;
+  await h.run('toggleAdminCreatePaymentOptions()');
+  assert.equal(panel.classList.contains('is-hidden'), false);
+  assert.equal(button.getAttribute('aria-expanded'), 'true');
+});
+
 test('equipment names with quotes and backslashes remain valid admin actions', () => {
   const h = harness();
   const name = `Director's "Projector" \\ Display`;
