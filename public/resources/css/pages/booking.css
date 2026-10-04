@@ -27,45 +27,67 @@
   grid-column: span 2;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius);
-  background: var(--surface-2);
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid #E7DCC2;
+  border-radius: 16px;
+  background: linear-gradient(110deg, #FBF8F0, #F5F0E5);
 }
 .facility-pic-info.show { display: flex; }
 .facility-pic-heading,
 .facility-pic-contact {
-  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  gap: 8px;
+  gap: 12px;
 }
-.facility-pic-heading i,
+.facility-pic-heading { flex: 1 1 auto; }
+.facility-pic-avatar {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  background: #EDE0BF;
+  color: #8A6516;
+  font-size: 20px;
+}
+.facility-pic-identity { display: grid; min-width: 0; gap: 3px; }
+.facility-pic-contact {
+  flex: 0 0 auto;
+  padding: 10px 13px;
+  border: 1px solid #E2D5B8;
+  border-radius: 11px;
+  background: #FFFFFF;
+  color: var(--text-main);
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+a.facility-pic-contact:hover { border-color: #B38A35; background: #FFF9EB; transform: translateY(-1px); }
+a.facility-pic-contact:focus-visible { outline: 3px solid #B38A35; outline-offset: 3px; }
+.facility-pic-contact--empty { opacity: 0.65; }
 .facility-pic-contact i {
-  color: var(--gold);
-  font-size: 14px;
+  color: #9A701B;
+  font-size: 16px;
 }
 .facility-pic-label {
-  color: var(--grey-4);
+  color: #826C43;
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
+  font-weight: 750;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 .facility-pic-name,
 .facility-pic-phone {
   overflow: hidden;
   color: var(--text-main);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 750;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.facility-pic-phone {
-  color: var(--grey-5);
-}
+.facility-pic-phone { font-size: 13px; }
 .asrama-room-allocator {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1021,12 +1043,12 @@ textarea {
 
 @media (max-width: 560px) {
   .facility-pic-info {
-    align-items: flex-start;
+    align-items: stretch;
     flex-direction: column;
   }
 
   .facility-pic-contact {
-    padding-left: 22px;
+    justify-content: center;
   }
 
   .asrama-room-allocator {
@@ -1407,10 +1429,9 @@ body.booking-page #booking {
 }
 
 #booking .facility-pic-info {
-  padding: 13px 15px;
-  background: #F6F3EA;
-  border-color: rgba(166, 124, 30, 0.14);
-  border-radius: 11px;
+  padding: 16px 18px;
+  border-color: #E7DCC2;
+  border-radius: 16px;
 }
 
 #booking .equipment-field {

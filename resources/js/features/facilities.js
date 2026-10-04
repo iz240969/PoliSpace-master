@@ -527,16 +527,20 @@ function renderSelectedFacilityPic() {
     return;
   }
 
+  const phone = String(facility.pic_phone || '').trim();
+  const phoneHref = phone.replace(/[^+\d]/g, '');
   container.innerHTML = `
     <div class="facility-pic-heading">
-      <i class="bi bi-person-badge"></i>
-      <span class="facility-pic-label">PIC</span>
-      <span class="facility-pic-name">${escapeHtml(facility.pic_full_name || '-')}</span>
+      <span class="facility-pic-avatar" aria-hidden="true"><i class="bi bi-person-badge"></i></span>
+      <span class="facility-pic-identity">
+        <span class="facility-pic-label">Pegawai Bertanggungjawab</span>
+        <strong class="facility-pic-name">${escapeHtml(facility.pic_full_name || '-')}</strong>
+      </span>
     </div>
-    <div class="facility-pic-contact">
-      <i class="bi bi-telephone"></i>
-      <span class="facility-pic-phone">${escapeHtml(facility.pic_phone || '-')}</span>
-    </div>
+    ${phoneHref ? `<a class="facility-pic-contact" href="tel:${phoneHref}" aria-label="Hubungi ${escapeHtml(facility.pic_full_name || 'PIC')} di ${escapeHtml(phone)}">
+      <i class="bi bi-telephone" aria-hidden="true"></i>
+      <span class="facility-pic-phone">${escapeHtml(phone)}</span>
+    </a>` : `<span class="facility-pic-contact facility-pic-contact--empty"><i class="bi bi-telephone" aria-hidden="true"></i><span class="facility-pic-phone">Tiada nombor telefon</span></span>`}
   `;
   container.classList.add('show');
 }
