@@ -62,7 +62,7 @@ backend/api/messages.php    Contact message endpoint
 backend/api/users.php       Admin customer list/detail/password reset endpoint
 ```
 
-The app uses MySQL database `polspace`. Configuration should come from `.env`. Trial PIC emails use PHP `mail()` with optional `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME` values; a real SMTP/mail setup is still required for actual delivery.
+The app uses MySQL database `polspace`. Configuration should come from `.env`. PIC emails sent through the Laravel API use Laravel's configured mail transport. Set `MAIL_MAILER=smtp`, SMTP connection credentials, and `MAIL_FROM_ADDRESS` for delivery. The legacy direct-PHP fallback uses PHP `mail()`. Booking notifications for all facilities go to `PIC_NOTIFICATION_EMAIL` when set; clearing it restores delivery to each assigned facility PIC's email. A `log` or `array` mailer reports a delivery warning instead of success.
 
 ## Important Frontend Notes
 

@@ -60,7 +60,16 @@ function sendBookingPicNotification(
 ): array
 {
     $booking = getBookingPicNotificationData($db, $bookingId);
-    if (!$booking || empty($booking['pic_full_name'])) {
+    if (!$booking) {
+        return [
+            'sent' => false,
+            'skipped' => true,
+            'warning' => 'Tempahan berjaya dikemas kini, tetapi maklumat tempahan tidak ditemui untuk e-mel PIC.',
+        ];
+    }
+
+    $configuredEmail = trim(envValue('PIC_NOTIFICATION_EMAIL', 'izzathanis2409@gmail.com'));
+    if ($configuredEmail === '' && empty($booking['pic_full_name'])) {
         return [
             'sent' => false,
             'skipped' => true,
@@ -68,7 +77,7 @@ function sendBookingPicNotification(
         ];
     }
 
-    $picEmail = trim((string)($booking['pic_email'] ?? ''));
+    $picEmail = $configuredEmail !== '' ? $configuredEmail : trim((string)($booking['pic_email'] ?? ''));
     if (!filter_var($picEmail, FILTER_VALIDATE_EMAIL)) {
         return [
             'sent' => false,
@@ -77,7 +86,8 @@ function sendBookingPicNotification(
         ];
     }
 
-    $greeting = 'Assalamualaikum / Salam sejahtera ' . trim((string)$booking['pic_full_name']) . ',';
+    $picName = trim((string)($booking['pic_full_name'] ?? ''));
+    $greeting = 'Assalamualaikum / Salam sejahtera' . ($picName !== '' ? ' ' . $picName : '') . ',';
     $details = bookingNotificationLines($booking);
 
     if ($type === 'approved') {

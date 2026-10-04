@@ -225,6 +225,28 @@ function sendPlainEmail(string $to, string $subject, string $body): bool
 
     $fromAddress = defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : 'no-reply@polspace.local';
     $fromName = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'PoliSpace';
+    if (function_exists('app') && app()->bound('mailer')) {
+        // The API is served by Laravel in production. Use its configured transport
+        // so SMTP credentials in .env actually apply to PIC notifications.
+        $mailer = (string)config('mail.default', 'log');
+        $nestedMailers = (array)config('mail.mailers.' . $mailer . '.mailers', []);
+        if (in_array($mailer, ['log', 'array'], true)
+            || array_intersect($nestedMailers, ['log', 'array']) !== []) {
+            error_log('[PoliSpace] PIC email not sent: configure a delivery mailer.');
+            return false;
+        }
+
+        try {
+            \Illuminate\Support\Facades\Mail::raw($body, static function ($message) use ($to, $subject, $fromAddress, $fromName): void {
+                $message->to($to)->subject($subject)->from($fromAddress, $fromName);
+            });
+            return true;
+        } catch (Throwable $e) {
+            error_log('[PoliSpace] Email delivery failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     $encodedFromName = function_exists('mb_encode_mimeheader')
         ? mb_encode_mimeheader($fromName)
         : $fromName;

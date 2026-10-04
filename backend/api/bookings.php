@@ -496,7 +496,23 @@ function createBooking(Database $db, bool $adminCreate = false): void
         }
     });
 
-    jsonResponse(['success' => true, 'message' => 'Booking created successfully', 'booking_ref' => $ref]);
+    $response = ['success' => true, 'message' => 'Booking created successfully', 'booking_ref' => $ref];
+    if ($bookingStatus === 'approved') {
+        try {
+            $created = $db->fetchOne('SELECT id FROM bookings WHERE booking_ref = ?', [$ref]);
+            $notification = $created
+                ? sendBookingPicNotification($db, (int)$created['id'], 'approved')
+                : ['sent' => false, 'skipped' => false, 'warning' => 'Tempahan berjaya dibuat, tetapi e-mel kepada PIC gagal dihantar.'];
+        } catch (Throwable $e) {
+            $notification = ['sent' => false, 'skipped' => false, 'warning' => 'Tempahan berjaya dibuat, tetapi e-mel kepada PIC gagal dihantar.'];
+        }
+        $response['notification'] = $notification;
+        if (!empty($notification['warning'])) {
+            $response['warning'] = $notification['warning'];
+        }
+    }
+
+    jsonResponse($response);
 }
 
 function updateBookingStatus(Database $db, string $id, array $data): void

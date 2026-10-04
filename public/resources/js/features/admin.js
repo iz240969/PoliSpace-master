@@ -1299,10 +1299,12 @@ async function submitAdminCreateBooking(event) {
     if (printWindow) printAdminPhysicalPayment(printWindow, result.booking_ref || '-', data, facility);
     if (document.getElementById('adminCreateBookingPage')) {
       showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
-      window.setTimeout(() => { window.location.href = ROUTES.adminDashboard; }, 700);
+      if (result.warning) showToast(result.warning, 'error');
+      window.setTimeout(() => { window.location.href = ROUTES.adminDashboard; }, result.warning ? 4000 : 700);
     } else {
       closeModal('bookingModal');
       showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
+      if (result.warning) showToast(result.warning, 'error');
       await renderAdminDashboard();
     }
   } catch (error) {
