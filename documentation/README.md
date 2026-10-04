@@ -15,6 +15,8 @@ database/             Fresh install and update SQL files
 uploads/payments/     Uploaded receipt files
 ```
 
+Temporary screenshots, rendered pages, and test evidence may be generated under `tmp/`. This directory is disposable and is excluded from version control. Removing it does not affect the application or require a database update.
+
 Laravel routes preserve the previous `.html` URLs. Edit both the HTML source and its `resources/views/legacy/` Blade copy when changing visible page text.
 
 ## Frontend Entry Points
