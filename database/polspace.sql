@@ -148,7 +148,7 @@ ON DUPLICATE KEY UPDATE
     email = VALUES(email);
 
 INSERT INTO pics (id, full_name, phone, email) VALUES
-(1, 'Person 1', '012-000-0001', 'person1@polspace.local'),
+(1, 'Person 1', '012-000-0001', 'iz240969@gmail.com'),
 (2, 'Person 2', '012-000-0002', 'person2@polspace.local'),
 (3, 'Person 3', '012-000-0003', 'person3@polspace.local'),
 (4, 'Person 4', '012-000-0004', 'person4@polspace.local'),

@@ -68,7 +68,7 @@ function sendBookingPicNotification(
         ];
     }
 
-    $configuredEmail = trim(envValue('PIC_NOTIFICATION_EMAIL', 'izzathanis2409@gmail.com'));
+    $configuredEmail = trim(envValue('PIC_NOTIFICATION_EMAIL'));
     if ($configuredEmail === '' && empty($booking['pic_full_name'])) {
         return [
             'sent' => false,

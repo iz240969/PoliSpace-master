@@ -617,10 +617,16 @@ VALUES ('admin@polspace.com', '$2y$12$ei8egtiIZ/FXZmq7dd5b0OV3J5khMN1yX77twoOHLb
 ON DUPLICATE KEY UPDATE
     email = VALUES(email);
 
+UPDATE pics
+SET email = 'iz240969@gmail.com'
+WHERE full_name = 'Person 1'
+  AND phone = '012-000-0001'
+  AND email IN ('person1@polspace.local', 'izzathanis2409@gmail.com');
+
 INSERT INTO pics (full_name, phone, email)
 SELECT seed.full_name, seed.phone, seed.email
 FROM (
-    SELECT 'Person 1' AS full_name, '012-000-0001' AS phone, 'person1@polspace.local' AS email
+    SELECT 'Person 1' AS full_name, '012-000-0001' AS phone, 'iz240969@gmail.com' AS email
     UNION ALL SELECT 'Person 2', '012-000-0002', 'person2@polspace.local'
     UNION ALL SELECT 'Person 3', '012-000-0003', 'person3@polspace.local'
     UNION ALL SELECT 'Person 4', '012-000-0004', 'person4@polspace.local'
@@ -630,7 +636,7 @@ FROM (
 WHERE NOT EXISTS (SELECT 1 FROM pics p WHERE p.email = seed.email);
 
 INSERT INTO facilities (id, name, icon, capacity, price_per_hour, max_rooms, description, pic_id, equipment_options, is_available) VALUES
-(1, 'Dewan Utama', 'bi-bank', 800, 450.00, NULL, 'Kemudahan: Econ, PA system, projector.', (SELECT id FROM pics WHERE email = 'person1@polspace.local' LIMIT 1), '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
+(1, 'Dewan Utama', 'bi-bank', 800, 450.00, NULL, 'Kemudahan: Econ, PA system, projector.', (SELECT id FROM pics WHERE email = 'iz240969@gmail.com' LIMIT 1), '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null},{"name":"Kerusi Tambahan","max":null},{"name":"Meja Tambahan","max":null}]', TRUE),
 (2, 'Dewan Syarahan', 'bi-mortarboard', 120, 400.00, NULL, 'Kemudahan: Econ, PA system, projector.', (SELECT id FROM pics WHERE email = 'person2@polspace.local' LIMIT 1), '[{"name":"Mikrofon","max":null},{"name":"Projektor","max":null},{"name":"PA System","max":null}]', TRUE),
 (3, 'Bilik Persidangan', 'bi-people', 60, 350.00, NULL, 'Kemudahan: LCD, projector, econ.', (SELECT id FROM pics WHERE email = 'person3@polspace.local' LIMIT 1), '[{"name":"Projektor","max":null},{"name":"TV LCD","max":null},{"name":"Meja Mesyuarat","max":null}]', TRUE),
 (4, 'Bilik Seminar', 'bi-easel', 45, 250.00, NULL, 'Kemudahan: TV besar, econ.', (SELECT id FROM pics WHERE email = 'person4@polspace.local' LIMIT 1), '[{"name":"TV Besar","max":null},{"name":"Papan Putih","max":null},{"name":"Mikrofon","max":null}]', TRUE),
