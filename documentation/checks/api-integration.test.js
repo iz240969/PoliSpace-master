@@ -187,7 +187,11 @@ test('isolated PoliSpace live API workflow', { timeout: 120000 }, async (t) => {
       full_name: 'Audit PIC Updated', phone: '0123456701', email: 'audit.pic@example.test', facility_ids: [state.facilityId],
     });
     await json(admin, `/backend/api/pics.php?action=test-email&id=${state.picId}`, 'POST', {});
-    assert.match(readFileSync(mailboxPath, 'utf8'), /audit\.pic@example\.test/);
+    const picMail = readFileSync(mailboxPath, 'utf8');
+    assert.match(picMail, /audit\.pic@example\.test/);
+    assert.match(picMail, /multipart\/alternative/);
+    assert.match(picMail, /Sambungan e-mel berjaya/);
+    assert.match(picMail, /Fasiliti diuruskan/);
   });
 
   await t.test('messages create, list and reply remain account scoped', async () => {
@@ -228,6 +232,85 @@ test('isolated PoliSpace live API workflow', { timeout: 120000 }, async (t) => {
     await json(admin, `/backend/api/bookings.php?action=status&id=${state.lateRef}`, 'PUT', {
       status: 'cancelled', cancellation_reason: 'Disposable integration cancellation',
     });
+  });
+
+  await t.test('approval cancels only overlapping unpaid requests for the same facility', async () => {
+    const firstDate = datePlus(45);
+    const confirmedDate = datePlus(46);
+    const unpaid = await json(publicUser, '/backend/api/bookings.php', 'POST', bookingPayload({
+      facility_id: '3', booking_date: firstDate, start_time: '00:00', end_time: '',
+      duration: '2', duration_unit: 'day',
+    }));
+    const unrelated = await json(publicUser, '/backend/api/bookings.php', 'POST', bookingPayload({
+      facility_id: '4', booking_date: confirmedDate,
+    }));
+    const paid = await json(otherUser, '/backend/api/bookings.php', 'POST', bookingPayload({
+      facility_id: '3', booking_date: confirmedDate,
+    }));
+    await expectStatus(otherUser, `/backend/api/bookings.php?action=receipt&id=${paid.booking_ref}`, 200, {
+      method: 'POST', form: receiptForm(),
+    });
+    const beforeApproval = await expectStatus(publicUser, `/backend/api/bookings.php?action=ref&ref=${unpaid.booking_ref}`, 200);
+    assert.equal(beforeApproval.data.status, 'unpaid');
+
+    const approval = await json(admin, `/backend/api/bookings.php?action=status&id=${paid.booking_ref}`, 'PUT', {
+      status: 'approved', admin_note: 'Approved in audit',
+    });
+    assert.equal(approval.auto_cancelled_unpaid_count, 1);
+    const afterApproval = await expectStatus(publicUser, `/backend/api/bookings.php?action=ref&ref=${unpaid.booking_ref}`, 200);
+    assert.equal(afterApproval.data.status, 'cancelled');
+    assert.match(afterApproval.data.cancellationReason, /secara automatik/);
+    const otherFacility = await expectStatus(publicUser, `/backend/api/bookings.php?action=ref&ref=${unrelated.booking_ref}`, 200);
+    assert.equal(otherFacility.data.status, 'unpaid');
+    await expectStatus(publicUser, `/backend/api/bookings.php?action=receipt&id=${unpaid.booking_ref}`, 409, {
+      method: 'POST', form: receiptForm(),
+    });
+  });
+
+  await t.test('an admin-created approved booking cancels overlapping unpaid requests', async () => {
+    const date = datePlus(51);
+    const unpaid = await json(publicUser, '/backend/api/bookings.php', 'POST', bookingPayload({
+      facility_id: '4', booking_date: date,
+    }));
+    const created = await expectStatus(admin, '/backend/api/bookings.php?action=admin-create', 200, {
+      method: 'POST', form: receiptForm(bookingPayload({ facility_id: '4', booking_date: date })),
+    });
+    assert.equal(created.auto_cancelled_unpaid_count, 1);
+    const displaced = await expectStatus(publicUser, `/backend/api/bookings.php?action=ref&ref=${unpaid.booking_ref}`, 200);
+    assert.equal(displaced.data.status, 'cancelled');
+  });
+
+  await t.test('Asrama cancels unpaid requests only when confirmed rooms exhaust capacity', async () => {
+    const date = datePlus(54);
+    await json(admin, '/backend/api/asrama_rooms.php', 'PUT', {
+      normal_male_limit: 2, normal_female_limit: 2, holiday_enabled: false,
+      holiday_male_limit: 2, holiday_female_limit: 2,
+    });
+    const maleUnpaid = await json(publicUser, '/backend/api/bookings.php', 'POST', bookingPayload({
+      facility_id: '6', booking_date: date, start_time: '00:00', end_time: '',
+      duration: '1', duration_unit: 'day', room_count: 2, asrama_type: 'lelaki',
+      asrama_lelaki_rooms: 2, asrama_perempuan_rooms: 0,
+    }));
+    const femaleUnpaid = await json(publicUser, '/backend/api/bookings.php', 'POST', bookingPayload({
+      facility_id: '6', booking_date: date, start_time: '00:00', end_time: '',
+      duration: '1', duration_unit: 'day', room_count: 1, asrama_type: 'perempuan',
+      asrama_lelaki_rooms: 0, asrama_perempuan_rooms: 1,
+    }));
+    const malePaid = await expectStatus(otherUser, '/backend/api/bookings.php', 200, {
+      method: 'POST', form: receiptForm(bookingPayload({
+        facility_id: '6', booking_date: date, start_time: '00:00', end_time: '',
+        duration: '1', duration_unit: 'day', room_count: 1, asrama_type: 'lelaki',
+        asrama_lelaki_rooms: 1, asrama_perempuan_rooms: 0,
+      })),
+    });
+    const approval = await json(admin, `/backend/api/bookings.php?action=status&id=${malePaid.booking_ref}`, 'PUT', {
+      status: 'approved', admin_note: 'Approved in audit',
+    });
+    assert.equal(approval.auto_cancelled_unpaid_count, 1);
+    const displaced = await expectStatus(publicUser, `/backend/api/bookings.php?action=ref&ref=${maleUnpaid.booking_ref}`, 200);
+    assert.equal(displaced.data.status, 'cancelled');
+    const stillPossible = await expectStatus(publicUser, `/backend/api/bookings.php?action=ref&ref=${femaleUnpaid.booking_ref}`, 200);
+    assert.equal(stillPossible.data.status, 'unpaid');
   });
 
   await t.test('blocking conflicts, rejection, public calendar, stats and report', async () => {

@@ -5,12 +5,12 @@
 @import url('./components/feedback.css?v=20260927-ux-polish');
 @import url('./pages/auth.css?v=20260927-gradient-background-v2');
 @import url('./pages/landing.css?v=20261002-landing-cards-v1');
-@import url('./pages/booking.css?v=20260927-date-picker-reliability-v5');
+@import url('./pages/booking.css?v=20261005-asrama-price-copy-v1');
 @import url('./pages/dashboard.css?v=20260930-booking-action-align-v3');
 @import url('./pages/status.css?v=20260925-titles');
 @import url('./pages/asrama-admin.css?v=20260925-titles');
 @import url('./pages/admin-create-booking.css?v=20260925-titles');
-@import url('./components/admin.css?v=20260930-booking-print-layout');
+@import url('./components/admin.css?v=20261005-booking-detail-v1');
 @import url('./components/calendar.css?v=20260925-titles');
 @import url('./components/success.css?v=20260925-titles');
 @import url('./base/responsive.css?v=20260930-mobile-friendly-v1');

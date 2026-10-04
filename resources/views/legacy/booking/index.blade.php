@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20261002-session-transition-v1">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20261005-asrama-price-copy-v1">
 </head>
 <body class="booking-page public-page">
   <div class="session-loading" role="status" aria-label="Menyemak sesi akaun"></div>
@@ -224,7 +224,7 @@
       </div>
     </div>
   </div>
-  <script src="/resources/js/script.js?v=20261003-booking-json-v4"></script>
+  <script src="/resources/js/script.js?v=20261005-daily-pricing-v1"></script>
 </body>
 </html>
 

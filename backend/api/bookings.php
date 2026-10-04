@@ -384,6 +384,7 @@ function createBooking(Database $db, bool $adminCreate = false): void
     }
 
     $paymentFile = null;
+    $autoCancelledCount = 0;
     $bookingStatus = $adminCreate ? 'approved' : ($paymentRequired ? 'unpaid' : 'pending');
     $hasPaymentFile = (!empty($_FILES['payment_file']) && $_FILES['payment_file']['error'] !== UPLOAD_ERR_NO_FILE)
         || array_key_exists('payment_file_base64', $data);
@@ -411,7 +412,8 @@ function createBooking(Database $db, bool $adminCreate = false): void
         $bookingStatus,
         $bookingAccountType,
         $paymentRequired,
-        &$paymentFile
+        &$paymentFile,
+        &$autoCancelledCount
     ): void {
         $latestFacility = $db->fetchOne('SELECT name, capacity, price_per_hour, max_rooms, is_available FROM facilities WHERE id = ?', [$data['facility_id']]);
         if (!$latestFacility || !(bool)$latestFacility['is_available']) {
@@ -451,7 +453,8 @@ function createBooking(Database $db, bool $adminCreate = false): void
         }
 
         try {
-            $db->insert(
+            $db->transaction(function () use ($db, $data, $userId, $ref, $bookingAccountType, $paymentRequired, $paymentFile, $bookingStatus, $latestFacility, &$autoCancelledCount): void {
+                $createdId = (int)$db->insert(
                 "INSERT INTO bookings (
                     booking_ref, user_id, account_type, payment_required, facility_id, full_name, organization, email, phone,
                     booking_date, start_time, end_time, duration, duration_unit, purpose, participant_count,
@@ -483,10 +486,26 @@ function createBooking(Database $db, bool $adminCreate = false): void
                     (int)($data['room_count'] ?? 1),
                     $paymentFile,
                     $bookingStatus,
-                    ((float)$latestFacility['price_per_hour']) * max(1, (int)($data['duration'] ?? 1)) * max(1, (int)($data['room_count'] ?? 1)),
+                    bookingEstimatedCost(
+                        (float)$latestFacility['price_per_hour'],
+                        (int)($data['duration'] ?? 1),
+                        (string)($data['duration_unit'] ?? 'hour'),
+                        (int)($data['room_count'] ?? 1)
+                    ),
                     trim((string)($data['cart_group_ref'] ?? '')),
                 ]
-            );
+                );
+                if ($bookingStatus === 'approved') {
+                    $autoCancelledCount = cancelSupersededUnpaidBookings($db, [
+                        'id' => $createdId,
+                        'facility_id' => $data['facility_id'],
+                        'facility_name' => $latestFacility['name'],
+                        'booking_date' => $data['booking_date'],
+                        'duration' => $data['duration'] ?? '1',
+                        'duration_unit' => $data['duration_unit'] ?? 'hour',
+                    ]);
+                }
+            });
         } catch (Throwable $e) {
             if ($paymentFile) {
                 $uploadedPath = UPLOAD_DIR . basename($paymentFile);
@@ -497,6 +516,7 @@ function createBooking(Database $db, bool $adminCreate = false): void
     });
 
     $response = ['success' => true, 'message' => 'Booking created successfully', 'booking_ref' => $ref];
+    if ($autoCancelledCount > 0) $response['auto_cancelled_unpaid_count'] = $autoCancelledCount;
     if ($bookingStatus === 'approved') {
         try {
             $created = $db->fetchOne('SELECT id FROM bookings WHERE booking_ref = ?', [$ref]);
@@ -545,6 +565,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
     );
 
     $updatedBookingId = 0;
+    $autoCancelledCount = 0;
     withBookingMutationLocks($db, (int)$booking['id'], (int)$booking['facility_id'], $bookingDates, false, function () use (
         $db,
         $field,
@@ -552,7 +573,8 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         $status,
         $adminNote,
         $cancellationReason,
-        &$updatedBookingId
+        &$updatedBookingId,
+        &$autoCancelledCount
     ): void {
         $current = $db->fetchOne(
             "SELECT b.id, b.status, b.payment_file, b.payment_required, b.account_type,
@@ -594,6 +616,14 @@ function updateBookingStatus(Database $db, string $id, array $data): void
                 'UPDATE bookings SET status = ?, cancellation_reason = ? WHERE id = ?',
                 [$status, $cancellationReason, $current['id']]
             );
+        } elseif ($status === 'approved') {
+            if (isAsramaRoomFacilityName((string)$current['facility_name'])) {
+                ensureAsramaCapacitySettingsTable($db);
+            }
+            $db->transaction(function () use ($db, $status, $adminNote, $current, &$autoCancelledCount): void {
+                $db->update('UPDATE bookings SET status = ?, admin_note = ? WHERE id = ?', [$status, $adminNote, $current['id']]);
+                $autoCancelledCount = cancelSupersededUnpaidBookings($db, $current);
+            });
         } else {
             $db->update('UPDATE bookings SET status = ?, admin_note = ? WHERE id = ?', [$status, $adminNote, $current['id']]);
         }
@@ -617,6 +647,7 @@ function updateBookingStatus(Database $db, string $id, array $data): void
         'success' => true,
         'message' => $status === 'cancelled' ? 'Tempahan berjaya dibatalkan.' : 'Booking status updated',
     ];
+    if ($autoCancelledCount > 0) $response['auto_cancelled_unpaid_count'] = $autoCancelledCount;
     if ($notification !== null) {
         $response['notification'] = $notification;
         if (!empty($notification['warning'])) {

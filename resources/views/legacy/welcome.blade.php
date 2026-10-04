@@ -60,7 +60,7 @@
       <div class="facilities-grid" id="facilitiesGrid"></div>
     </section>
   </div>
-  <script src="/resources/js/script.js?v=20261003-booking-json-v4"></script>
+  <script src="/resources/js/script.js?v=20261005-daily-pricing-v1"></script>
 </body>
 </html>
 

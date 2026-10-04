@@ -52,6 +52,8 @@ The institution label, page transitions, calendar loading feedback, and facility
 
 ## Current Booking Rules
 
+Facility prices are daily rates. An hour-based booking is charged once for its booking date regardless of the number of hours; the hours still describe the requested usage time. Day-based bookings are charged for each selected day. Asrama is charged per room per day. The database/API field remains `price_per_hour` for compatibility, but its value represents this daily rate.
+
 PoliSpace keeps all booking records for history. Bookings are never permanently deleted by the API.
 
 Only these statuses block facility availability:
@@ -68,6 +70,8 @@ unpaid     = Belum Bayar
 rejected   = Ditolak
 cancelled  = Dibatalkan
 ```
+
+When an admin approves a booking, overlapping unpaid requests without receipts for the same facility are automatically cancelled with a visible reason. For Asrama, an unpaid request is cancelled only if the approval leaves insufficient rooms for its requested dates and block quantities. This also applies to bookings created already approved by an admin.
 
 An unpaid booking does not reserve the date. The date is secured only when a receipt is uploaded and the booking becomes `pending`, unless another `pending` or `approved` booking already reserves that same facility and date range. Other facilities remain available on that date.
 

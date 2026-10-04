@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=optional" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/resources/css/style.css?v=20261002-session-transition-v1">
+  <link rel="stylesheet" href="/resources/css/style.css?v=20261005-booking-detail-v1">
 </head>
 <body class="admin-workspace">
   <div class="session-loading" role="status" aria-label="Menyemak sesi akaun"></div>
@@ -156,7 +156,7 @@
                     <input type="number" id="facilityCapacity" name="capacity" min="1" max="5000" required placeholder="30">
                   </div>
                   <div class="form-group">
-                    <label for="facilityPrice">Harga (RM) *</label>
+                    <label for="facilityPrice">Harga (RM / hari; Asrama: sebilik / hari) *</label>
                     <input type="number" id="facilityPrice" name="price_per_hour" min="0" max="999999.99" step="0.01" required placeholder="100.00">
                   </div>
                   <div class="form-group">
@@ -247,7 +247,7 @@
     </div>
   </div>
 
-  <script src="/resources/js/script.js?v=20261003-booking-json-v4"></script>
+  <script src="/resources/js/script.js?v=20261005-booking-detail-v1"></script>
 </body>
 </html>
 

@@ -44,6 +44,25 @@ function element(value = '') {
   };
 }
 
+test('booking estimate uses daily rates while keeping hourly duration for scheduling', () => {
+  const fields = new Map([['f-facility', element('1')], ['f-duration', element('1')], ['f-room-count', element('1')]]);
+  const context = loadFeature('facilities.js', {
+    document: { getElementById: (id) => fields.get(id) || null, addEventListener: () => {} },
+    facilitiesCache: [{ id: '1', name: 'Dewan Utama', price_per_hour: 450 }],
+    selectedDurationUnit: () => fields.get('f-duration').dataset.durationUnit || 'hour',
+    isAsramaRoomFacility: (facility) => facility?.name === 'Asrama - Bilik',
+  });
+
+  fields.get('f-duration').value = '8';
+  assert.equal(context.calculateCost().total, 450);
+  fields.get('f-duration').dataset.durationUnit = 'day';
+  assert.equal(context.calculateCost().total, 3600);
+  context.facilitiesCache[0].name = 'Asrama - Bilik';
+  context.facilitiesCache[0].price_per_hour = 10;
+  fields.get('f-room-count').value = '4';
+  assert.equal(context.calculateCost().total, 320);
+});
+
 test('Asrama validation rejects negative and fractional room allocations', () => {
   const context = loadFeature('booking.js', {
     document: { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },

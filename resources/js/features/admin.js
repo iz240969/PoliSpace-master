@@ -905,7 +905,7 @@ function updateAdminCreatePaymentSelection() {
 function adminCreateBookingFacilityOptions() {
   const options = facilitiesCache.filter((facility) => facility.is_available);
   if (!options.length) return '<option value="">Tiada fasiliti tersedia</option>';
-  return options.map((facility) => `<option value="${escapeAttr(facility.id)}">${escapeHtml(facility.name)} - RM${escapeHtml(String(facility.price_per_hour))}</option>`).join('');
+  return options.map((facility) => `<option value="${escapeAttr(facility.id)}">${escapeHtml(facility.name)} - RM${escapeHtml(String(facility.price_per_hour))} / ${isAsramaRoomFacility(facility) ? 'bilik / hari' : 'hari'}</option>`).join('');
 }
 
 function getAdminCreateSelectedFacility() {
@@ -1191,7 +1191,8 @@ function printAdminPhysicalPayment(printWindow, bookingRef, data, facility) {
     ? 'Sepanjang hari'
     : `${escapeHtml(data.start_time)} - ${escapeHtml(data.end_time || '-')}`;
   const roomMultiplier = isAsramaRoomFacility(facility) ? Math.max(1, Number(data.room_count || 1)) : 1;
-  const amount = Number(facility?.price_per_hour || 0) * Math.max(1, Number(data.duration || 1)) * roomMultiplier;
+  const billableDays = data.duration_unit === 'day' ? Math.max(1, Number(data.duration || 1)) : 1;
+  const amount = Number(facility?.price_per_hour || 0) * billableDays * roomMultiplier;
   const createdAt = new Date().toLocaleString('ms-MY', { dateStyle: 'long', timeStyle: 'short' });
   const html = `<!doctype html>
     <html lang="ms">
@@ -1298,12 +1299,14 @@ async function submitAdminCreateBooking(event) {
     const result = await createAdminBookingRequest(data, adminCreatePaymentMode === 'receipt' ? adminCreateReceiptFile : null);
     if (printWindow) printAdminPhysicalPayment(printWindow, result.booking_ref || '-', data, facility);
     if (document.getElementById('adminCreateBookingPage')) {
-      showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
+      const cancelled = Number(result.auto_cancelled_unpaid_count || 0);
+      showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.${cancelled ? ` ${cancelled} permohonan belum bayar dibatalkan secara automatik.` : ''}`, 'success');
       if (result.warning) showToast(result.warning, 'error');
       window.setTimeout(() => { window.location.href = ROUTES.adminDashboard; }, result.warning ? 4000 : 700);
     } else {
       closeModal('bookingModal');
-      showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.`, 'success');
+      const cancelled = Number(result.auto_cancelled_unpaid_count || 0);
+      showToast(`Tempahan ${result.booking_ref || ''} berjaya dicipta.${cancelled ? ` ${cancelled} permohonan belum bayar dibatalkan secara automatik.` : ''}`, 'success');
       if (result.warning) showToast(result.warning, 'error');
       await renderAdminDashboard();
     }
@@ -1328,7 +1331,7 @@ function renderFacilityManagement(facilities) {
     <div class="facility-manage-card">
       <div class="fmc-header"><div class="fmc-icon">${facilityIconHtml(f)}</div>${statusBadgeHtml(f.is_available ? 'available' : 'unavailable')}</div>
       <div class="fmc-name">${escapeHtml(f.name)}</div>
-      <div class="fmc-cap">${isAsramaRoomFacility(f) ? `Kapasiti: ${escapeHtml(f.capacity)} orang setiap bilik - had mengikut tarikh` : `Kapasiti: ${escapeHtml(f.capacity)} orang`} - RM${escapeHtml(f.price_per_hour)}</div>
+      <div class="fmc-cap">${isAsramaRoomFacility(f) ? `Kapasiti: ${escapeHtml(f.capacity)} orang setiap bilik - had mengikut tarikh` : `Kapasiti: ${escapeHtml(f.capacity)} orang`} - RM${escapeHtml(f.price_per_hour)} / ${isAsramaRoomFacility(f) ? 'bilik / hari' : 'hari'}</div>
       <div class="fmc-pic"><i class="bi bi-person-badge"></i> <strong>${escapeHtml(f.pic_full_name || 'Tiada PIC')}</strong><span>${escapeHtml(f.pic_phone || '-')}</span></div>
       ${f.pic_email ? `<div class="fmc-pic-email"><i class="bi bi-envelope"></i> ${escapeHtml(f.pic_email)}</div>` : ''}
       <div class="fmc-equipment">${facilityEquipmentSummaryHtml(f)}</div>
@@ -1609,7 +1612,7 @@ function openFacilityEditModal(id) {
             <input type="number" id="editFacilityCapacity" min="1" max="5000" value="${escapeAttr(String(facility.capacity || 1))}">
           </div>
           <div class="form-group">
-            <label for="editFacilityPrice">Harga (RM) *</label>
+            <label for="editFacilityPrice">Harga (RM / hari; Asrama: sebilik / hari) *</label>
             <input type="number" id="editFacilityPrice" min="0" max="999999.99" step="0.01" value="${escapeAttr(String(facility.price_per_hour || 0))}">
           </div>
           ${isAsramaRoomFacility(facility) ? '<div class="form-group"><label>Had Bilik</label><div class="admin-field-note"><i class="bi bi-sliders"></i> Diurus melalui halaman Urus Bilik.</div><input type="hidden" id="editFacilityMaxRooms" value="' + escapeAttr(String(facility.max_rooms || '')) + '"></div>' : `<div class="form-group"><label for="editFacilityMaxRooms">Had Bilik</label><input type="number" id="editFacilityMaxRooms" min="1" max="500" value="${escapeAttr(String(facility.max_rooms || ''))}" placeholder="10"></div>`}
@@ -2255,33 +2258,57 @@ async function viewBookingDetail(id) {
   }
 
   setText('modalTitle', `Butiran Tempahan - ${booking.id}`);
+  const durationLabel = `${escapeHtml(String(booking.duration || 1))} ${booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'hari' : 'jam'}`;
+  const receiptHtml = booking.paymentFile
+    ? `<a class="booking-detail-proof" href="${escapeAttr(receiptFileUrl(booking.paymentFile))}" target="_blank" rel="noopener" aria-label="Lihat bukti bayaran ${escapeAttr(booking.paymentFile)}">
+         <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
+         <span><strong>Lihat bukti bayaran</strong><small>${escapeHtml(booking.paymentFile)}</small></span>
+         <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+       </a>`
+    : '<span class="booking-detail-muted">Belum dimuat naik</span>';
   document.getElementById('modalBody').innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding:16px;background:var(--surface-3);border-radius:8px">
-      <div style="font-size:32px;color:var(--gold)">${booking.facilityIcon || ''}</div>
-      <div><div style="font-family:var(--display-font);font-size:16px;font-weight:900">${escapeHtml(booking.facilityName)}</div><div style="font-size:12px;color:var(--grey-4);margin-top:2px">${formatDate(booking.date)}</div></div>
-      <div style="margin-left:auto">${bookingStatusBadgeHtml(booking)}</div>
-    </div>
-    <div class="admin-detail-section">
-      <div class="admin-facility-section-title">Maklumat Tempahan</div>
-      <div class="detail-row"><span class="detail-label">Nama Pelanggan</span><span class="detail-value">${escapeHtml(booking.name)}</span></div>
-      <div class="detail-row"><span class="detail-label">Jenis Pemohon</span><span class="detail-value">${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))}</span></div>
-      <div class="detail-row"><span class="detail-label">Alamat E-mel</span><span class="detail-value">${escapeHtml(booking.email || '-')}</span></div>
-      <div class="detail-row"><span class="detail-label">No. Telefon</span><span class="detail-value">${escapeHtml(booking.phone)}</span></div>
-      <div class="detail-row"><span class="detail-label">Tarikh & Masa</span><span class="detail-value">${formatDate(booking.date)}, ${escapeHtml(adminBookingTimeLabel(booking))}</span></div>
-      <div class="detail-row"><span class="detail-label">Tempoh</span><span class="detail-value">${escapeHtml(String(booking.duration || 1))} ${booking.durationUnit === 'day' || booking.duration_unit === 'day' ? 'hari' : 'jam'}</span></div>
-      <div class="detail-row"><span class="detail-label">Jumlah Pengguna</span><span class="detail-value">${escapeHtml(String(booking.pax || '-'))}</span></div>
-      ${booking.asrama_type ? `<div class="detail-row"><span class="detail-label">Asrama</span><span class="detail-value">${escapeHtml(asramaTypeLabel(booking.asrama_type))} - ${escapeHtml(String(booking.room_count || 1))} bilik</span></div>` : ''}
-      <div class="detail-row"><span class="detail-label">Peralatan</span><span class="detail-value">${escapeHtml(booking.equipment || '-')}</span></div>
-      <div class="detail-row"><span class="detail-label">Tujuan</span><span class="detail-value">${escapeHtml(booking.purpose || '-')}</span></div>
-      <div class="detail-row"><span class="detail-label">Bayaran</span><span class="detail-value">${booking.paymentRequired === false ? 'Tidak diperlukan' : `Diperlukan (RM${Number(booking.estimatedCost || 0).toFixed(2)})`}</span></div>
-      ${booking.paymentRequired === false ? '' : `<div class="detail-row"><span class="detail-label">Bukti Bayaran</span><span class="detail-value">${receiptLinkHtml(booking.paymentFile)}</span></div>`}
-      ${booking.adminNote ? `<div class="detail-row"><span class="detail-label">Nota Pentadbir</span><span class="detail-value">${escapeHtml(booking.adminNote)}</span></div>` : ''}
-      ${booking.cancellationReason ? `<div class="detail-row"><span class="detail-label">Sebab Pembatalan</span><span class="detail-value">${escapeHtml(booking.cancellationReason)}</span></div>` : ''}
-    </div>
-    <div class="admin-detail-section">
-      <div class="admin-facility-section-title">Maklumat PIC</div>
-      <div class="detail-row"><span class="detail-label">Nama Penuh PIC</span><span class="detail-value">${escapeHtml(booking.picFullName || '-')}</span></div>
-      <div class="detail-row"><span class="detail-label">No. Telefon PIC</span><span class="detail-value">${escapeHtml(booking.picPhone || '-')}</span></div>
+    <div class="booking-detail">
+      <div class="booking-detail-hero">
+        <span class="booking-detail-icon" aria-hidden="true">${booking.facilityIcon || ''}</span>
+        <div class="booking-detail-hero-text"><strong>${escapeHtml(booking.facilityName)}</strong><span>${formatDate(booking.date)}</span></div>
+        ${bookingStatusBadgeHtml(booking)}
+      </div>
+      <section class="booking-detail-card" aria-label="Maklumat pelanggan">
+        <h3><i class="bi bi-person" aria-hidden="true"></i> Pelanggan</h3>
+        <dl class="booking-detail-grid">
+          <div class="booking-detail-field"><dt>Nama</dt><dd>${escapeHtml(booking.name)}</dd></div>
+          <div class="booking-detail-field"><dt>Jenis pemohon</dt><dd>${escapeHtml(booking.accountTypeLabel || adminAccountTypeLabel(booking.accountType))}</dd></div>
+          <div class="booking-detail-field"><dt>Alamat e-mel</dt><dd>${escapeHtml(booking.email || '-')}</dd></div>
+          <div class="booking-detail-field"><dt>No. telefon</dt><dd>${escapeHtml(booking.phone || '-')}</dd></div>
+        </dl>
+      </section>
+      <section class="booking-detail-card" aria-label="Jadual dan keperluan">
+        <h3><i class="bi bi-calendar-event" aria-hidden="true"></i> Jadual & Keperluan</h3>
+        <dl class="booking-detail-grid">
+          <div class="booking-detail-field"><dt>Tarikh & masa</dt><dd>${formatDate(booking.date)} · ${escapeHtml(adminBookingTimeLabel(booking))}</dd></div>
+          <div class="booking-detail-field"><dt>Tempoh</dt><dd>${durationLabel}</dd></div>
+          <div class="booking-detail-field"><dt>Jumlah pengguna</dt><dd>${escapeHtml(String(booking.pax ?? '-'))}</dd></div>
+          ${booking.asrama_type ? `<div class="booking-detail-field"><dt>Asrama</dt><dd>${escapeHtml(asramaTypeLabel(booking.asrama_type))} · ${escapeHtml(String(booking.room_count || 1))} bilik</dd></div>` : ''}
+          <div class="booking-detail-field"><dt>Peralatan</dt><dd>${escapeHtml(booking.equipment || '-')}</dd></div>
+          <div class="booking-detail-field booking-detail-field--wide"><dt>Tujuan</dt><dd>${escapeHtml(booking.purpose || '-')}</dd></div>
+        </dl>
+      </section>
+      <section class="booking-detail-card" aria-label="Bayaran">
+        <h3><i class="bi bi-credit-card" aria-hidden="true"></i> Bayaran</h3>
+        <div class="booking-detail-payment">
+          <div><span>${booking.paymentRequired === false ? 'Bayaran tidak diperlukan' : 'Anggaran bayaran'}</span><strong>${booking.paymentRequired === false ? 'RM0.00' : `RM${Number(booking.estimatedCost || 0).toFixed(2)}`}</strong></div>
+          ${booking.paymentRequired === false ? '' : receiptHtml}
+        </div>
+      </section>
+      <section class="booking-detail-card" aria-label="Pegawai bertanggungjawab">
+        <h3><i class="bi bi-person-badge" aria-hidden="true"></i> Pegawai Bertanggungjawab</h3>
+        <dl class="booking-detail-grid">
+          <div class="booking-detail-field"><dt>Nama PIC</dt><dd>${escapeHtml(booking.picFullName || '-')}</dd></div>
+          <div class="booking-detail-field"><dt>No. telefon PIC</dt><dd>${escapeHtml(booking.picPhone || '-')}</dd></div>
+        </dl>
+      </section>
+      ${booking.adminNote ? `<section class="booking-detail-card" aria-label="Nota pentadbir"><h3>Nota Pentadbir</h3><p class="booking-detail-note">${escapeHtml(booking.adminNote)}</p></section>` : ''}
+      ${booking.cancellationReason ? `<section class="booking-detail-card booking-detail-card--warning" aria-label="Sebab pembatalan"><h3>Sebab Pembatalan</h3><p class="booking-detail-note">${escapeHtml(booking.cancellationReason)}</p></section>` : ''}
     </div>
     ${booking.status === 'pending' ? rejectNoteHtml(booking.status, booking.adminNote) : ''}
     ${booking.status === 'approved' ? cancellationNoteHtml() : ''}
@@ -2335,7 +2362,8 @@ async function updateStatus(id, status, note = '', cancellationReason = '') {
 async function approveBooking(id) {
   const result = await updateStatus(id, 'approved');
   if (!result) return;
-  showToast('Tempahan berjaya disahkan.', 'success');
+  const cancelled = Number(result.auto_cancelled_unpaid_count || 0);
+  showToast(`Tempahan berjaya disahkan.${cancelled ? ` ${cancelled} permohonan belum bayar dibatalkan secara automatik.` : ''}`, 'success');
   if (result.warning) showToast(result.warning, 'error');
 }
 
@@ -2343,7 +2371,8 @@ async function approveBookingFromModal(id) {
   const result = await updateStatus(id, 'approved', document.getElementById('modalNote')?.value || '');
   if (result) {
     closeModal('bookingModal');
-    showToast('Tempahan berjaya disahkan.', 'success');
+    const cancelled = Number(result.auto_cancelled_unpaid_count || 0);
+    showToast(`Tempahan berjaya disahkan.${cancelled ? ` ${cancelled} permohonan belum bayar dibatalkan secara automatik.` : ''}`, 'success');
     if (result.warning) showToast(result.warning, 'error');
   }
 }

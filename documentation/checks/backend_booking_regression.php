@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/backend/includes/validation.php';
 require_once dirname(__DIR__, 2) . '/backend/includes/booking_availability.php';
+require_once dirname(__DIR__, 2) . '/backend/includes/functions.php';
 
 $failures = [];
 $checks = 0;
@@ -15,6 +16,11 @@ function check(bool $condition, string $message): void
         $failures[] = $message;
     }
 }
+
+check(bookingEstimatedCost(450, 1, 'hour') === 450.0, 'One-hour booking uses one daily rate.');
+check(bookingEstimatedCost(450, 8, 'hour') === 450.0, 'More hours do not increase the daily rate.');
+check(bookingEstimatedCost(450, 3, 'day') === 1350.0, 'Multi-day booking uses the number of days.');
+check(bookingEstimatedCost(10, 3, 'day', 4) === 120.0, 'Asrama multiplies days by room count.');
 
 $tomorrow = (new DateTimeImmutable('today'))->modify('+1 day')->format('Y-m-d');
 $lateReceiptSchedule = [

@@ -124,6 +124,62 @@ function bookingBlockedDates(string $bookingDate, string|int|null $duration = '1
     return $dates;
 }
 
+function cancelSupersededUnpaidBookings(Database $db, array $confirmedBooking): int
+{
+    $confirmedDates = bookingBlockedDates(
+        (string)$confirmedBooking['booking_date'],
+        $confirmedBooking['duration'] ?? '1',
+        (string)($confirmedBooking['duration_unit'] ?? 'hour')
+    );
+    if (!$confirmedDates) return 0;
+
+    $facilityId = (int)$confirmedBooking['facility_id'];
+    $lookback = (new DateTimeImmutable(min($confirmedDates)))->modify('-30 days')->format('Y-m-d');
+    $candidates = $db->fetchAll(
+        "SELECT id, booking_date, duration, duration_unit, asrama_type,
+                asrama_lelaki_rooms, asrama_perempuan_rooms, room_count
+         FROM bookings
+         WHERE facility_id = ? AND id <> ? AND status = 'unpaid'
+           AND (payment_file IS NULL OR payment_file = '')
+           AND booking_date BETWEEN ? AND ?",
+        [$facilityId, (int)$confirmedBooking['id'], $lookback, max($confirmedDates)]
+    );
+    $asrama = isAsramaRoomFacilityName((string)$confirmedBooking['facility_name']);
+    $cancelled = 0;
+    foreach ($candidates as $candidate) {
+        $overlap = array_values(array_intersect($confirmedDates, bookingBlockedDates(
+            (string)$candidate['booking_date'],
+            $candidate['duration'] ?? '1',
+            (string)($candidate['duration_unit'] ?? 'hour')
+        )));
+        if (!$overlap) continue;
+
+        if ($asrama) {
+            $rooms = asramaBookingRoomSplit($candidate);
+            $snapshot = getAsramaCapacitySnapshot($db, $facilityId, $overlap);
+            $stillAvailable = true;
+            foreach ($snapshot['dates'] as $availability) {
+                if ($rooms['male'] > $availability['remaining']['male']
+                    || $rooms['female'] > $availability['remaining']['female']) {
+                    $stillAvailable = false;
+                    break;
+                }
+            }
+            if ($stillAvailable) continue;
+        }
+
+        $reason = $asrama
+            ? 'Dibatalkan secara automatik kerana baki bilik pada tarikh ini tidak mencukupi selepas tempahan lain diluluskan.'
+            : 'Dibatalkan secara automatik kerana fasiliti pada tarikh ini telah diluluskan untuk tempahan lain.';
+        $cancelled += $db->update(
+            "UPDATE bookings SET status = 'cancelled', cancellation_reason = ?
+             WHERE id = ? AND status = 'unpaid' AND (payment_file IS NULL OR payment_file = '')",
+            [$reason, (int)$candidate['id']]
+        );
+    }
+    return $cancelled;
+}
+
 function hasBlockingBookingDateRangeConflict(
     Database $db,
     int $facilityId,

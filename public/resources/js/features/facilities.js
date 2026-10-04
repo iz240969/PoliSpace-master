@@ -170,7 +170,7 @@ async function renderFacilities() {
             ${isAsrama ? `<p class="facility-quota"><span>Had biasa</span><strong>${Number(f.asrama_normal_male_limit || 0)} lelaki · ${Number(f.asrama_normal_female_limit || 0)} perempuan</strong></p>` : ''}
           </div>
           <div class="facility-card-footer">
-            <div class="facility-price"><i class="bi bi-coin" aria-hidden="true"></i><span>RM ${Number(f.price_per_hour || 0).toFixed(2)}</span><span class="facility-price-unit">/ ${isAsrama ? 'bilik' : 'jam'}</span></div>
+            <div class="facility-price"><i class="bi bi-coin" aria-hidden="true"></i><span>RM ${Number(f.price_per_hour || 0).toFixed(2)}</span><span class="facility-price-unit">/ ${isAsrama ? 'bilik / hari' : 'hari'}</span></div>
             <span class="facility-details-link" aria-hidden="true">Butiran <i class="bi bi-arrow-right"></i></span>
           </div>
         </div>
@@ -421,7 +421,9 @@ async function populateBookingFacilities() {
       <button type="button" class="facility-select-item ${!f.is_available ? 'is-disabled' : ''}" data-fid="${escapeAttr(f.id)}" ${f.is_available ? `onclick="sidebarSelectFacility('${escapeAttr(f.id)}')"` : 'disabled aria-disabled="true"'}>
         <span>
           <span class="fsi-name">${facilityIconHtml(f)} ${escapeHtml(f.name)}</span>
-          <span class="fsi-cap">${isAsramaRoomFacility(f) ? `${f.capacity} orang setiap bilik, had ikut tarikh` : `Maks. ${f.capacity} orang`} - RM${f.price_per_hour}</span>
+           ${isAsramaRoomFacility(f)
+             ? `<span class="fsi-cap">${escapeHtml(String(f.capacity))} orang sebilik · RM${Number(f.price_per_hour || 0).toFixed(2)} sebilik sehari</span>`
+             : `<span class="fsi-cap">Maks. ${escapeHtml(String(f.capacity))} orang · RM${Number(f.price_per_hour || 0).toFixed(2)} sehari</span>`}
         </span>
         <span class="${f.is_available ? 'status-badge status-available' : 'status-badge status-booked'}" style="font-size:10px">
           ${f.is_available ? '<i class="bi bi-check-lg"></i>' : '<i class="bi bi-x-lg"></i>'}
@@ -558,7 +560,7 @@ function calculateCost() {
   const facility = getSelectedFacility();
   const base = facility ? facility.price_per_hour : 0;
   const duration = Number(document.getElementById('f-duration')?.value || 1);
-  const multiplier = Number.isFinite(duration) && duration > 0 ? duration : 1;
+  const multiplier = selectedDurationUnit() === 'day' && Number.isFinite(duration) && duration > 0 ? duration : 1;
   const roomMultiplier = isAsramaRoomFacility(facility)
     ? Math.max(1, Number(document.getElementById('f-room-count')?.value || 1))
     : 1;
@@ -585,7 +587,7 @@ function updatePricing() {
       <span>RM</span>
       <strong>${cost.total}</strong>
     </div>
-    <p class="pricing-note">Nota: Sewaan dicaj mengikut ${selectedDurationUnit() === 'day' ? 'hari' : 'jam'}.</p>
+    <p class="pricing-note">Caj mengikut hari. Tempoh dalam jam hanya untuk maklumat penggunaan.</p>
   `;
 }
 

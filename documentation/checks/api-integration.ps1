@@ -170,7 +170,7 @@ if (!function_exists('mail')) {
         if (!$mailbox || !str_contains(basename(dirname($mailbox)), 'codex-polispace-api-audit-')) {
             return false;
         }
-        $record = json_encode(['to' => $to, 'subject' => $subject, 'message' => $message], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $record = json_encode(['to' => $to, 'subject' => $subject, 'message' => $message, 'headers' => $additional_headers], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         return file_put_contents($mailbox, $record . PHP_EOL, FILE_APPEND | LOCK_EX) !== false;
     }
 }

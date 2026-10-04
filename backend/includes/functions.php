@@ -21,6 +21,12 @@ function jsonInput(): array
     return is_array($input) ? $input : [];
 }
 
+function bookingEstimatedCost(float $dailyRate, int $duration, string $durationUnit, int $roomCount = 1): float
+{
+    $billableDays = $durationUnit === 'day' ? max(1, $duration) : 1;
+    return $dailyRate * $billableDays * max(1, $roomCount);
+}
+
 function formatBookingForFrontend(array $booking): array
 {
     $accountType = ($booking['account_type'] ?? 'public') === 'staff' ? 'staff' : 'public';
@@ -257,6 +263,51 @@ function sendPlainEmail(string $to, string $subject, string $body): bool
         'Reply-To: ' . $fromAddress,
         'X-Mailer: PHP/' . phpversion(),
     ];
+
+    return @mail($to, $subject, $body, implode("\r\n", $headers));
+}
+
+function sendHtmlEmail(string $to, string $subject, string $plainBody, string $htmlBody): bool
+{
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $fromAddress = defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : 'no-reply@polspace.local';
+    $fromName = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'PoliSpace';
+    if (function_exists('app') && app()->bound('mailer')) {
+        $mailer = (string)config('mail.default', 'log');
+        $nestedMailers = (array)config('mail.mailers.' . $mailer . '.mailers', []);
+        if (in_array($mailer, ['log', 'array'], true)
+            || array_intersect($nestedMailers, ['log', 'array']) !== []) {
+            error_log('[PoliSpace] PIC email not sent: configure a delivery mailer.');
+            return false;
+        }
+
+        try {
+            \Illuminate\Support\Facades\Mail::html($htmlBody, static function ($message) use ($to, $subject, $fromAddress, $fromName, $plainBody): void {
+                $message->to($to)->subject($subject)->from($fromAddress, $fromName);
+                $message->getSymfonyMessage()->text($plainBody, 'utf-8');
+            });
+            return true;
+        } catch (Throwable $e) {
+            error_log('[PoliSpace] Email delivery failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    $boundary = 'polispace_' . bin2hex(random_bytes(12));
+    $encodedFromName = function_exists('mb_encode_mimeheader') ? mb_encode_mimeheader($fromName) : $fromName;
+    $headers = [
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
+        'From: ' . $encodedFromName . ' <' . $fromAddress . '>',
+        'Reply-To: ' . $fromAddress,
+    ];
+    $body = '--' . $boundary . "\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n"
+        . $plainBody . "\r\n--" . $boundary
+        . "\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n"
+        . $htmlBody . "\r\n--" . $boundary . "--\r\n";
 
     return @mail($to, $subject, $body, implode("\r\n", $headers));
 }
